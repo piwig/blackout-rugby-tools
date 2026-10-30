@@ -55,7 +55,7 @@ Chaque somme est divisée par la somme des poids. Les objectifs ajoutent des bon
 
 Les scores sont arrondis à deux décimales. L’algorithme hongrois maximise d’abord le nombre de postes calculables, puis la somme de leurs scores. Il trouve une affectation globale exacte en temps polynomial, au lieu de choisir le meilleur joueur de chaque poste successivement. Chaque joueur ne peut être sélectionné qu’une fois. Les postes sans candidat restent vides. Les égalités utilisent l’ordre stable des identifiants.
 
-Les huit réserves au maximum sont choisies parmi les candidats restants selon leur meilleure affinité. Elles ne constituent pas une preuve de polyvalence, de couverture de la première ligne ou de conformité des remplacements.
+Les huit réserves au maximum privilégient désormais la couverture indicative des rôles : une affinité atteint au moins 80 % de la meilleure du joueur ; deux options pilier et une par autre rôle sont recherchées. Les rôles manquants restent affichés. Cette couverture ne certifie ni qualifications de première ligne ni remplacements simultanés. Voir docs/workbench-methodology.md pour le laboratoire, les verrouillages et les scénarios.
 
 La comparaison au XV sauvegardé est disponible seulement si les deux XV comportent 15 postes, chacun doté d’un joueur distinct, éligible selon les mêmes critères et calculable pour ce rôle. Autrement, les deux scores de comparaison et leur différence sont `null`. Un gain de score signifie uniquement une hausse de cet indice local.
 

@@ -3,6 +3,7 @@ import {ArrowUpRight,Shield,Target,Zap,Camera} from 'lucide-react';
 import {Modal} from './components';
 
 const sectionPhotos:Record<string,{src:string;alt:string;position:string}>={
+  season:{src:'/images/rugby-matchday-v2.jpg',alt:'Stade de rugby éclairé avant la rencontre',position:'65% 50%'},
   vacation:{src:'/images/rugby-locker-v2.jpg',alt:'Ballon et équipement prêts dans un vestiaire de rugby',position:'70% 55%'},
   optimization:{src:'/images/rugby-matchday-v2.jpg',alt:'Illustration originale d’un stade de rugby avant le match',position:'65% 50%'},
   academy:{src:'/images/rugby-locker-v2.jpg',alt:'Ballon et équipement de rugby dans un vestiaire',position:'70% 55%'},

@@ -125,7 +125,20 @@ def unique_players(players):
     return [found[key] for key in sorted(found)]
 
 
-def make_lineup(squad, saved, objective, energy_floor, energy_scale, generated_at):
+def make_lineup(squad, saved, objective, energy_floor, energy_scale, generated_at, *,
+                locks=None, starter_ids=None, excluded_ids=None):
+    # Optional constraints keep the historical/vacation callers compatible.
+    squad = unique_players(squad)
+    locks, starter_ids, excluded_ids = dict(locks or {}), list(starter_ids or []), list(excluded_ids or [])
+    known_ids = {str(player['id']) for player in squad}
+    if (any(slot not in {str(i) for i in range(1, 16)} for slot in locks)
+            or len(set(locks.values())) != len(locks)
+            or len(set(starter_ids)) != len(starter_ids)
+            or len(set(excluded_ids)) != len(excluded_ids)
+            or len(starter_ids) > 15
+            or not (set(locks.values()) | set(starter_ids) | set(excluded_ids)) <= known_ids
+            or (set(locks.values()) | set(starter_ids)) & set(excluded_ids)):
+        raise ValueError('Contraintes incohérentes : postes, doublons, exclusions ou joueurs absents de l’effectif.')
     candidates, excluded, low_energy, unknown_energy, unknown_injury = [], [], 0, 0, 0
     for player in squad:
         energy, injury = energy_of(player, energy_scale), injury_status(player.get('injured'), generated_at)
@@ -135,6 +148,8 @@ def make_lineup(squad, saved, objective, energy_floor, energy_scale, generated_a
         scores = {r['name']: round(r['score']+objective_bonus(player, objective, energy), 2)
                   for r in player_metrics(player)['roles']}
         reasons = []
+        if str(player['id']) in excluded_ids:
+            reasons.append('Exclusion choisie par le manager.')
         if injury is True:
             reasons.append('Blessure explicitement signalée dans la source.')
         if energy is not None and energy < energy_floor:
@@ -146,8 +161,31 @@ def make_lineup(squad, saved, objective, energy_floor, energy_scale, generated_a
             excluded.append({'id': str(player['id']), 'name': player['name'], 'reason': ' '.join(reasons)})
         else:
             candidates.append({'player': player, 'energy': energy, 'scores': scores})
-    matrix = [[candidate['scores'].get(role) for candidate in candidates] for role in ROLES]
-    assignments = maximum_assignment(matrix)
+    by_index = {str(candidate['player']['id']): index for index, candidate in enumerate(candidates)}
+    required = set(starter_ids) | set(locks.values())
+    if not required <= set(by_index):
+        raise ValueError('Un joueur imposé est indisponible ou ne possède aucune affinité calculable.')
+    assignments = [None]*15
+    for slot, identifier in locks.items():
+        index = by_index[identifier]
+        if ROLES[int(slot)-1] not in candidates[index]['scores']:
+            raise ValueError('Affinité inconnue pour un poste verrouillé ; vérifiez les compétences du joueur.')
+        assignments[int(slot)-1] = index
+    free_positions = [position for position in range(15) if str(position+1) not in locks]
+    free_candidates = [index for index in range(len(candidates)) if index not in assignments]
+    # Prefer every required starter before the score; the assignment remains exact.
+    # Validate feasibility afterwards instead of silently dropping a constraint.
+    largest = max((abs(score) for c in candidates for score in c['scores'].values()), default=0)
+    required_bonus = (largest+1)*32
+    matrix = [[(candidate['scores'][ROLES[position]] +
+                (required_bonus if str(candidate['player']['id']) in required else 0))
+               if ROLES[position] in candidate['scores'] else None
+               for candidate in (candidates[i] for i in free_candidates)] for position in free_positions]
+    for position, choice in zip(free_positions, maximum_assignment(matrix)):
+        if choice is not None:
+            assignments[position] = free_candidates[choice]
+    if not required <= {str(candidates[i]['player']['id']) for i in assignments if i is not None}:
+        raise ValueError('Ces titulaires ne peuvent pas occuper ensemble les postes calculables ; libérez une contrainte.')
     selected, slots, used = [], {}, set()
 
     def select(index, slot, role, score, bench=False):
@@ -167,20 +205,47 @@ def make_lineup(squad, saved, objective, energy_floor, energy_scale, generated_a
         if injury_status(player.get('injured'), generated_at) is None:
             explanation += ' Disponibilité médicale non confirmée.'
         if bench:
-            explanation += ' Réserve classée sur sa meilleure affinité ; couverture des postes non garantie.'
+            explanation += ' Banc choisi en priorité pour compléter les rôles couverts, puis selon la meilleure affinité.'
+        elif str(slot) in locks:
+            explanation += ' Poste verrouillé par le manager.'
+        elif identifier in starter_ids:
+            explanation += ' Titulaire imposé ; poste attribué par le calcul.'
         selected.append({'slot': slot, 'role': 'Réserve · '+role if bench else role,
                          'id': identifier, 'name': player['name'], 'score': score,
-                         'energy': energy, 'reason': explanation})
+                         'energy': energy, 'reason': explanation,
+                         'locked': str(slot) in locks, 'required': identifier in starter_ids})
 
     for position, index in enumerate(assignments):
         if index is not None:
-            select(index, position+1, ROLES[position], matrix[position][index])
+            select(index, position+1, ROLES[position], candidates[index]['scores'][ROLES[position]])
     starters = len(selected)
-    reserves = sorted((i for i in range(len(candidates)) if i not in used),
-                      key=lambda i: (-max(candidates[i]['scores'].values()), str(candidates[i]['player']['id'])))[:8]
+    role_names = list(dict.fromkeys(ROLES))
+    needs = {role: 2 if role == 'Pilier' else 1 for role in role_names}
+    coverable = {}
+    for index, candidate in enumerate(candidates):
+        affinities = player_metrics(candidate['player'])['roles']
+        best = max(r['score'] for r in affinities)
+        coverable[index] = [r['name'] for r in affinities if r['score'] >= .8*best]
+    coverage = {role: [] for role in role_names}
+    remaining = {i for i in range(len(candidates)) if i not in used}
+    reserves = []
+    while remaining and len(reserves) < 8:
+        index = min(remaining, key=lambda i: (
+            -sum(len(coverage[role]) < needs[role] for role in coverable[i]),
+            -max(candidates[i]['scores'].values()), str(candidates[i]['player']['id'])))
+        reserves.append(index)
+        remaining.remove(index)
+        for role in coverable[index]:
+            coverage[role].append(str(candidates[index]['player']['id']))
     for position, index in enumerate(reserves, 16):
         role = max(candidates[index]['scores'], key=candidates[index]['scores'].get)
         select(index, position, role, candidates[index]['scores'][role], bench=True)
+        selected[-1]['covers'] = coverable[index]
+    bench_coverage = {
+        'roles': [{'role': role, 'player_ids': coverage[role], 'needed': needs[role],
+                   'missing': max(0, needs[role]-len(coverage[role]))} for role in role_names],
+        'gaps': [role for role in role_names if len(coverage[role]) < needs[role]],
+        'method': 'Couverture indicative : affinité calculable au moins égale à 80 % de la meilleure affinité du remplaçant. Deux options recherchées au poste de pilier, une pour chaque autre rôle. Un joueur peut couvrir plusieurs rôles ; les remplacements simultanés et les qualifications de première ligne restent à vérifier.'}
 
     comparison = {'saved_score': None, 'proposed_score': None, 'delta': None}
     by_id = {str(c['player']['id']): c for c in candidates}
@@ -194,7 +259,7 @@ def make_lineup(squad, saved, objective, energy_floor, energy_scale, generated_a
                           'delta': round(proposed_score-saved_score, 2)}
     return ({'slots': slots, 'players': selected,
              'unfilled': [i+1 for i, index in enumerate(assignments) if index is None],
-             'excluded': excluded, 'comparison': comparison},
+             'excluded': excluded, 'comparison': comparison, 'bench_coverage': bench_coverage},
             {'seniors': len(squad), 'eligible': len(candidates), 'selected': starters,
              'low_energy': low_energy, 'unknown_energy': unknown_energy}, unknown_injury)
 
@@ -341,7 +406,7 @@ def build_report(state, objective='balanced', energy_floor=60, season=None, *, g
         warnings.append('Certaines moyennes de l’académie couvrent moins de la moitié des jeunes ; priorités provisoires à réévaluer après de nouveaux dévoilements.')
     if unknown_injury:
         warnings.append(f'Disponibilité médicale non confirmée pour {unknown_injury} seniors ; vérifier avant de retenir le XV.')
-    warnings.append('Banc : jusqu’à 8 réserves distinctes, classées par meilleure affinité ; polyvalence et couverture de première ligne non garanties.')
+    warnings.append('Banc : jusqu’à 8 réserves distinctes, choisies pour compléter les rôles couverts puis selon leur meilleure affinité ; qualifications de première ligne et remplacements simultanés à vérifier.')
     if period == 'unknown':
         warnings.append('Date de jeu absente ou invalide : aucun créneau ajouté ; sélectionner une saison ne confirme pas le calendrier actuel.')
     else:
@@ -414,7 +479,7 @@ def build_report(state, objective='balanced', energy_floor=60, season=None, *, g
         f'Énergie connue admise de {energy_floor:g} à 110 % inclus. API Premium : pourcentages 0–110 ; API non Premium : niveaux 1–11. Auto détecte le pourcentage avec une valeur >11 et ≤110 ; sinon énergie ambiguë, filtre et bonus inactifs. Mode niveau : approximation niveau ×10, explicitée avec la valeur brute.',
         'Blessures : timestamp Unix (>1) ou ISO avec fuseau futur par rapport au bilan = indisponible ; date passée ou sentinelle Classic −001-11-30 = disponible selon cette observation. Marqueurs 1/True/oui exclus ; 0/False/non sont négatifs. Absence, date sans fuseau ou texte ambigu ne confirme aucune disponibilité.',
         'Référence API Classic consultée le 30 octobre 2026 : https://www.blackoutrugby.com/game/help.documentation.php?category=35&question=329 (énergie Premium/non Premium et injured). Les coefficients d’objectif sont des choix locaux, pas des règles officielles.',
-        'Algorithme hongrois : maximiser le nombre de postes calculables puis la somme des scores du XV, sans doublon. Banc séparé par meilleure affinité ; aucune garantie de polyvalence ni de conformité des remplacements.',
+        'Algorithme hongrois : maximiser le nombre de postes calculables puis la somme des scores du XV, sans doublon. L’atelier peut imposer des postes, titulaires et exclusions. Le banc complète en priorité les rôles couverts (affinité ≥80 % de la meilleure du remplaçant), puis favorise la meilleure affinité ; qualifications et remplacements simultanés restent à vérifier.',
         'Comparaison : somme des scores de deux XV complets, chaque joueur éligible et chaque rôle calculable avec le même objectif. Sinon scores et différence restent indisponibles.',
         'Académie uniquement pour le programme 4×16 : moyennes des valeurs connues, effectifs observés affichés ; rotation des quatre moyennes les plus basses. Conserver toutes les cases existantes et les semaines antérieures à la dernière date de jeu importée. Sans calendrier valide ou pour une saison passée : aucun ajout.',
         'Matchs de la bibliothèque privée du manager, sans rattachement automatique au club : couverture = événements classés / tous événements. Tendance descriptive seulement à partir de 60 % de couverture et 20 actions classées du côté étudié ; dominante si au moins 50 % de ces actions. Les inférences de commentaires sont comptées, aucune causalité avec le résultat.',

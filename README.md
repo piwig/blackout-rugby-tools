@@ -16,9 +16,23 @@ La connexion à l'outil est distincte du jeu. Les clés développeur Classic et 
 
 ## Tutoriel intégré
 
-Le menu **Tutoriel & aide** présente onze chapitres, dont Optimisation et Mode vacances, une FAQ recherchable, un lexique et les limites des estimations. Le tableau de bord et le premier accueil sans club proposent **Commencer le tutoriel**. Sur chaque écran, **Mode d’emploi** ouvre le chapitre pertinent sans démonter le formulaire en cours ; Échap ferme l’aide et rend le focus au bouton.
+Le menu **Tutoriel & aide** présente dix-sept chapitres, dont le suivi quotidien, le calendrier, le laboratoire de composition, le suivi académie et les dossiers adversaires, une FAQ recherchable, un lexique et les limites des estimations. Le tableau de bord et le premier accueil sans club proposent **Commencer le tutoriel**. Sur chaque écran, **Mode d’emploi** ouvre le chapitre pertinent sans démonter le formulaire en cours ; Échap ferme l’aide et rend le focus au bouton.
 
 Les chapitres peuvent être marqués comme lus. Ces repères sont séparés par identifiant sur le navigateur utilisé, sans modifier les données des clubs. Ils se synchronisent entre le guide et son dialogue.
+
+## Atelier quotidien et saison
+
+La vue d’ensemble réunit les priorités de tous les clubs privés : fraîcheur, fatigue dans le format explicitement choisi, notes et joueurs suivis, calendrier et incidents vacances. Les liens choisissent le club concerné avant d’ouvrir sa rubrique. Les préférences d’alertes sont privées ; les notifications du navigateur demandent un geste et une autorisation, fonctionnent seulement avec le tableau ouvert et n’envoient aucun mail.
+
+**Saison & calendrier** conserve les matchs, séances et rappels, leurs dates avec fuseau, importance, état, notes et joueurs prévus. Un bouton lit les rencontres Classic, puis un second les ajoute au calendrier. Les rencontres déjà ajoutées sont préservées ; les dates inconnues sont signalées. Ce planning ne transmet aucun ordre au jeu et ne simule aucune récupération.
+
+Dans **Optimisation → XV & banc**, le laboratoire permet de verrouiller un poste, imposer un titulaire, exclure un joueur, calculer les places restantes et conserver jusqu’à vingt scénarios nommés par club. Le terrain est interactif et utilisable au clavier ; la couverture du banc reste indicative. La comparaison distingue des objectifs ou observations non comparables. L’application d’un XV reste locale et vérifie que la composition et l’observation n’ont pas changé.
+
+**Académie** rapproche objectifs individuels, générations, variations et dévoilements, avec dates et sources. Deux observations contradictoires au même instant ne deviennent pas une progression. Les séances réalisées sont déclarées manuellement et comparées au planning ; le dernier export n’est pas reconstruit en historique.
+
+**Analyse des matchs** permet de rattacher explicitement les matchs à un club, un côté et un adversaire, puis de regrouper les rencontres par adversaire, saison et type Club/U20/NT. Couverture et dénominateurs restent visibles. **Stade & finances** conserve des projets avec capacités, coûts unitaires saisis, trésorerie et réserve, sans tarif ni rentabilité inventés. Un brouillon de stade modifié est averti lorsque de nouvelles données arrivent.
+
+**Connexion & données** personnalise palette, initiales et emblème de chaque club. Le formulaire de retour de chaque écran conserve des retours privés ou explicitement partagés avec l’administrateur. Ce dernier ne voit que le contenu volontairement partagé, pas les bases des autres managers. Les nouveaux documents figurent dans `manager_documents` de l’export JSON et dans les sauvegardes privées du VPS. Voir `docs/workbench-methodology.md`.
 
 ## Optimisation
 

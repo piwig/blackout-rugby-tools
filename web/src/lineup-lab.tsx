@@ -1,0 +1,177 @@
+import {useEffect, useRef, useState} from 'react';
+import {Check, CircleAlert, LockKeyhole, RefreshCw, Save, Trash2, Unlock, Users} from 'lucide-react';
+import {request, type Actions} from './App';
+import {fmt} from './types';
+import './lineup-lab.css';
+
+const roles = ['Pilier', 'Talonneur', 'Pilier', 'Deuxième ligne', 'Deuxième ligne', 'Troisième ligne', 'Troisième ligne', 'Troisième ligne', 'Demi de mêlée', 'Demi d’ouverture', 'Ailier', 'Centre', 'Centre', 'Ailier', 'Arrière'];
+const rows = [[1, 2, 3], [4, 5], [6, 8, 7], [9, 10], [11, 12, 13, 14], [15]];
+const objectives = {balanced: 'Performance', recovery: 'Récupération', development: 'Développement'};
+type Options = {objective: keyof typeof objectives; energy_floor: number; energy_scale: 'auto' | 'percent' | 'level'; locks: Record<string, string>; starter_ids: string[]; excluded_ids: string[]};
+type Selected = {slot: number; role: string; id: string; name: string; score: number; energy: number | null; reason: string; covers?: string[]};
+type Preview = {generated_at: string; source: {id: number; observed_at: string; source: string} | null; score: number | null; warnings: string[]; summary: {selected: number; eligible: number}; lineup: {slots: Record<string, string>; players: Selected[]; unfilled: number[]; excluded: {id: string; name: string; reason: string}[]; bench_coverage: {roles: {role: string; player_ids: string[]; needed: number; missing: number}[]; gaps: string[]; method: string}}};
+type Scenario = {id: string; name: string; options: Options; preview: Preview};
+type Document = {revision: number; scenarios: Scenario[]};
+type Comparison = {left: {name: string; score: number | null; starters: number; bench_gaps: string[]}; right: Comparison['left']; delta: number | null; warnings: string[]; changes: {slot: number; left: string | null; right: string | null}[]; explanation: string};
+const defaults = (): Options => ({objective: 'balanced', energy_floor: 60, energy_scale: 'auto', locks: {}, starter_ids: [], excluded_ids: []});
+const localDate = (value?: string) => value ? new Date(value).toLocaleString('fr-FR') : 'Non datée';
+
+export function LineupLab({d, act, busy, openPlayer}: Actions) {
+  const team = d.current_team.id;
+  const [options, setOptions] = useState<Options>(defaults);
+  const [energyInput, setEnergyInput] = useState('60');
+  const [slot, setSlot] = useState(1);
+  const [search, setSearch] = useState('');
+  const [preview, setPreview] = useState<{key: string; result: Preview; historical: boolean} | null>(null);
+  const [document, setDocument] = useState<Document | null>(null);
+  const [selectedScenario, setSelectedScenario] = useState('');
+  const [name, setName] = useState('');
+  const [leftId, setLeftId] = useState('');
+  const [rightId, setRightId] = useState('');
+  const [comparison, setComparison] = useState<Comparison | null>(null);
+  const [error, setError] = useState('');
+  const [working, setWorking] = useState(false);
+  const [confirmApply, setConfirmApply] = useState(false);
+  const [reload, setReload] = useState(0);
+  const mounted = useRef(true);
+  const operationLock = useRef(false);
+  const key = JSON.stringify([team, options, d.squad_source]);
+  const currentKey = useRef(key);
+  currentKey.current = key;
+  const result = preview?.result;
+  const locked = busy || working;
+  const validEnergy = energyInput.trim() !== '' && Number.isInteger(Number(energyInput)) && Number(energyInput) >= 0 && Number(energyInput) <= 110;
+  const fresh = preview?.key === key && !preview.historical && validEnergy;
+  const selectedPlayer = result?.lineup.players.find(player => player.slot === slot);
+  const playerAtSlot = options.locks[String(slot)] || (fresh ? result?.lineup.slots[String(slot)] : undefined) || '';
+  const knownName = (id: string | null) => id ? d.squad.find(player => player.id === id)?.name || result?.lineup.players.find(player => player.id === id)?.name || `Joueur ${id}` : 'Place vide';
+
+  useEffect(() => {mounted.current = true; return () => {mounted.current = false;};}, []);
+  useEffect(() => {
+    let cancelled = false;
+    setDocument(null);
+    request('/lineup-lab/scenarios?team_id='+encodeURIComponent(team)).then(value => {
+      if (!cancelled) setDocument(value);
+    }).catch(reason => {if (!cancelled) setError(reason.message);});
+    return () => {cancelled = true;};
+  }, [team, d, reload]);
+  useEffect(() => {setConfirmApply(false);}, [key]);
+  useEffect(() => {
+    setComparison(null);
+    if (!leftId || !rightId || !document) return;
+    let cancelled = false;
+    request('/lineup-lab/compare?'+new URLSearchParams({team_id: team, left_id: leftId, right_id: rightId})).then(value => {
+      if (!cancelled) setComparison(value);
+    }).catch(reason => {if (!cancelled) setError(reason.message);});
+    return () => {cancelled = true;};
+  }, [team, leftId, rightId, document]);
+
+  async function run(operation: () => Promise<void>) {
+    if (operationLock.current || busy) return;
+    operationLock.current = true;
+    setWorking(true); setError('');
+    try {await operation();}
+    catch (reason) {if (mounted.current) {setError(reason instanceof Error ? reason.message : 'Opération impossible.'); if ((reason as {status?: number}).status === 409) setReload(value => value+1);}}
+    finally {operationLock.current = false; if (mounted.current) setWorking(false);}
+  }
+
+  function playerStatus(id: string, status: string) {
+    setOptions(previous => ({...previous,
+      locks: status === 'excluded' ? Object.fromEntries(Object.entries(previous.locks).filter(([, value]) => value !== id)) : previous.locks,
+      starter_ids: [...previous.starter_ids.filter(value => value !== id), ...(status === 'starter' ? [id] : [])],
+      excluded_ids: [...previous.excluded_ids.filter(value => value !== id), ...(status === 'excluded' ? [id] : [])],
+    }));
+  }
+
+  function lockSlot(id: string) {
+    setOptions(previous => ({...previous,
+      locks: {...Object.fromEntries(Object.entries(previous.locks).filter(([position, value]) => position !== String(slot) && value !== id)), ...(id ? {[String(slot)]: id} : {})},
+      excluded_ids: previous.excluded_ids.filter(value => value !== id),
+    }));
+  }
+
+  function loadScenario(id: string) {
+    const scenario = document?.scenarios.find(item => item.id === id);
+    setSelectedScenario(id); setComparison(null); setConfirmApply(false);
+    if (!scenario) {setName(''); setPreview(null); return;}
+    setName(scenario.name); setOptions(scenario.options); setEnergyInput(String(scenario.options.energy_floor));
+    setPreview({key: '', result: scenario.preview, historical: true});
+  }
+
+  async function calculate() {
+    if (!validEnergy) return;
+    const sentKey = key;
+    await run(async () => {
+      const value = await request('/lineup-lab/preview', {team_id: team, options}, d.csrf);
+      if (mounted.current && currentKey.current === sentKey) setPreview({key: sentKey, result: value, historical: false});
+    });
+  }
+
+  async function save(asNew: boolean) {
+    if (!document || !fresh || !name.trim()) return;
+    await run(async () => {
+      const value: Document = await act('/lineup-lab/scenarios', {team_id: team, options, name: name.trim(), expected_revision: document.revision, expected_source_id: result?.source?.id ?? null,
+        ...(selectedScenario && !asNew ? {id: selectedScenario} : {})}, 'Scénario conservé dans votre espace privé');
+      if (!mounted.current) return;
+      setDocument(value);
+      if (asNew || !selectedScenario) setSelectedScenario(value.scenarios.at(-1)?.id || '');
+    });
+  }
+
+  return <section className="lineup-lab" aria-labelledby="lineup-lab-title">
+    <div className="lab-heading"><div><span className="eyebrow">VOTRE ATELIER DU XV · {d.current_team.name}</span><h2 id="lineup-lab-title">Composez avec vos choix.</h2><p>Fixez vos titulaires, écartez les joueurs à ménager, puis optimisez les places libres. Les scénarios restent dans votre espace privé.</p></div><Users size={26} aria-hidden="true"/></div>
+    {error && <div className="notice error" role="alert">{error}<button className="text-button" disabled={locked} onClick={() => setReload(value => value+1)}>Recharger les scénarios</button></div>}
+    <fieldset className="lab-controls" disabled={locked}><legend>Critères de cet atelier</legend>
+      <label>Objectif<select value={options.objective} onChange={event => setOptions({...options, objective: event.target.value as Options['objective']})}>{Object.entries(objectives).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label>
+      <label>Seuil d’énergie (%)<input type="number" min="0" max="110" step="1" value={energyInput} onChange={event => {setEnergyInput(event.target.value); setOptions({...options, energy_floor: Number(event.target.value)});}}/></label>
+      <label>Échelle de la source<select value={options.energy_scale} onChange={event => setOptions({...options, energy_scale: event.target.value as Options['energy_scale']})}><option value="auto">Détection automatique</option><option value="percent">Pourcentage · 0 à 110</option><option value="level">Niveau · 1 à 11</option></select></label>
+      <button className="button primary" disabled={!validEnergy || !d.squad.length} onClick={() => void calculate()}><RefreshCw size={16} className={working ? 'spin' : ''}/>Optimiser les places libres</button>
+    </fieldset>
+    {!validEnergy && <p className="text-error" role="alert">Le seuil doit être un entier entre 0 et 110.</p>}
+    {!d.squad.length && <p className="muted">Importez un effectif senior pour commencer à composer.</p>}
+    <div className="lab-layout">
+      <div className="lab-pitch" role="group" aria-label="Terrain interactif : choisir un poste pour le verrouiller">
+        <div className="lab-pitch-heading"><span>LE QUINZE</span><span>{Object.keys(options.locks).length} poste(s) verrouillé(s)</span></div>
+        {rows.map((row, index) => <div className="lab-pitch-row" key={index}>{row.map(position => {
+          const assigned = options.locks[String(position)] || result?.lineup.slots[String(position)];
+          const isLocked = !!options.locks[String(position)];
+          return <button key={position} type="button" className={'lab-position '+(slot === position ? 'selected ' : '')+(isLocked ? 'locked' : '')} aria-pressed={slot === position} aria-label={`${position}, ${roles[position-1]}, ${knownName(assigned || null)}${isLocked ? ', verrouillé' : ''}`} onClick={() => setSlot(position)}>
+            <span className="lab-shirt">{position}{isLocked && <LockKeyhole size={11}/>}</span><span className="lab-position-role">{roles[position-1]}</span><strong>{assigned ? knownName(assigned) : 'À pourvoir'}</strong>
+          </button>;
+        })}</div>)}
+        <span className="lab-pitch-note">Sélectionnez un poste pour fixer son joueur.</span>
+      </div>
+      <div className="lab-editor">
+        <h3>Poste {slot} · {roles[slot-1]}</h3>
+        <label>Joueur verrouillé à ce poste<select disabled={locked} value={options.locks[String(slot)] || ''} onChange={event => lockSlot(event.target.value)}><option value="">Laisser le calcul choisir</option>{d.squad.map(player => <option key={player.id} value={player.id}>{player.name}{Object.entries(options.locks).some(([position, id]) => id === player.id && position !== String(slot)) ? ' · déplacer ici' : ''}</option>)}</select></label>
+        <div className="lab-inline-actions"><button className="button secondary" disabled={locked || !playerAtSlot} onClick={() => options.locks[String(slot)] ? lockSlot('') : lockSlot(playerAtSlot)}>{options.locks[String(slot)] ? <Unlock size={15}/> : <LockKeyhole size={15}/>} {options.locks[String(slot)] ? 'Libérer ce poste' : 'Verrouiller ce joueur'}</button>
+          {playerAtSlot && <button className="text-button" onClick={() => {const player = d.squad.find(item => item.id === playerAtSlot); if (player) openPlayer(player);}}>Fiche joueur</button>}</div>
+        {selectedPlayer && <div className="lab-player-detail"><strong>{selectedPlayer.name} · indice {fmt(selectedPlayer.score)}</strong><p>{selectedPlayer.reason}</p></div>}
+        <p className="lab-note">Un verrou impose ce joueur à ce poste. Un titulaire imposé laisse son poste au calcul. Une blessure connue ou une énergie sous le seuil bloque un joueur imposé.</p>
+        <details className="lab-constraints"><summary>Choisir les titulaires et exclusions <span>{options.starter_ids.length} imposé(s) · {options.excluded_ids.length} exclu(s)</span></summary>
+          <label>Rechercher un joueur<input value={search} onChange={event => setSearch(event.target.value)} placeholder="Nom du joueur" type="search"/></label>
+          <div className="lab-roster">{d.squad.filter(player => player.name.toLocaleLowerCase().includes(search.toLocaleLowerCase())).map(player => <label className="lab-roster-row" key={player.id}><span>{player.name}{Object.values(options.locks).includes(player.id) && <small>Poste verrouillé</small>}</span><select aria-label={'Participation de '+player.name} disabled={locked} value={options.excluded_ids.includes(player.id) ? 'excluded' : options.starter_ids.includes(player.id) ? 'starter' : 'available'} onChange={event => playerStatus(player.id, event.target.value)}><option value="available">Au choix du calcul</option><option value="starter">Titulaire imposé</option><option value="excluded">Exclu de ce scénario</option></select></label>)}</div>
+        </details>
+      </div>
+    </div>
+    {result && <>
+      <div className={'lab-result-heading '+(!fresh ? 'lab-stale' : '')}><strong>{preview?.historical ? 'Scénario enregistré' : fresh ? 'Aperçu calculé' : 'Aperçu à recalculer'} · {result.summary.selected}/15 titulaires · indice {fmt(result.score)}</strong><p>{localDate(result.generated_at)} · Source : {result.source?.source || 'Aucune observation'} · {localDate(result.source?.observed_at)}</p>{!fresh && <p>Recalculez avec les critères et l’effectif actuels avant de sauvegarder ou d’utiliser ce XV.</p>}</div>
+      {result.warnings.length > 0 && <div className="lab-warning" role="status"><CircleAlert size={18}/><ul>{result.warnings.map(warning => <li key={warning}>{warning}</li>)}</ul></div>}
+      <section className="lab-bench" aria-labelledby="lab-bench-title"><h3 id="lab-bench-title">Le banc et les rôles couverts</h3><div className="lab-reserves">{result.lineup.players.filter(player => player.slot > 15).map(player => <article key={player.slot}><span>{player.slot}</span><div><strong>{player.name}</strong><small>Indice {fmt(player.score)} · énergie {player.energy === null ? 'inconnue' : fmt(player.energy)+' %'}</small><p>{player.covers?.join(' · ')}</p><details><summary>Pourquoi ce joueur</summary><p>{player.reason}</p></details></div></article>)}</div>
+        {result.lineup.players.every(player => player.slot <= 15) && <p>Aucun remplaçant disponible.</p>}
+        <div className="lab-coverage">{result.lineup.bench_coverage.roles.map(role => <div className={role.missing ? 'missing' : ''} key={role.role}><strong>{role.missing ? <CircleAlert size={14}/> : <Check size={14}/>} {role.role}</strong><span>{role.player_ids.length} option(s) · {role.needed} recherchée(s)</span><small>{role.missing ? `${role.missing} option(s) manquante(s)` : role.player_ids.map(id => knownName(id)).join(', ')}</small></div>)}</div><p className="lab-note">{result.lineup.bench_coverage.method}</p>
+      </section>
+      {result.lineup.excluded.length > 0 && <details className="lab-excluded"><summary>Joueurs écartés ({result.lineup.excluded.length})</summary><ul>{result.lineup.excluded.map(player => <li key={player.id}><strong>{player.name}</strong> · {player.reason}</li>)}</ul></details>}
+      <div className="lab-apply"><p>Ce XV peut remplacer la composition locale du club après confirmation.</p>{!confirmApply ? <button className="button secondary" disabled={locked || !fresh || !Object.keys(result.lineup.slots).length} onClick={() => setConfirmApply(true)}>Utiliser ce XV dans l’outil</button> : <div role="group" aria-label="Confirmer le remplacement du XV"><p><strong>Remplacer le XV et le banc sauvegardés de {d.current_team.name} ?</strong> Les places non pourvues seront vides.</p><div className="lab-inline-actions"><button className="button secondary" disabled={locked} onClick={() => setConfirmApply(false)}>Annuler</button><button className="button primary" disabled={locked || !fresh} onClick={() => void run(async () => {const applied = await act('/lineup-lab/apply', {team_id: team, options, expected_source_id: result.source?.id ?? null, expected_slots: d.lineup}, 'XV et banc enregistrés dans l’outil'); if (mounted.current) {setConfirmApply(false); setPreview({key, result: applied.preview, historical: false});}})}>Confirmer le remplacement local</button></div></div>}</div>
+    </>}
+    <section className="lab-scenarios" aria-labelledby="lab-scenarios-title"><div className="lab-heading"><div><span className="eyebrow">VOS PRÉPARATIONS CONSERVÉES</span><h3 id="lab-scenarios-title">Scénarios nommés</h3></div><span>{document?.scenarios.length || 0}/20</span></div>
+      <div className="lab-controls"><label>Ouvrir un scénario<select value={selectedScenario} disabled={locked || !document} onChange={event => loadScenario(event.target.value)}><option value="">Nouvelle préparation</option>{document?.scenarios.map(scenario => <option key={scenario.id} value={scenario.id}>{scenario.name}</option>)}</select></label><label>Nom de la préparation<input maxLength={80} value={name} disabled={locked} onChange={event => setName(event.target.value)} placeholder="Ex. Réception de samedi"/></label><div className="lab-inline-actions"><button className="button primary" disabled={locked || !document || !fresh || !name.trim()} onClick={() => void save(false)}><Save size={15}/>{selectedScenario ? 'Mettre à jour' : 'Conserver'}</button>{selectedScenario && <button className="button secondary" disabled={locked || !document || !fresh || !name.trim()} onClick={() => void save(true)}>Créer une copie</button>}</div></div>
+      {selectedScenario && <button className="text-button lab-delete" disabled={locked || !document} onClick={() => void run(async () => {if (!document) return; const value = await act('/lineup-lab/delete', {team_id: team, id: selectedScenario, expected_revision: document.revision}, 'Scénario supprimé'); if (mounted.current) {setDocument(value); setSelectedScenario(''); setName(''); if (leftId === selectedScenario) setLeftId(''); if (rightId === selectedScenario) setRightId('');}})}><Trash2 size={14}/>Supprimer ce scénario</button>}
+      {!document?.scenarios.length && <p className="muted">Calculez un premier XV, donnez-lui un nom, puis conservez-le pour préparer vos variantes.</p>}
+      {!!document?.scenarios.length && <><div className="lab-compare-controls"><label>Scénario de référence<select value={leftId} onChange={event => setLeftId(event.target.value)}><option value="">Choisir…</option>{document.scenarios.map(scenario => <option key={scenario.id} value={scenario.id}>{scenario.name}</option>)}</select></label><label>Scénario à comparer<select value={rightId} onChange={event => setRightId(event.target.value)}><option value="">Choisir…</option>{document.scenarios.map(scenario => <option key={scenario.id} value={scenario.id}>{scenario.name}</option>)}</select></label></div>
+        {comparison && <div className="lab-comparison" aria-live="polite"><div className="lab-table-scroll" role="region" tabIndex={0} aria-label="Comparaison des scénarios"><table><thead><tr><th scope="col">Valeur enregistrée</th><th scope="col">{comparison.left.name}</th><th scope="col">{comparison.right.name}</th></tr></thead><tbody><tr><th scope="row">Indice du XV</th><td>{fmt(comparison.left.score)}</td><td>{fmt(comparison.right.score)}</td></tr><tr><th scope="row">Titulaires</th><td>{comparison.left.starters}/15</td><td>{comparison.right.starters}/15</td></tr><tr><th scope="row">Couverture manquante</th><td>{comparison.left.bench_gaps.join(', ') || 'Aucune'}</td><td>{comparison.right.bench_gaps.join(', ') || 'Aucune'}</td></tr></tbody></table></div><p><strong>Écart d’indice : {fmt(comparison.delta)}</strong> · {comparison.changes.length} place(s) différente(s).</p>{comparison.warnings.map(warning => <p key={warning} className="lab-note">{warning}</p>)}<p className="lab-note">{comparison.explanation}</p>{comparison.changes.length > 0 && <details><summary>Voir les changements de joueurs</summary><ul>{comparison.changes.map(change => <li key={change.slot}>Poste {change.slot} : {knownName(change.left)} → {knownName(change.right)}</li>)}</ul></details>}</div>}
+      </>}
+      <p className="lab-note">Les scénarios conservent leurs observations et explications au moment du calcul. Aucun ordre n’est envoyé dans Classic depuis cet atelier.</p>
+    </section>
+  </section>;
+}

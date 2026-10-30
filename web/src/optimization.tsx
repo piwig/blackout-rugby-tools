@@ -3,6 +3,7 @@ import {ArrowRight, ArrowUpRight, BarChart3, Battery, CalendarRange, Check, Chev
 import type {Actions} from './App';
 import {fmt, labels, short, skills, type State} from './types';
 import type {OptimizationCategory, OptimizationObjective, OptimizationPriority, OptimizationReport} from './optimization-types';
+import {LineupLab} from './lineup-lab';
 
 const goals = [
   {id: 'balanced', label: 'Performance', detail: 'Favoriser les affinités aux postes.', Icon: Target},
@@ -28,7 +29,7 @@ function sourceDate(value: string | null) {
   return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString('fr-FR', {day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'});
 }
 
-export function Optimization({d, act, go, busy}: Actions) {
+export function Optimization({d, act, go, busy, openPlayer}: Actions) {
   const [objective, setObjective] = useState<OptimizationObjective>('balanced');
   const [energy, setEnergy] = useState('60');
   const [energyScale, setEnergyScale] = useState<'auto' | 'percent' | 'level'>('auto');
@@ -173,13 +174,14 @@ export function Optimization({d, act, go, busy}: Actions) {
             <Recommendations report={report} category={category} priority={priority} go={go}/>
             <div className="opt-sources"><span><ShieldCheck size={17}/>Les données derrière ce bilan</span><p>Effectif : {sourceDate(report.sources.squad)}<br/>Académie : {sourceDate(report.sources.academy)}</p><button className="text-button" onClick={() => go('settings')}>Actualiser mes sources<ArrowUpRight size={15}/></button></div>
           </>}
-          {tab === 'lineup' && <LineupPreview report={report} canSave={canSave} onSave={() => setConfirmation({kind: 'lineup', report})} go={go}/>}
+          {tab === 'lineup' && <details className="opt-excluded"><summary>Voir la proposition générale du bilan</summary><LineupPreview report={report} canSave={canSave} onSave={() => setConfirmation({kind: 'lineup', report})} go={go}/></details>}
           {tab === 'season' && <SeasonPreview report={report} d={d} canSave={canSave} onSave={() => setConfirmation({kind: 'training', report})} go={go}/>}
           {tab === 'matches' && <MatchPreview reports={reports} go={go}/>}
         </div>
         <details className="opt-methodology"><summary><span><Info size={18}/>Comprendre les calculs et leurs limites</span><ChevronDown size={18}/></summary><div><p>Une aide à la préparation fondée sur les données importées. Ces indices et recommandations ne sont pas une simulation officielle de Blackout Rugby et ne prédisent pas le résultat d’un match.</p><ul>{report.methodology.map((method, i) => <li key={i}>{method}</li>)}</ul><p>Les sauvegardes concernent uniquement cet outil. Les choix définitifs restent à reporter dans le jeu.</p></div></details>
       </>}
     </div>
+    {tab === 'lineup' && (scope === 'current' || selectedTeam === d.current_team.id) && <LineupLab key={d.current_team.id} d={d} act={act} go={go} busy={busy} openPlayer={openPlayer}/>}
     {confirmation && report === confirmation.report && fresh && <SaveConfirmation confirmation={confirmation} saving={locked} onCancel={() => {if (!locked) setConfirmation(null);}} onSave={save}/>}
   </div>;
 }

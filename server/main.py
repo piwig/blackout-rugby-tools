@@ -20,6 +20,9 @@ from .accounts import Accounts,PrivateStore,active_store
 from .manager import import_manager
 from .optimization import build_report
 from .vacation import VacationService,VacationRule,VacationError
+from .lineup_lab import register_lineup_lab
+from .insights import register_insights
+from .workbench import register_workbench,identity_for
 
 class Model(BaseModel):
     model_config=ConfigDict(extra='forbid')
@@ -199,7 +202,7 @@ def create_app(directory=None,password=None,secure=None):
         return dict(r)
 
     @app.get('/api/health')
-    def health():return {'ok':True,'version':'2.0.0'}
+    def health():return {'ok':True,'version':'2.1.0'}
 
     @app.post('/api/login')
     def login(body:Login,request:Request,response:Response):
@@ -323,7 +326,7 @@ def create_app(directory=None,password=None,secure=None):
             matches=[{**json.loads(r['payload']),'updated_at':r['updated_at']} for r in db.execute('SELECT * FROM matches ORDER BY updated_at DESC LIMIT 100')]
         for m in matches:m['summary']=attack_summary(m['events']);m['event_count']=len(m.pop('events'))
         creds=credentials(team_id)
-        return {'user':user,'setup_required':False,'classic_account':store.get('classic_account'),'teams':teams,'current_team':{**current,'meta':json.loads(current['meta'])},'academy':academy,'squad':squad,'academy_source':asnap,'squad_source':ssnap,'snapshots':snapshots,'notes':notes,'plans':plans,'matches':matches,'game_date':store.get('game_date'),
+        return {'user':user,'setup_required':False,'classic_account':store.get('classic_account'),'workbench_identity':identity_for(store,team_id),'teams':teams,'current_team':{**current,'meta':json.loads(current['meta'])},'academy':academy,'squad':squad,'academy_source':asnap,'squad_source':ssnap,'snapshots':snapshots,'notes':notes,'plans':plans,'matches':matches,'game_date':store.get('game_date'),
           'lineup':store.get('lineup:'+team_id,{}),'training':store.get('training:'+team_id,[]),'settings':{'developer_ready':bool(creds.get('d') and creds.get('dk')),'manager_ready':bool(creds.get('m') and creds.get('mk'))},'csrf':session['csrf']}
 
     @app.get('/api/optimization')
@@ -444,6 +447,9 @@ def create_app(directory=None,password=None,secure=None):
             return Response(csv_export(flat),media_type='text/csv',headers={'Content-Disposition':f'attachment; filename="brt-{team_id}-{kind}.csv"'})
         with store.db() as db:
             export={table:[dict(r) for r in db.execute('SELECT * FROM '+table)] for table in ['teams','snapshots','notes','plans','matches']}
+            # Only explicit product namespaces; never export the general KV store.
+            export['manager_documents']={r['key']:json.loads(r['value']) for r in db.execute(
+                "SELECT key,value FROM kv WHERE key GLOB 'lineup_lab:*' OR key GLOB 'insights:*' OR key GLOB 'workbench:*' ORDER BY key")}
         export['lineups']={team['id']:store.get('lineup:'+team['id'],{}) for team in export['teams']}
         export['training']={team['id']:store.get('training:'+team['id'],[]) for team in export['teams']}
         export['game_date']=store.get('game_date');export['exported_at']=now()
@@ -492,6 +498,10 @@ def create_app(directory=None,password=None,secure=None):
             match=Match(id=body.id,type=body.type,home=names[0],away=names[1],home_score=score.get('homescore'),away_score=score.get('guestscore'),season=fixture.get('season'),round=fixture.get('round'),events=commentary['events'])
             save_match(match.model_dump());return {'ok':True,'summary':attack_summary(match.events)}
         except ValueError as e:raise HTTPException(422,str(e)[:300]) from None
+
+    register_lineup_lab(app,store,auth,require_team,state)
+    register_insights(app,store,auth,require_team,state)
+    register_workbench(app,store,auth,require_team,state,accounts,vacation_service)
 
     dist=Path(__file__).resolve().parents[1]/'web'/'dist'
     if dist.exists():
