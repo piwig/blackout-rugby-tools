@@ -1,7 +1,9 @@
 import {useEffect,useState,useCallback,useRef} from 'react';
+import {useNavigationGuard} from './navigation-guard';
+import {PlayerDetail} from './player-detail';
 import {LayoutDashboard,Sprout,Users,CalendarRange,BarChart3,Building2,Plug,BookOpen,LogOut,ArrowRight,RefreshCw,Menu,X,ShieldCheck,ArrowUpRight,Upload,ChevronRight,Sparkles,TrendingUp,UserRound,Info,MessageCircle} from 'lucide-react';
 import {type State,type Player,fmt,date} from './types';
-import {Pill,Modal,Radar,SkillList} from './components';
+import {Pill} from './components';
 import {Players,Training,Stadium,Matches,Settings} from './pages';
 import {Onboarding} from './account';
 import {Optimization} from './optimization';
@@ -23,6 +25,7 @@ export async function request(path:string,body?:unknown,csrf?:string){const cont
 export type Actions={d:State;act:(path:string,body:unknown,message?:string)=>Promise<any>;openPlayer:(p:Player)=>void;go:(page:string)=>void;busy:boolean};
 
 export default function App(){
+  const {confirmLeave}=useNavigationGuard();
   const [d,setD]=useState<State|null>(null),[login,setLogin]=useState(false),[initial,setInitial]=useState(true),[page,setPage]=useState('home'),[team,setTeam]=useState(localStorage.getItem('brt-team')||'72450'),[busy,setBusy]=useState(false),[toast,setToast]=useState(''),[error,setError]=useState(''),[menu,setMenu]=useState(false),[help,setHelp]=useState(false),[player,setPlayer]=useState<Player|null>(null);
   const [mobile,setMobile]=useState(()=>window.matchMedia('(max-width:700px)').matches);
   const identity=useRef(''),sessionScope=useRef(''),actionTicket=useRef(0),requestedTeam=useRef(team),requestId=useRef(0),menuButton=useRef<HTMLButtonElement>(null);requestedTeam.current=team;
@@ -43,7 +46,8 @@ export default function App(){
     if(e.key==='Tab'&&aside){const items=Array.from(aside.querySelectorAll<HTMLElement>('button:not([disabled]),a[href]')),first=items[0],last=items[items.length-1];if(e.shiftKey&&(document.activeElement===first||!aside.contains(document.activeElement))){e.preventDefault();last?.focus()}else if(!e.shiftKey&&(document.activeElement===last||!aside.contains(document.activeElement))){e.preventDefault();first?.focus()}}
   };document.addEventListener('keydown',close);return()=>document.removeEventListener('keydown',close)},[menu,mobile]);
   const profile=d?.profile?.profile??defaultProfile;
-  const go=(next:string)=>{if(!nav.some(n=>n.id===next))return;setPage(next);setMenu(false);setError('');const reduced=profile.motion==='reduced'||window.matchMedia('(prefers-reduced-motion: reduce)').matches;window.scrollTo({top:0,behavior:reduced?'instant':'smooth'});requestAnimationFrame(()=>document.getElementById('page-heading')?.focus({preventScroll:true}))};
+  const showPage=(next:string)=>{setPage(next);setMenu(false);setError('');const reduced=profile.motion==='reduced'||window.matchMedia('(prefers-reduced-motion: reduce)').matches;window.scrollTo({top:0,behavior:reduced?'instant':'smooth'});requestAnimationFrame(()=>document.getElementById('page-heading')?.focus({preventScroll:true}))};
+  const go=(next:string)=>{if(!nav.some(n=>n.id===next)||next===page)return;if(busy){setToast('Une opération est en cours. Patientez avant de changer de rubrique.');return}if(!confirmLeave())return;showPage(next)};
   const act=async(path:string,body:unknown,message='Enregistré')=>{
     if(!d||(!d.setup_required&&d.current_team.id!==requestedTeam.current))throw new Error('Chargement du club en cours.');
     const scope=d.user.username+':'+d.csrf;
@@ -59,7 +63,7 @@ export default function App(){
     }catch(e){if(scope===sessionScope.current){if((e as any).status===401)endSession();else setError((e as Error).message)}throw e}
     finally{if(scope===sessionScope.current&&ticket===actionTicket.current)setBusy(false)}
   };
-  const selectTeam=(id:string,next:string)=>{if(busy)return;requestedTeam.current=id;setTeam(id);if(id!==team)setD(null);setError('');localStorage.setItem('brt-team',id);setPlayer(null);go(next)};
+  const selectTeam=(id:string,next:string)=>{if(busy||(id===team&&next===page)||!d?.teams.some(t=>t.id===id)||!nav.some(n=>n.id===next)||!confirmLeave())return;requestedTeam.current=id;setTeam(id);if(id!==team)setD(null);setError('');localStorage.setItem('brt-team',id);setPlayer(null);showPage(next)};
   if(initial)return <div className="boot"><img src="/images/brt-logo-192.png" alt=""/><p>Ouverture de votre atelier…</p></div>;
   if(login)return <Login onLogin={refresh}/>;
   if(!d)return <div className="boot"><p>{error||'Chargement du club…'}</p><button onClick={refresh}>Réessayer</button></div>;
@@ -73,9 +77,9 @@ export default function App(){
     <aside className={'sidebar '+(menu?'is-open':'')} inert={mobile&&!menu} role={mobile&&menu?'dialog':undefined} aria-modal={mobile&&menu?true:undefined} aria-label={mobile&&menu?'Menu de navigation':undefined}>
       <button className="icon-button sidebar-close" aria-label="Fermer la navigation" onClick={()=>{setMenu(false);menuButton.current?.focus()}}><X size={20}/></button>
       <a className="brand" href="#" onClick={e=>{e.preventDefault();go('home')}}><img src="/images/brt-logo-192.png" alt=""/><span>BLACKOUT<small>RUGBY TOOLS</small></span></a>
-      <div className="edition"><i/> CLASSIC EDITION <span>2.2</span></div><span className="nav-label">VOTRE CLUB-HOUSE</span>
+      <div className="edition"><i/> CLASSIC EDITION <span>2.3</span></div><span className="nav-label">VOTRE CLUB-HOUSE</span>
       <nav id="main-navigation" aria-label="Navigation principale">{nav.map(n=><button key={n.id} aria-current={page===n.id?'page':undefined} className={(page===n.id?'active ':'')+(n.id==='profile'?'nav-separator':'')} onClick={()=>go(n.id)}><n.icon size={19}/><span>{n.label}</span>{page===n.id&&<span className="nav-dot"/>}</button>)}</nav>
-      <div className="sidebar-bottom"><div className="club-mini"><button className="profile-nav" onClick={()=>go('profile')} aria-label="Ouvrir mon profil"><ProfileAvatar profile={profile} username={d.user.username} small/><span><strong>{displayName}</strong><small>Mon espace privé</small></span></button><button className="icon-button" aria-label="Se déconnecter" onClick={()=>act('/logout',{},'').catch(()=>{})}><LogOut size={17}/></button></div></div>
+      <div className="sidebar-bottom"><div className="club-mini"><button className="profile-nav" onClick={()=>go('profile')} aria-label="Ouvrir mon profil"><ProfileAvatar profile={profile} username={d.user.username} small/><span><strong>{displayName}</strong><small>Mon espace privé</small></span></button><button className="icon-button" aria-label="Se déconnecter" disabled={busy} onClick={()=>{if(confirmLeave())void act('/logout',{},'').catch(()=>{})}}><LogOut size={17}/></button></div></div>
     </aside>
     <div className="main-shell" inert={mobile&&menu}><header className="topbar"><div className="breadcrumbs"><button ref={menuButton} className="icon-button mobile-menu" aria-label={menu?'Fermer le menu':'Ouvrir le menu'} aria-controls="main-navigation" aria-expanded={menu} onClick={()=>setMenu(!menu)}><Menu/></button><span>Mon atelier</span><ChevronRight size={14}/><strong>{current.label}</strong></div>
       <div className="topbar-right">{d.game_date&&<span className="season" title="Dernier repère de saison importé depuis le jeu">S{d.game_date.season}<i/>Semaine {d.game_date.round}</span>}<label className="club-select"><ClubBadge identity={d.workbench_identity} name={d.current_team.name} small/><select aria-label="Choisir un club" disabled={busy} value={team} onChange={e=>selectTeam(e.target.value,page)}>{d.teams.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select></label><button className="topbar-profile" aria-label="Personnaliser mon espace" onClick={()=>go('profile')}><ProfileAvatar profile={profile} username={d.user.username} small/></button></div>
@@ -93,7 +97,7 @@ export default function App(){
       <FeedbackWidget key={team} {...props} page={page}/><footer className="footer"><span>BLACKOUT RUGBY TOOLS <i/> L’atelier du manager</span><span>Outil indépendant · Votre espace privé</span><PhotoCredits/></footer>
     </main></div>
     {toast&&<div role="status" className="toast"><ShieldCheck size={18}/>{toast}</div>}{busy&&<div className="busy" role="status"><RefreshCw size={16} className="spin"/> Opération en cours…</div>}
-    {help&&<TutorialDialog username={d.user.username} page={page} onClose={()=>setHelp(false)} go={go}/>}{player&&<PlayerDetail player={player} d={d} act={act} close={()=>setPlayer(null)}/>}
+    {help&&<TutorialDialog username={d.user.username} page={page} onClose={()=>setHelp(false)} go={go}/>}{player&&<PlayerDetail key={d.user.username+':'+d.csrf+':'+d.current_team.id+':'+player.id} player={player} d={d} act={act} close={()=>setPlayer(null)}/>}
   </div>
 }
 
@@ -117,5 +121,3 @@ function Login({onLogin}:{onLogin:()=>Promise<void>}){
     </div></div>
   </div>
 }
-
-function PlayerDetail({player,d,act,close}:{player:Player;d:State;act:Actions['act'];close:()=>void}){const [note,setNote]=useState(d.notes[player.id]?.text||''),[watch,setWatch]=useState(d.notes[player.id]?.watch||false),[history,setHistory]=useState<any[]>([]),[historyError,setHistoryError]=useState('');useEffect(()=>{request('/history/'+d.current_team.id+'/'+player.id).then(setHistory).catch(e=>setHistoryError(e.message))},[player.id,d.current_team.id]);return <Modal title={player.name} onClose={close} wide><div className="player-detail"><div><div className="player-facts"><Pill>{player.age||'—'} ans</Pill><Pill tone="neutral">{player.height||'—'} cm</Pill><Pill tone="neutral">{player.weight||'—'} kg</Pill>{player.wc_projection&&<Pill>Génération S{player.wc_projection}</Pill>}</div><Radar player={player}/><p className="tiny">{player.metrics.known_skills}/10 compétences dévoilées. Les valeurs masquées ne sont pas estimées.</p><div className="role-list">{player.metrics.roles.slice(0,3).map(r=><div key={r.name}><span>{r.name}</span><strong>{r.score}/21</strong></div>)}</div><p className="tiny">Affinités indicatives, pondérations propres à cet outil.</p><a className="text-button" href={'https://www.blackoutrugby.com/game/club.squad.php#player='+player.id} target="_blank" rel="noreferrer">Ouvrir Classic<ArrowUpRight size={14}/></a></div><div><SkillList player={player}/><div className="note-box"><h3>Votre note de recruteur</h3><textarea aria-label="Note sur le joueur" rows={3} maxLength={3000} value={note} onChange={e=>setNote(e.target.value)} placeholder="Potentiel, poste envisagé, prochain objectif…"/><label className="check"><input type="checkbox" checked={watch} onChange={e=>setWatch(e.target.checked)}/>Garder ce joueur à l’œil</label><button className="button primary" onClick={()=>act('/notes',{team_id:d.current_team.id,player_id:player.id,text:note,watch},'Note du joueur enregistrée').catch(()=>{})}>Enregistrer la note</button></div></div></div><div className="history-section"><h3>Historique des observations</h3>{historyError?<p className="text-error">{historyError}</p>:<div className="history-list">{history.map((h,i)=><div key={i}><strong>{date(h.observed_at)}</strong><span>{h.source}</span><span>Attaque {fmt(h.player.attack)} · Défense {fmt(h.player.defense)} · Force {fmt(h.player.strength)}</span></div>)}</div>}</div></Modal>}

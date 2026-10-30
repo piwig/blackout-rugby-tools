@@ -274,6 +274,9 @@ def academy_report(store, team_id, state, document):
             'history_truncated': bool(reasons), 'undated_snapshots': undated,
             'skipped_snapshots': total-usable_snapshots, 'truncation_reasons': sorted(reasons),
             'sessions': sessions, 'planned_count': len(planned), 'unrecorded_count': len(set(planned) - recorded),
+            'planned_slots': [{'season': season, 'week': week, 'slot': slot, 'skill': planned_skill,
+                               'declared': (season, week, slot) in recorded}
+                              for (season, week, slot), planned_skill in sorted(planned.items())],
             'latest_training_observation': state.get('training', []),
             'stale_goal_ids': [pid for pid in goals if pid not in {str(p['id']) for p in state.get('academy', [])}]}
 
@@ -284,7 +287,8 @@ def opponent_report(store, document, opponent=None, season=None, match_type=None
                 and (season is None or m['season'] == season) and (match_type is None or m['match_type'] == match_type)
                 and (club_side is None or m['club_side'] == club_side)]
     result = {'match_count': 0, 'total_events': 0, 'classified': 0, 'inferred': 0, 'opponent_actions': 0,
-              'attacks': dict.fromkeys(ATTACKS, 0), 'zones': dict.fromkeys(ZONES, 0), 'matches': [], 'missing_matches': 0}
+              'attacks': dict.fromkeys(ATTACKS, 0), 'zones': dict.fromkeys(ZONES, 0),
+              'zone_attacks': {zone: dict.fromkeys(ATTACKS, 0) for zone in ZONES}, 'matches': [], 'missing_matches': 0}
     with store.db() as db:
         total = db.execute('SELECT COUNT(*) FROM matches').fetchone()[0]
         linked_exists = sum(bool(db.execute('SELECT 1 FROM matches WHERE id=? AND type=?', (m['match_id'], m['match_type'])).fetchone()) for m in links)
@@ -304,6 +308,8 @@ def opponent_report(store, document, opponent=None, season=None, match_type=None
                 result['attacks'][attack] += side['attacks'][attack]
             for zone in ZONES:
                 result['zones'][zone] += sum(side['zones'][zone].values())
+                for attack in ATTACKS:
+                    result['zone_attacks'][zone][attack] += side['zones'][zone][attack]
             result['matches'].append({**link, 'home': match.get('home'), 'away': match.get('away'),
                                       'total_events': summary['total_events'], 'classified': summary['classified'],
                                       'opponent_actions': side['total']})

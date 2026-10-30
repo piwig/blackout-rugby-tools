@@ -113,6 +113,89 @@ def test_match_association_is_explicit_and_type_distinguishes_identity(client):
     assert filtered['coverage_pct'] == 50
 
 
+def test_opponent_matrix_preserves_both_sides_and_same_id_competitions(client):
+    headers = login(client)
+    fixtures = [
+        (0, 'home', 'B', 62, [
+            {'field': 4, 'possession': 1, 'att': 'percu', 'att_origin': 'commentary-rule'},
+            {'field': 4, 'possession': 1, 'att': 'large'},
+            {'field': 3, 'possession': 1, 'att': 'png'},
+            {'field': 4, 'possession': 0, 'att': 'kick'},
+            {'text': '?'}, {'field': 3, 'possession': 1, 'att': 'unknown'}]),
+        (1, 'away', 'B', 62, [
+            {'field': 0, 'possession': 0, 'att': 'percu'},
+            {'field': 2, 'possession': 0, 'att': 'crea'},
+            {'field': 3, 'possession': 0, 'att': 'kick'},
+            {'field': 4, 'possession': 1, 'att': 'png'}]),
+        (2, 'home', 'C', 63, [
+            {'field': 0, 'possession': 1, 'att': 'large'},
+            {'field': 2, 'possession': 1, 'att': 'kick'}]),
+    ]
+    links = []
+    for kind, side, opponent, season, events in fixtures:
+        response = client.post('/api/matches/import', headers=headers,
+                               json={'id': '99', 'type': kind, 'home': 'Home', 'away': 'Away', 'events': events})
+        assert response.status_code == 200
+        links.append({'match_id': '99', 'match_type': kind, 'club_side': side, 'opponent': opponent, 'season': season})
+    assert save(client, headers, match_links=links).status_code == 200
+    report = client.get('/api/insights/72450/opponents').json()
+    assert report.get('zone_attacks') == {
+        '22': {'Percussion': 2, 'Pick and go': 0, 'Large': 1, 'Créatif': 0, 'Jeu au pied': 0},
+        '40': {'Percussion': 0, 'Pick and go': 1, 'Large': 0, 'Créatif': 1, 'Jeu au pied': 0},
+        '40A': {'Percussion': 0, 'Pick and go': 0, 'Large': 0, 'Créatif': 0, 'Jeu au pied': 2},
+        '22A': {'Percussion': 0, 'Pick and go': 0, 'Large': 1, 'Créatif': 0, 'Jeu au pied': 0},
+    }
+    assert (report['match_count'], report['opponent_actions'], report['classified'], report['total_events']) == (3, 8, 10, 12)
+    assert report['coverage_pct'] == 83.3
+    assert report['inferred'] == 1
+    for query, actions, classified, total in [
+        ('opponent=b', 6, 8, 10), ('season=63', 2, 2, 2),
+        ('match_type=1', 3, 4, 4), ('club_side=away', 3, 4, 4),
+        ('opponent=B&season=62&match_type=0&club_side=home', 3, 4, 6),
+    ]:
+        filtered = client.get('/api/insights/72450/opponents?' + query).json()
+        assert (filtered['opponent_actions'], filtered['classified'], filtered['total_events']) == (actions, classified, total)
+        assert sum(sum(row.values()) for row in filtered['zone_attacks'].values()) == actions
+    filtered = client.get('/api/insights/72450/opponents?match_type=0').json()
+    assert filtered['zone_attacks']['22']['Percussion'] == 1
+    assert filtered['zone_attacks']['22']['Large'] == 1
+    assert filtered['zones']['22'] == 2
+    assert filtered['zones']['40A'] == 0
+    assert all(count == 0 for count in filtered['zone_attacks']['40A'].values())
+
+
+def test_opponent_matrix_without_matches_has_no_observations_or_coverage(client):
+    login(client)
+    report = client.get('/api/insights/72450/opponents?season=99').json()
+    assert set(report.get('zone_attacks', {})) == {'22', '40', '40A', '22A'}
+    assert all(len(row) == 5 and set(row.values()) == {0} for row in report['zone_attacks'].values())
+    assert report['coverage_pct'] is None
+    assert report['opponent_actions'] == 0
+
+
+def test_planned_slots_are_real_sorted_references_and_never_declared_automatically(client):
+    headers = login(client)
+    for season, cells in [(63, [(4, 16, 'speed')]), (62, [(2, 1, 'strength'), (1, 3, 'handling')])]:
+        grid = [[''] * 16 for _ in range(4)]
+        for slot, week, skill in cells:
+            grid[slot - 1][week - 1] = skill
+        assert client.post('/api/plans', headers=headers, json={'team_id': '72450', 'season': season, 'grid': grid}).status_code == 200
+    bundle = client.get('/api/insights/72450').json()
+    assert bundle['academy'].get('planned_slots') == [
+        {'season': 62, 'week': 1, 'slot': 2, 'skill': 'strength', 'declared': False},
+        {'season': 62, 'week': 3, 'slot': 1, 'skill': 'handling', 'declared': False},
+        {'season': 63, 'week': 16, 'slot': 4, 'skill': 'speed', 'declared': False},
+    ]
+    assert bundle['document']['sessions'] == []
+    assert bundle['document']['revision'] == 0
+    assert save(client, headers, sessions=[{'id': 'manual', 'season': 62, 'week': 1, 'slot': 2,
+                'skill': 'speed', 'performed_at': '2026-10-10T12:00:00+02:00'}]).status_code == 200
+    report = client.get('/api/insights/72450').json()['academy']
+    assert report['planned_slots'][0] == {'season': 62, 'week': 1, 'slot': 2, 'skill': 'strength', 'declared': True}
+    assert report['sessions'][0]['comparison'] == 'differs_from_plan'
+    assert report['unrecorded_count'] == 2
+
+
 def scenario():
     return {'id': 'build', 'name': 'Petite extension', 'current': {'standing': 100, 'uncovered': 20, 'covered': 0, 'members': 0, 'corporate': 0},
             'target': {'standing': 120, 'uncovered': 10, 'covered': 0, 'members': 0, 'corporate': 0},
@@ -215,7 +298,7 @@ const compiled = ts.transpileModule(fs.readFileSync('src/insights.tsx','utf8'), 
   compilerOptions: {module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}
 }).outputText;
 const artifact = {exports:{}};
-const load = id => id === './App' ? {} : id === './types' ? {} : id.endsWith('.css') ? {} : require(id);
+const load = id => id === './App' ? {} : id === './types' || id === './navigation-guard' ? {} : id.endsWith('.css') ? {} : require(id);
 vm.runInNewContext(compiled,{module:artifact,exports:artifact.exports,require:load,structuredClone});
 assert.equal(typeof artifact.exports.stadiumDraftReducer, 'function', 'Stadium observation transitions must be explicit');
 const reduce = artifact.exports.stadiumDraftReducer;

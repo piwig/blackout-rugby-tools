@@ -2,11 +2,13 @@ import {useEffect, useReducer, useRef, useState} from 'react';
 import {BookOpen, Plus, RefreshCw, Save, Sprout, Trash2} from 'lucide-react';
 import {request, type Actions} from './App';
 import {date, fmt, labels, skills} from './types';
+import {useUnsavedChanges} from './navigation-guard';
 import './insights.css';
 
 type Props = Pick<Actions, 'd' | 'act' | 'busy'>;
 type Goal = {player_id:string; text:string; skill:string|null; target:number|null; due_season:number|null};
 type Session = {id:string; season:number; week:number; slot:number; skill:string; performed_at:string; note:string};
+type PlannedSlot = {season:number; week:number; slot:number; skill:string; declared:boolean};
 type Link = {match_id:string; match_type:number; club_side:'home'|'away'; opponent:string; season:number|null};
 const categories = [['standing','Debout'],['uncovered','Assis découvert'],['covered','Assis couvert'],['members','Abonnés'],['corporate','Loges']] as const;
 type Category = typeof categories[number][0];
@@ -15,8 +17,8 @@ type Scenario = {id:string; name:string; current:Values; target:Values; unit_cos
 type Doc = {version:1; revision:number; updated_at:string|null; goals:Goal[]; sessions:Session[]; match_links:Link[]; stadium_scenarios:Scenario[]};
 type Progress = {player_id:string; name:string; skill:string; before:number|null; after:number; delta:number|null; kind:string; observed_at:string; source:string; values?:(number|null)[]};
 type GenerationPlayer = {id:string; name:string; age:number|null; goal:Goal|null; current_value:number|null; target_gap:number|null};
-type Academy = {generations:Record<string,GenerationPlayer[]>; timeline:Progress[]; snapshot_count:number; history_truncated:boolean; undated_snapshots:number; stale_goal_ids:string[]; sessions:(Session&{comparison:string; provenance:string; planned_skill:string|null})[]; planned_count:number; unrecorded_count:number; latest_training_observation:string[]};
-type Opponents = {match_count:number; total_events:number; classified:number; inferred:number; opponent_actions:number; attacks:Record<string,number>; zones:Record<string,number>; coverage_pct:number|null; unlinked_count:number; missing_matches:number; matches:(Link&{home:string; away:string; total_events:number; classified:number; opponent_actions:number})[]};
+type Academy = {generations:Record<string,GenerationPlayer[]>; timeline:Progress[]; snapshot_count:number; history_truncated:boolean; undated_snapshots:number; stale_goal_ids:string[]; sessions:(Session&{comparison:string; provenance:string; planned_skill:string|null})[]; planned_slots:PlannedSlot[]; planned_count:number; unrecorded_count:number; latest_training_observation:string[]};
+type Opponents = {match_count:number; total_events:number; classified:number; inferred:number; opponent_actions:number; attacks:Record<string,number>; zones:Record<string,number>; zone_attacks:Record<string,Record<string,number>>; coverage_pct:number|null; unlinked_count:number; missing_matches:number; matches:(Link&{home:string; away:string; total_events:number; classified:number; opponent_actions:number})[]};
 type Stadium = {id:string; name:string; construction_cost:number|null; remaining_available:number|null; known_subtotal:number; missing_categories:Category[]; reduction_categories:Category[]; target_capacity:number|null};
 type Bundle = {team_id:string; document:Doc; academy:Academy; opponents:Opponents; stadium:Stadium[]};
 const optionalNumber = (value:string) => value === '' ? null : Number(value);
@@ -56,11 +58,115 @@ function Status({model}:{model:ReturnType<typeof useInsights>}) {
   return <>{model.error&&<div className="notice error" role="alert">{model.error}<button className="text-button" disabled={model.pending} onClick={()=>void model.reload()}><RefreshCw size={15}/>Recharger les suivis</button></div>}{model.message&&<p className="insights-status" role="status">{model.message}</p>}{!model.bundle&&!model.error&&<p role="status">Chargement des suivis privés…</p>}</>;
 }
 
+type SessionDraft = {season:string; week:string; slot:string; skill:string; performed:string; note:string};
+type SessionDraftState = {draft:SessionDraft; baseline:SessionDraft};
+type SessionDraftAction = {type:'edit'|'saved'|'reset'; draft:SessionDraft};
+const blankSessionDraft = (season:string):SessionDraft => ({season,week:'1',slot:'1',skill:'strength',performed:'',note:''});
+
+export function plannedSessionDraft(slot:PlannedSlot):SessionDraft {
+  return {season:String(slot.season),week:String(slot.week),slot:String(slot.slot),skill:slot.skill,performed:'',note:''};
+}
+
+export function validateSessionDate(value:string,latest=Date.now()):{performedAt:string|null;error:string} {
+  const performed=new Date(value);
+  if(!value.trim()||!Number.isFinite(performed.getTime()))return {performedAt:null,error:'Renseignez une date réelle valide (date et heure), puis réessayez. Aucune séance n’a été enregistrée.'};
+  if(performed.getTime()>latest)return {performedAt:null,error:'La date réelle ne peut pas être dans le futur. Indiquez la date et l’heure auxquelles la séance a eu lieu. Aucune séance n’a été enregistrée.'};
+  return {performedAt:performed.toISOString(),error:''};
+}
+
+export function sessionDraftReducer(state:SessionDraftState, action:SessionDraftAction):SessionDraftState {
+  if(action.type==='reset')return {draft:action.draft,baseline:action.draft};
+  if(action.type==='saved')return {...state,baseline:action.draft};
+  return {...state,draft:action.draft};
+}
+
+function TrainingDeclaration({model,season}:{model:ReturnType<typeof useInsights>;season:string}) {
+  const {bundle,pending,save}=model;
+  const [state,dispatch]=useReducer(sessionDraftReducer,season,value=>{
+    const draft=blankSessionDraft(value);return {draft,baseline:draft};
+  });
+  const draft=state.draft, dirty=JSON.stringify(draft)!==JSON.stringify(state.baseline);
+  const [planSeason,setPlanSeason]=useState(''),[planWeek,setPlanWeek]=useState('');
+  const [dateError,setDateError]=useState('');
+  const performedInput=useRef<HTMLInputElement>(null);
+  useUnsavedChanges(dirty||pending);
+  if(!bundle)return null;
+  const planned=bundle.academy.planned_slots;
+  const seasonSlots=planned.filter(item=>!planSeason||item.season===Number(planSeason));
+  const slots=seasonSlots.filter(item=>!planWeek||item.week===Number(planWeek));
+  const update=(key:keyof SessionDraft,value:string)=>{
+    if(key==='performed')setDateError('');
+    dispatch({type:'edit',draft:{...draft,[key]:value}});
+  };
+  const canReplace=()=>!pending&&(!dirty||window.confirm('Abandonner les modifications de cette déclaration ?'));
+  const choose=(item:PlannedSlot)=>{
+    if(!canReplace())return;
+    setDateError('');
+    dispatch({type:'edit',draft:plannedSessionDraft(item)});
+    performedInput.current?.focus();
+  };
+  const submit=async()=>{
+    if(pending)return;
+    const submitted={...draft};
+    const {performedAt,error}=validateSessionDate(submitted.performed);
+    if(!performedAt){
+      setDateError(error);
+      performedInput.current?.focus();
+      return;
+    }
+    setDateError('');
+    const existing=bundle.document.sessions.find(item=>item.season===Number(submitted.season)&&item.week===Number(submitted.week)&&item.slot===Number(submitted.slot));
+    const session={id:existing?.id||uuid(),season:Number(submitted.season),week:Number(submitted.week),slot:Number(submitted.slot),skill:submitted.skill,performed_at:performedAt,note:submitted.note};
+    if(await save({sessions:[...bundle.document.sessions.filter(item=>item.id!==existing?.id),session]}))dispatch({type:'saved',draft:submitted});
+  };
+  return <div className="insights-training">
+    <h3>Partir d’un créneau planifié</h3>
+    <p className="muted">Choisissez une case renseignée du planning, puis indiquez la date réelle et vérifiez la compétence réalisée. Le planning ne prouve pas qu’une séance a eu lieu.</p>
+    <div className="insights-grid">
+      <label>Saison du planning<select value={planSeason} onChange={e=>{setPlanSeason(e.target.value);setPlanWeek('');}}><option value="">Toutes les saisons</option>{[...new Set(planned.map(item=>item.season))].map(value=><option key={value}>{value}</option>)}</select></label>
+      <label>Semaine du planning<select value={planWeek} onChange={e=>setPlanWeek(e.target.value)}><option value="">Toutes les semaines</option>{[...new Set(seasonSlots.map(item=>item.week))].sort((a,b)=>a-b).map(value=><option key={value}>{value}</option>)}</select></label>
+    </div>
+    {slots.length?<ul className="insights-planned-slots">{slots.map(item=><li key={`${item.season}:${item.week}:${item.slot}`}>
+      <div><strong>S{item.season} · semaine {item.week} · créneau {item.slot}</strong><span>{labels[item.skill]} · {item.declared?'Déjà déclaré':'Sans déclaration'}</span></div>
+      <button className="button secondary" type="button" disabled={pending} onClick={()=>choose(item)} aria-label={`${item.declared?'Corriger':'Déclarer'} la séance saison ${item.season} semaine ${item.week} créneau ${item.slot}`}>{item.declared?'Corriger la déclaration':'Déclarer la séance'}</button>
+    </li>)}</ul>:<p className="muted">Aucun créneau renseigné pour ce filtre. Vous pouvez compléter le planning ou déclarer une séance manuellement ci-dessous.</p>}
+    <form className="insights-form" onSubmit={e=>{e.preventDefault();void submit();}} aria-busy={pending}>
+      <h3>Déclarer ou corriger un créneau réalisé</h3>
+      {dateError&&<p className="notice error" role="alert">{dateError}</p>}
+      <fieldset disabled={pending} className="insights-session-fields"><legend className="sr-only">Déclaration manuelle d’une séance réalisée</legend><div className="insights-grid">
+        <label>Saison<input required type="number" min="1" max="999" value={draft.season} onChange={e=>update('season',e.target.value)}/></label>
+        <label>Semaine<input required type="number" min="1" max="16" value={draft.week} onChange={e=>update('week',e.target.value)}/></label>
+        <label>Créneau<input required type="number" min="1" max="4" value={draft.slot} onChange={e=>update('slot',e.target.value)}/></label>
+        <label>Compétence réalisée<select value={draft.skill} onChange={e=>update('skill',e.target.value)}>{skills.map(value=><option key={value} value={value}>{labels[value]}</option>)}</select></label>
+        <label>Date réelle (heure locale)<input ref={performedInput} required type="datetime-local" aria-invalid={Boolean(dateError)} value={draft.performed} onChange={e=>update('performed',e.target.value)}/></label>
+        <label>Source / note manuelle<input maxLength={1000} value={draft.note} onChange={e=>update('note',e.target.value)}/></label>
+      </div><div className="insights-actions"><button className="button secondary"><Save size={16}/>{pending?'Enregistrement…':'Enregistrer ce créneau réalisé'}</button><button className="text-button" type="button" disabled={!dirty} onClick={()=>{if(canReplace()){setDateError('');dispatch({type:'reset',draft:blankSessionDraft(season)});}}}>Annuler la saisie</button></div></fieldset>
+      <p className="tiny">Une nouvelle déclaration pour la même saison, semaine et créneau remplace la précédente. La date réelle est obligatoire et reste vide lors du choix d’un créneau. Aucun entraînement n’est envoyé dans Classic.</p>
+    </form>
+  </div>;
+}
+
+const attackNames=['Percussion','Pick and go','Large','Créatif','Jeu au pied'];
+const zoneNames=['22','40','40A','22A'];
+export function zoneAttackValue(count:number,total:number):string {
+  return total ? `${count} · ${new Intl.NumberFormat('fr-FR',{maximumFractionDigits:1}).format(100*count/total)} %` : '—';
+}
+
+export function ZoneAttackMatrix({matrix}:{matrix:Record<string,Record<string,number>>}) {
+  return <div className="table-scroll insights-zone-scroll" role="region" aria-label="Matrice des attaques adverses par zone" tabIndex={0}><table className="insights-zone-matrix">
+    <caption>Attaques par zone relative à l’adversaire. Chaque cellule indique le nombre et le pourcentage parmi les actions adverses classées de cette zone. Une zone vide ne permet aucune tendance.</caption>
+    <thead><tr><th scope="col">Zone</th>{attackNames.map(name=><th key={name} scope="col">{name}</th>)}<th scope="col">Actions classées de la zone</th></tr></thead>
+    <tbody>{zoneNames.map(zone=>{
+      const counts=matrix[zone], total=attackNames.reduce((sum,name)=>sum+(counts?.[name]||0),0);
+      return <tr key={zone}><th scope="row">{zone}</th>{attackNames.map(name=><td key={name}>{zoneAttackValue(counts?.[name]||0,total)}</td>)}<td>{total>0?<><strong>{total}</strong> actions</>:<span className="insights-empty-zone">Aucune observation</span>}</td></tr>;
+    })}</tbody>
+  </table></div>;
+}
+
 export function AcademyInsights(props:Props) {return <AcademyPanel key={props.d.current_team.id} {...props}/>;}
 function AcademyPanel({d}:Props) {
   const model=useInsights(d), {bundle,save,pending}=model;
   const [generation,setGeneration]=useState('all'),[playerId,setPlayerId]=useState(''),[text,setText]=useState(''),[skill,setSkill]=useState(''),[target,setTarget]=useState(''),[due,setDue]=useState('');
-  const [season,setSeason]=useState(String(d.game_date?.season||'')),[week,setWeek]=useState('1'),[slot,setSlot]=useState('1'),[sessionSkill,setSessionSkill]=useState('strength'),[performed,setPerformed]=useState(''),[note,setNote]=useState('');
   const choosePlayer=(id:string)=>{setPlayerId(id);const goal=bundle?.document.goals.find(g=>g.player_id===id);setText(goal?.text||'');setSkill(goal?.skill||'');setTarget(goal?.target==null?'':String(goal.target));setDue(goal?.due_season==null?'':String(goal.due_season));};
   const report=bundle?.academy;
   const players=report?Object.entries(report.generations).filter(([key])=>generation==='all'||generation===key).flatMap(([,rows])=>rows):[];
@@ -77,7 +183,7 @@ function AcademyPanel({d}:Props) {
       {report.stale_goal_ids.length>0&&<div className="notice">{report.stale_goal_ids.length} objectif(s) conservé(s) pour des jeunes absents du dernier effectif.{bundle.document.goals.filter(g=>report.stale_goal_ids.includes(g.player_id)).map(g=><p key={g.player_id}>#{g.player_id} · {g.text} <button className="text-button" disabled={pending} onClick={()=>void save({goals:bundle.document.goals.filter(x=>x.player_id!==g.player_id)})}>Retirer</button></p>)}</div>}
       <details className="insights-details" open><summary>Évolutions datées · {report.snapshot_count} observations{playerId?' · joueur sélectionné':''}</summary>{playerId&&<button className="text-button" onClick={()=>choosePlayer('')}>Voir tous les jeunes</button>}{report.history_truncated&&<p className="notice">Historique limité aux observations récentes et aux 500 dernières variations retenues. Les lots trop volumineux ou incomplets sont exclus ; aucune évolution n’est calculée à travers une lacune.</p>}{report.undated_snapshots>0&&<p className="notice">{report.undated_snapshots} observation(s) sans date exploitable exclue(s) de la comparaison.</p>}{timeline.length?<div className="table-scroll insights-history"><table><thead><tr><th>Date et source</th><th>Jeune / compétence</th><th>Observation</th></tr></thead><tbody>{[...timeline].reverse().map((event,i)=><tr key={i}><td>{date(event.observed_at)}<small className="sub-cell">{event.source}</small></td><td>{event.name}<small className="sub-cell">{labels[event.skill]}</small></td><td>{event.kind==='conflicting_observation'?<><span className="insights-tag">Observations contradictoires</span> {(event.values||[event.before,event.after]).map(value=>fmt(value)).join(' / ')} · même date, aucun progrès calculé</>:event.kind==='revealed'?<><span className="insights-tag">Dévoilement</span> ? → {fmt(event.after)}</>:<><span className="insights-tag">Variation numérique</span> {fmt(event.before)} → {fmt(event.after)} ({(event.delta||0)>0?'+':''}{fmt(event.delta)})</>}</td></tr>)}</tbody></table></div>:<p className="muted">Pas encore de changement comparable. Deux observations datées sont nécessaires.</p>}</details>
       <details className="insights-details"><summary>Séances planifiées et réalisées</summary><p>{report.planned_count} créneaux planifiés · {report.sessions.length} déclarations manuelles · {report.unrecorded_count} créneaux sans déclaration. L’absence de déclaration ne prouve pas l’absence d’entraînement.</p><p className="muted">Dernier export : {report.latest_training_observation.length?report.latest_training_observation.map(s=>labels[s]||'Non renseigné').join(' · '):'aucune séance renseignée'}. Cette dernière observation n’est pas un historique.</p>
-        <form className="insights-form" onSubmit={e=>{e.preventDefault();const existing=bundle.document.sessions.find(s=>s.season===Number(season)&&s.week===Number(week)&&s.slot===Number(slot));void save({sessions:[...bundle.document.sessions.filter(s=>s.id!==existing?.id),{id:existing?.id||uuid(),season:Number(season),week:Number(week),slot:Number(slot),skill:sessionSkill,performed_at:new Date(performed).toISOString(),note}]}).then(ok=>{if(ok)setNote('');});}}><h3>Déclarer ou corriger un créneau réalisé</h3><div className="insights-grid"><label>Saison<input required type="number" min="1" max="999" value={season} onChange={e=>setSeason(e.target.value)}/></label><label>Semaine<input required type="number" min="1" max="16" value={week} onChange={e=>setWeek(e.target.value)}/></label><label>Créneau<input required type="number" min="1" max="4" value={slot} onChange={e=>setSlot(e.target.value)}/></label><label>Compétence réalisée<select value={sessionSkill} onChange={e=>setSessionSkill(e.target.value)}>{skills.map(s=><option key={s} value={s}>{labels[s]}</option>)}</select></label><label>Date réelle (heure locale)<input required type="datetime-local" value={performed} onChange={e=>setPerformed(e.target.value)}/></label><label>Source / note manuelle<input maxLength={1000} value={note} onChange={e=>setNote(e.target.value)}/></label></div><button className="button secondary" disabled={pending}><Save size={16}/>Enregistrer ce créneau réalisé</button><p className="tiny">Une nouvelle déclaration pour la même saison, semaine et créneau remplace la précédente. Aucun entraînement n’est envoyé dans Classic.</p></form>
+        <TrainingDeclaration model={model} season={String(d.game_date?.season||'')}/>
         {report.sessions.length>0&&<div className="table-scroll"><table><thead><tr><th>Créneau</th><th>Date déclarée</th><th>Prévu → réalisé</th><th>Rapprochement</th><th>Action</th></tr></thead><tbody>{report.sessions.map(s=><tr key={s.id}><td>S{s.season} · sem. {s.week} · {s.slot}</td><td>{date(s.performed_at)}<small className="sub-cell">Déclaration manuelle · {s.note||'sans note'}</small></td><td>{s.planned_skill?labels[s.planned_skill]:'Sans plan'} → {labels[s.skill]}</td><td>{{matches_plan:'Conforme au plan actuel',differs_from_plan:'Différent du plan actuel',unplanned:'Non planifié'}[s.comparison]}</td><td><button className="icon-button" aria-label={'Retirer la déclaration saison '+s.season+' semaine '+s.week+' créneau '+s.slot} disabled={pending} onClick={()=>void save({sessions:bundle.document.sessions.filter(item=>item.id!==s.id)})}><Trash2 size={16}/></button></td></tr>)}</tbody></table></div>}
       </details>
     </>}</div>
@@ -102,7 +208,7 @@ function OpponentPanel({d}:Props) {
     <form className="insights-form" onSubmit={e=>{e.preventDefault();const [type,id]=matchKey.split(':');void save({match_links:[...bundle.document.match_links.filter(m=>!(m.match_type===Number(type)&&m.match_id===id)),{match_id:id,match_type:Number(type),club_side:side as 'home'|'away',opponent,season:optionalNumber(season)}]});}}><div className="insights-grid"><label>Rencontre de la bibliothèque<select required value={matchKey} onChange={e=>chooseMatch(e.target.value)}><option value="">Choisir une rencontre</option>{d.matches.map(m=><option key={m.type+':'+m.id} value={m.type+':'+m.id}>{['Club','U20','NT'][m.type]} #{m.id} · {m.home} / {m.away}</option>)}</select></label><label>Côté de {d.current_team.name}<select required value={side} onChange={e=>setSide(e.target.value)}><option value="">Choisir explicitement</option><option value="home">Domicile</option><option value="away">Extérieur</option></select></label><label>Nom du dossier adversaire<input required maxLength={150} value={opponent} onChange={e=>setOpponent(e.target.value)} placeholder="Même nom pour regrouper ses matchs"/></label><label>Saison (facultative)<input type="number" min="1" max="999" value={season} onChange={e=>setSeason(e.target.value)}/></label></div><button className="button primary" disabled={pending||!d.matches.length}><Plus size={16}/>Enregistrer le rattachement</button></form>
     {!d.matches.length&&<p className="muted">Importez d’abord une rencontre dans la bibliothèque ci-dessus.</p>}
     <div className="insights-grid insights-filters"><label>Adversaire<select value={filterOpponent} onChange={e=>setFilterOpponent(e.target.value)}><option value="">Tous les dossiers</option>{[...new Set(bundle.document.match_links.map(m=>m.opponent))].sort().map(name=><option key={name}>{name}</option>)}</select></label><label>Saison<select value={filterSeason} onChange={e=>setFilterSeason(e.target.value)}><option value="">Toutes les saisons</option>{[...new Set(bundle.document.match_links.map(m=>m.season).filter(s=>s!==null))].sort((a,b)=>a-b).map(s=><option key={s}>{s}</option>)}</select></label><label>Type<select value={filterType} onChange={e=>setFilterType(e.target.value)}><option value="">Tous</option><option value="0">Club</option><option value="1">U20</option><option value="2">NT</option></select></label><label>Côté du club<select value={filterSide} onChange={e=>setFilterSide(e.target.value)}><option value="">Tous</option><option value="home">Domicile</option><option value="away">Extérieur</option></select></label></div>
-    {filterError&&<p role="alert" className="notice error">{filterError}</p>}{!filtered&&!filterError&&<p role="status">Calcul des volumes filtrés…</p>}{filtered&&<><div className="insights-summary"><div><strong>{filtered.match_count}</strong><span>rencontre(s) du filtre</span></div><div><strong>{filtered.classified} / {filtered.total_events}</strong><span>événements classés, deux côtés · {fmt(filtered.coverage_pct)} %</span></div><div><strong>{filtered.opponent_actions}</strong><span>actions de l’adversaire classées</span></div><div><strong>{filtered.inferred}</strong><span>événements inférés des commentaires</span></div></div><p className="tiny">{filtered.unlinked_count} rencontre(s) de la bibliothèque sans rattachement à ce club. Les pourcentages ci-dessous portent uniquement sur les actions adverses classées ; la couverture porte sur tous les événements des matchs retenus. Aucun pronostic n’en est déduit.</p>{filtered.missing_matches>0&&<p className="notice">{filtered.missing_matches} rencontre(s) rattachée(s) ne sont plus dans la bibliothèque.</p>}{filtered.match_count>0?<><div className="insights-comparison"><div><h3>Types d’attaque adverses</h3>{Object.entries(filtered.attacks).map(([name,count])=><div className="insights-bar" key={name}><span>{name}</span><div><i style={{width:(filtered.opponent_actions?100*count/filtered.opponent_actions:0)+'%'}}/></div><b>{count} / {filtered.opponent_actions}</b></div>)}</div><div><h3>Zones relatives à l’adversaire</h3>{Object.entries(filtered.zones).map(([zone,count])=><div className="insights-bar" key={zone}><span>{zone}</span><div><i style={{width:(filtered.opponent_actions?100*count/filtered.opponent_actions:0)+'%'}}/></div><b>{count} / {filtered.opponent_actions}</b></div>)}</div></div><div className="table-scroll"><table><thead><tr><th>Rencontre</th><th>Dossier</th><th>Club / saison</th><th>Couverture</th><th>Action</th></tr></thead><tbody>{filtered.matches.map(m=><tr key={m.match_type+':'+m.match_id}><td>{['Club','U20','NT'][m.match_type]} #{m.match_id}<small className="sub-cell">{m.home} / {m.away}</small></td><td>{m.opponent}</td><td>{m.club_side==='home'?'Domicile':'Extérieur'} · {m.season===null?'saison inconnue':'S'+m.season}</td><td>{m.classified} / {m.total_events}</td><td><button className="text-button" disabled={pending} onClick={()=>void save({match_links:bundle.document.match_links.filter(link=>!(link.match_type===m.match_type&&link.match_id===m.match_id))})}>Détacher</button></td></tr>)}</tbody></table></div></>:<p className="muted">Aucune rencontre rattachée ne correspond au filtre. Ajoutez un rattachement ou élargissez les filtres.</p>}</>}
+    {filterError&&<p role="alert" className="notice error">{filterError}</p>}{!filtered&&!filterError&&<p role="status">Calcul des volumes filtrés…</p>}{filtered&&<><div className="insights-summary"><div><strong>{filtered.match_count}</strong><span>rencontre(s) du filtre</span></div><div><strong>{filtered.classified} / {filtered.total_events}</strong><span>événements classés, deux côtés · {fmt(filtered.coverage_pct)} %</span></div><div><strong>{filtered.opponent_actions}</strong><span>actions de l’adversaire classées</span></div><div><strong>{filtered.inferred}</strong><span>événements inférés des commentaires</span></div></div><p className="tiny">{filtered.unlinked_count} rencontre(s) de la bibliothèque sans rattachement à ce club. Les pourcentages ci-dessous portent uniquement sur les actions adverses classées ; la couverture porte sur tous les événements des matchs retenus. Aucun pronostic n’en est déduit.</p>{filtered.missing_matches>0&&<p className="notice">{filtered.missing_matches} rencontre(s) rattachée(s) ne sont plus dans la bibliothèque.</p>}{filtered.match_count>0?<><div className="insights-comparison"><div><h3>Types d’attaque adverses</h3>{Object.entries(filtered.attacks).map(([name,count])=><div className="insights-bar" key={name}><span>{name}</span><div><i style={{width:(filtered.opponent_actions?100*count/filtered.opponent_actions:0)+'%'}}/></div><b>{count} / {filtered.opponent_actions}</b></div>)}</div><div><h3>Zones relatives à l’adversaire</h3>{Object.entries(filtered.zones).map(([zone,count])=><div className="insights-bar" key={zone}><span>{zone}</span><div><i style={{width:(filtered.opponent_actions?100*count/filtered.opponent_actions:0)+'%'}}/></div><b>{count} / {filtered.opponent_actions}</b></div>)}</div></div><ZoneAttackMatrix matrix={filtered.zone_attacks}/><div className="table-scroll"><table><thead><tr><th>Rencontre</th><th>Dossier</th><th>Club / saison</th><th>Couverture</th><th>Action</th></tr></thead><tbody>{filtered.matches.map(m=><tr key={m.match_type+':'+m.match_id}><td>{['Club','U20','NT'][m.match_type]} #{m.match_id}<small className="sub-cell">{m.home} / {m.away}</small></td><td>{m.opponent}</td><td>{m.club_side==='home'?'Domicile':'Extérieur'} · {m.season===null?'saison inconnue':'S'+m.season}</td><td>{m.classified} / {m.total_events}</td><td><button className="text-button" disabled={pending} onClick={()=>void save({match_links:bundle.document.match_links.filter(link=>!(link.match_type===m.match_type&&link.match_id===m.match_id))})}>Détacher</button></td></tr>)}</tbody></table></div></>:<p className="muted">Aucune rencontre rattachée ne correspond au filtre. Ajoutez un rattachement ou élargissez les filtres.</p>}</>}
   </>}</div></section>;
 }
 

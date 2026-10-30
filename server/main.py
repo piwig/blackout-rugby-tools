@@ -64,10 +64,14 @@ class Settings(TeamRef):
     def validate_iv(cls,value):
         if value and len(value.encode('utf-8'))!=16:raise ValueError('Le paramètre IV Classic doit contenir exactement 16 octets.')
         return value
+class NoteVersion(Model):
+    text:str=Field(default='',max_length=3000)
+    watch:bool=False
 class Note(TeamRef):
     player_id:str=Field(pattern=r'^\d{1,15}$')
     text:str=Field(default='',max_length=3000)
     watch:bool=False
+    expected_note:NoteVersion|None=None
 class Plan(TeamRef):
     season:int=Field(ge=1,le=999)
     grid:list[list[str]]
@@ -216,7 +220,7 @@ def create_app(directory=None,password=None,secure=None):
         return dict(r)
 
     @app.get('/api/health')
-    def health():return {'ok':True,'version':'2.2.0'}
+    def health():return {'ok':True,'version':'2.3.0'}
 
     @app.post('/api/login')
     def login(body:Login,request:Request,response:Response):
@@ -381,7 +385,13 @@ def create_app(directory=None,password=None,secure=None):
     @app.post('/api/notes',dependencies=[Depends(auth)])
     def notes(body:Note):
         require_team(body.team_id)
-        with store.db() as db:db.execute('INSERT OR REPLACE INTO notes VALUES(?,?,?,?)',(body.team_id,body.player_id,body.text,int(body.watch)))
+        with store.db() as db:
+            db.execute('BEGIN IMMEDIATE')
+            if body.expected_note is not None:
+                row=db.execute('SELECT text,watch FROM notes WHERE team_id=? AND player_id=?',(body.team_id,body.player_id)).fetchone()
+                current={'text':row['text'],'watch':bool(row['watch'])} if row else {'text':'','watch':False}
+                if current!=body.expected_note.model_dump():raise HTTPException(409,'Cette note a changé dans une autre session. Votre brouillon est conservé ; relisez la note enregistrée avant de continuer.')
+            db.execute('INSERT OR REPLACE INTO notes VALUES(?,?,?,?)',(body.team_id,body.player_id,body.text,int(body.watch)))
         return {'ok':True}
 
     @app.post('/api/plans',dependencies=[Depends(auth)])
