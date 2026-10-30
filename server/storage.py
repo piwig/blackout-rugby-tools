@@ -14,7 +14,7 @@ def pack(value):return json.dumps(value,ensure_ascii=False,separators=(',',':'))
 def password_hash(password,salt):return hashlib.scrypt(password.encode(),salt=salt,n=16384,r=8,p=1).hex()
 
 class Store:
-    def __init__(self,directory,password=None):
+    def __init__(self,directory,password=None,seed=True):
         directory=Path(directory); directory.mkdir(parents=True,exist_ok=True)
         self.path=directory/'brt.sqlite'
         key=directory/'encryption.key'
@@ -41,8 +41,10 @@ class Store:
                 INSERT INTO snapshots SELECT * FROM snapshots_old;
                 DROP TABLE snapshots_old;
                 CREATE INDEX snapshots_latest ON snapshots(team_id,youth,id DESC);''')
-            for tid,name,country in [('72450','Moeskroen','BE'),('72444','LaTouff','LT'),('57627','XV Manchot','FR'),('71184','Rapa Nui','CL'),('77847','Harragas','GE'),('81242','Pif Paf Pastèque','NL'),('41988','Strathclyde United','SL')]:
+            initial=[('72450','Moeskroen','BE'),('72444','LaTouff','LT'),('57627','XV Manchot','FR'),('71184','Rapa Nui','CL'),('77847','Harragas','GE'),('81242','Pif Paf Pastèque','NL'),('41988','Strathclyde United','SL')] if seed and not db.execute("SELECT 1 FROM kv WHERE key='initial_seed_done'").fetchone() else []
+            for tid,name,country in initial:
                 db.execute('INSERT OR IGNORE INTO teams(id,name,country) VALUES(?,?,?)',(tid,name,country))
+            db.execute("INSERT OR IGNORE INTO kv VALUES('initial_seed_done','true')")
         if self.get('password') is None:
             if not password or len(password)<12:raise ValueError('BRT_PASSWORD requis au premier démarrage (12 caractères minimum).')
             salt=secrets.token_bytes(16);self.set('password',{'salt':salt.hex(),'hash':password_hash(password,salt)})
@@ -87,6 +89,7 @@ class Store:
         with self.db() as db:
             for dataset in datasets:
                 tid={'moeskroen':'72450','latouff':'72444'}.get(dataset.get('team_hint'),team_id)
+                if dataset.get('team_hint'):db.execute('INSERT OR IGNORE INTO teams(id,name,country) VALUES(?,?,?)',(tid,'LaTouff' if tid=='72444' else 'Moeskroen','LT' if tid=='72444' else 'BE'))
                 self.save_snapshot(tid,dataset['youth'],dataset['players'],filename+(' · '+dataset['sheet'] if 'sheet' in dataset else ''),observed_at or result.get('team',{}).get('date_maj'),result['game_date'],db)
                 count+=len(dataset['players'])
             if result.get('team'):db.execute('UPDATE teams SET meta=? WHERE id=?',(pack(result['team']),'72450'))

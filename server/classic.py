@@ -18,7 +18,7 @@ class ClassicClient:
         self.credentials={k:str(v) for k,v in credentials.items() if k in ['d','dk','m','mk']}
     async def request(self,resource,**params):
         if not self.credentials.get('d') or not self.credentials.get('dk'):raise ClassicError('Ajoutez vos identifiants développeur Classic dans Connexion & données.')
-        if resource not in ['p','t','f','ls','me']:raise ClassicError('Ressource non autorisée.')
+        if resource not in ['p','t','f','ls','me','m']:raise ClassicError('Ressource non autorisée.')
         query={**self.credentials,'r':resource,'json':'1',**params}
         if resource=='me':query.pop('json')
         try:

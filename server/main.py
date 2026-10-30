@@ -13,12 +13,24 @@ from .storage import Store,pack,now
 from .domain import SKILLS,player_metrics,wc_projection,attack_summary,csv_export
 from .imports import parse_import,normalize_player,read_csv,reject_constant
 from .classic import ClassicClient,ClassicError
+from .accounts import Accounts,PrivateStore,active_store
+from .manager import import_manager
 
 class Model(BaseModel):
     model_config=ConfigDict(extra='forbid')
 class Login(Model):
     username:str=Field(max_length=60)
     password:str=Field(max_length=128)
+class NewUser(Model):
+    username:str=Field(min_length=3,max_length=40)
+    password:str=Field(min_length=12,max_length=128)
+class PasswordChange(Model):
+    current_password:str=Field(max_length=128)
+    new_password:str=Field(min_length=12,max_length=128)
+class ManagerImport(Model):
+    access_key:str=Field(min_length=6,max_length=300)
+    developer_id:str=Field(default='',max_length=30)
+    developer_key:str=Field(default='',max_length=200)
 class TeamRef(Model):
     team_id:str=Field(pattern=r'^\d{1,15}$')
 class Team(TeamRef):
@@ -54,11 +66,11 @@ class Match(FixtureSync):
 
 def create_app(directory=None,password=None,secure=None):
     directory=Path(directory or os.getenv('BRT_DATA_DIR','data'))
-    store=Store(directory,password or os.getenv('BRT_PASSWORD'))
+    primary=Store(directory,password or os.getenv('BRT_PASSWORD'));accounts=Accounts(directory,primary);store=PrivateStore()
     secure=secure if secure is not None else os.getenv('BRT_SECURE','1')=='1'
     public_url=os.getenv('BRT_PUBLIC_URL','https://brt.bordebat.fr').rstrip('/')
     app=FastAPI(title='Blackout Rugby Tools',docs_url=None,redoc_url=None,openapi_url=None)
-    app.state.store=store;attempts={};sync_times={}
+    app.state.store=primary;app.state.accounts=accounts;attempts={};sync_times={}
 
     @app.middleware('http')
     async def security(request,call_next):
@@ -68,14 +80,19 @@ def create_app(directory=None,password=None,secure=None):
             allowed={public_url}
             if not secure:allowed.update({'http://localhost:5173','http://localhost:3042','http://127.0.0.1:3042','http://testserver'})
             if origin and origin.rstrip('/') not in allowed:return JSONResponse({'detail':'Origine non autorisée.'},status_code=403)
-        response=await call_next(request)
+        session=accounts.session(request.cookies.get('brt_session'))
+        request.state.session=session
+        token=active_store.set(accounts.store(session['user_id'])) if session else None
+        try:response=await call_next(request)
+        finally:
+            if token is not None:active_store.reset(token)
         response.headers.update({'X-Content-Type-Options':'nosniff','X-Frame-Options':'DENY','Referrer-Policy':'no-referrer','Permissions-Policy':'camera=(), microphone=(), geolocation=()',
           'Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"})
         if request.url.path.startswith('/api/'):response.headers['Cache-Control']='no-store'
         return response
 
     async def auth(request:Request):
-        session=store.session(request.cookies.get('brt_session'))
+        session=request.state.session
         if not session:raise HTTPException(401,'Connexion requise.')
         if request.method not in ['GET','HEAD'] and not secrets.compare_digest(request.headers.get('x-csrf-token',''),session['csrf']):raise HTTPException(403,'Session à actualiser (protection CSRF).')
         return session
@@ -86,7 +103,7 @@ def create_app(directory=None,password=None,secure=None):
         return dict(r)
 
     @app.get('/api/health')
-    def health():return {'ok':True,'version':'1.0.0'}
+    def health():return {'ok':True,'version':'2.0.0'}
 
     @app.post('/api/login')
     def login(body:Login,request:Request,response:Response):
@@ -97,19 +114,54 @@ def create_app(directory=None,password=None,secure=None):
         history=attempts.setdefault(ip,[])
         if len(history)>=10:raise HTTPException(429,'Trop de tentatives. Patientez 15 minutes.')
         history.append(clock)
-        valid=store.verify(body.password)
-        if not valid or body.username!='piwig':raise HTTPException(401,'Identifiant ou mot de passe incorrect.')
-        attempts.pop(ip,None);token=secrets.token_urlsafe(32);csrf=secrets.token_urlsafe(32)
-        with store.db() as db:
-            db.execute('DELETE FROM sessions WHERE expires<?',(int(clock),))
-            db.execute('INSERT INTO sessions VALUES(?,?,?)',(hashlib.sha256(token.encode()).hexdigest(),csrf,int(clock)+604800))
+        user=accounts.user(body.username);valid=accounts.verify(user,body.password)
+        if not valid:raise HTTPException(401,'Identifiant ou mot de passe incorrect.')
+        attempts.pop(ip,None);token,csrf=accounts.start_session(user['id'])
         response.set_cookie('brt_session',token,httponly=True,secure=secure,samesite='strict',max_age=604800,path='/')
-        return {'ok':True,'csrf':csrf,'username':'piwig'}
+        return {'ok':True,'csrf':csrf,'username':user['username']}
 
     @app.post('/api/logout')
     def logout(response:Response,session=Depends(auth)):
-        with store.db() as db:db.execute('DELETE FROM sessions WHERE token=?',(session['token'],))
+        accounts.logout(session['token'])
         response.delete_cookie('brt_session',path='/');return {'ok':True}
+
+    def admin(session=Depends(auth)):
+        if not session['admin']:raise HTTPException(403,'Réservé à l’administrateur.')
+        return session
+
+    @app.get('/api/admin/users',dependencies=[Depends(admin)])
+    def users():return accounts.list_users()
+
+    @app.post('/api/admin/users',dependencies=[Depends(admin)])
+    def create_user(body:NewUser):
+        try:return accounts.create(body.username,body.password)
+        except ValueError as e:raise HTTPException(422,str(e)) from None
+
+    @app.post('/api/account/password')
+    def change_password(body:PasswordChange,response:Response,session=Depends(auth)):
+        if not accounts.verify(accounts.user(session['username']),body.current_password):raise HTTPException(403,'Mot de passe actuel incorrect.')
+        accounts.change_password(session['user_id'],body.new_password)
+        response.delete_cookie('brt_session',path='/')
+        return {'ok':True}
+
+    def credentials(tid=''):
+        shared={k:v for k,v in primary.secrets('').items() if k in ['d','dk']}
+        return {**shared,**store.secrets(tid)}
+
+    @app.post('/api/classic/import',dependencies=[Depends(auth)])
+    async def classic_import(body:ManagerImport):
+        throttle('manager-import')
+        try:return await import_manager(store,credentials(),body.access_key,body.developer_id,body.developer_key)
+        except ValueError as e:raise HTTPException(422,str(e)[:250]) from None
+
+    @app.post('/api/classic/sync',dependencies=[Depends(auth)])
+    async def classic_sync():
+        throttle('manager-import')
+        raw=store.get('api_manager')
+        if not raw:raise HTTPException(422,'Importez d’abord votre compte Classic.')
+        keys=json.loads(store.cipher.decrypt(raw.encode()))
+        try:return await import_manager(store,credentials(),'m='+keys['m']+'&mk='+keys['mk'])
+        except ValueError as e:raise HTTPException(422,str(e)[:250]) from None
 
     def snapshot_data(tid,youth):
         with store.db() as db:rows=db.execute('SELECT * FROM snapshots WHERE team_id=? AND youth=? ORDER BY id DESC LIMIT 2',(tid,int(youth))).fetchall()
@@ -122,7 +174,12 @@ def create_app(directory=None,password=None,secure=None):
         return players,latest
 
     @app.get('/api/state')
-    def state(team_id:str='72450',session=Depends(auth)):
+    def state(team_id:str='',session=Depends(auth)):
+        user={'username':session['username'],'admin':bool(session['admin'])}
+        with store.db() as db:
+            available=[dict(r) for r in db.execute('SELECT id,name,country FROM teams ORDER BY name')]
+        if not available:return {'setup_required':True,'teams':[],'user':user,'csrf':session['csrf'],'classic_account':store.get('classic_account'),'settings':{'developer_ready':bool(credentials().get('dk')),'manager_ready':False}}
+        if team_id not in [t['id'] for t in available]:team_id='72450' if any(t['id']=='72450' for t in available) else available[0]['id']
         current=require_team(team_id);academy,asnap=snapshot_data(team_id,True);squad,ssnap=snapshot_data(team_id,False)
         with store.db() as db:
             teams=[dict(r) for r in db.execute('SELECT id,name,country FROM teams ORDER BY name')]
@@ -131,8 +188,8 @@ def create_app(directory=None,password=None,secure=None):
             snapshots=[dict(r) for r in db.execute('SELECT id,youth,source,observed_at,imported_at FROM snapshots WHERE team_id=? ORDER BY id DESC LIMIT 40',(team_id,))]
             matches=[{**json.loads(r['payload']),'updated_at':r['updated_at']} for r in db.execute('SELECT * FROM matches ORDER BY updated_at DESC LIMIT 100')]
         for m in matches:m['summary']=attack_summary(m['events']);m['event_count']=len(m.pop('events'))
-        creds=store.secrets(team_id)
-        return {'teams':teams,'current_team':{**current,'meta':json.loads(current['meta'])},'academy':academy,'squad':squad,'academy_source':asnap,'squad_source':ssnap,'snapshots':snapshots,'notes':notes,'plans':plans,'matches':matches,'game_date':store.get('game_date'),
+        creds=credentials(team_id)
+        return {'user':user,'setup_required':False,'classic_account':store.get('classic_account'),'teams':teams,'current_team':{**current,'meta':json.loads(current['meta'])},'academy':academy,'squad':squad,'academy_source':asnap,'squad_source':ssnap,'snapshots':snapshots,'notes':notes,'plans':plans,'matches':matches,'game_date':store.get('game_date'),
           'lineup':store.get('lineup:'+team_id,{}),'training':store.get('training:'+team_id,[]),'settings':{'developer_ready':bool(creds.get('d') and creds.get('dk')),'manager_ready':bool(creds.get('m') and creds.get('mk'))},'csrf':session['csrf']}
 
     @app.post('/api/teams',dependencies=[Depends(auth)])
@@ -213,8 +270,8 @@ def create_app(directory=None,password=None,secure=None):
 
     @app.get('/api/export',dependencies=[Depends(auth)])
     def export(team_id:str='72450',kind:str='all'):
-        require_team(team_id)
         if kind in ['academy','squad']:
+            require_team(team_id)
             players,_=snapshot_data(team_id,kind=='academy')
             flat=[{k:v for k,v in p.items() if not isinstance(v,(list,dict))} for p in players]
             return Response(csv_export(flat),media_type='text/csv',headers={'Content-Disposition':f'attachment; filename="brt-{team_id}-{kind}.csv"'})
@@ -226,13 +283,13 @@ def create_app(directory=None,password=None,secure=None):
         return Response(pack(export),media_type='application/json',headers={'Content-Disposition':'attachment; filename="brt-backup.json"'})
 
     def throttle(key):
-        t=time.monotonic()
+        key=str(store.path)+':'+key;t=time.monotonic()
         if t-sync_times.get(key,0)<10:raise HTTPException(429,'Patientez 10 secondes entre deux synchronisations.')
         sync_times[key]=t
 
     @app.post('/api/sync',dependencies=[Depends(auth)])
     async def sync(body:Sync):
-        require_team(body.team_id);throttle(body.team_id+body.kind);client=ClassicClient(store.secrets(body.team_id))
+        require_team(body.team_id);throttle(body.team_id+body.kind);client=ClassicClient(credentials(body.team_id))
         try:
             if body.kind in ['academy','squad']:
                 if not client.credentials.get('mk'):raise ClassicError('Ajoutez la clé manager autorisant la lecture des compétences de ce club.')
@@ -256,7 +313,7 @@ def create_app(directory=None,password=None,secure=None):
 
     @app.post('/api/matches/sync',dependencies=[Depends(auth)])
     async def sync_match(body:FixtureSync):
-        throttle('match:'+str(body.type)+body.id);client=ClassicClient(store.secrets('72450'));flags={1:{'u20':'1'},2:{'nat':'1'}}.get(body.type,{})
+        throttle('match:'+str(body.type)+body.id);client=ClassicClient(credentials());flags={1:{'u20':'1'},2:{'nat':'1'}}.get(body.type,{})
         try:
             doc=await client.request('f',fixtureid=body.id,**flags);fixture=doc.get('fixtures',{}).get(body.id)
             if not isinstance(fixture,dict):raise ClassicError('Rencontre introuvable pour ce type de match.')
@@ -272,10 +329,11 @@ def create_app(directory=None,password=None,secure=None):
     dist=Path(__file__).resolve().parents[1]/'web'/'dist'
     if dist.exists():
         app.mount('/assets',StaticFiles(directory=dist/'assets'),name='assets')
+        if (dist/'images').exists():app.mount('/images',StaticFiles(directory=dist/'images'),name='images')
         @app.get('/{path:path}')
         def frontend(path:str):
             if path.startswith('api/'):raise HTTPException(404,'Route inconnue.')
-            if path in ['manifest.webmanifest','sw.js','icon.svg']:return FileResponse(dist/path)
+            if path in ['manifest.webmanifest','sw.js','icon.svg','image-credits.json']:return FileResponse(dist/path)
             return FileResponse(dist/'index.html',headers={'Cache-Control':'no-cache'})
     return app
 

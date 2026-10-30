@@ -1,0 +1,63 @@
+[
+  {
+    "src": "/images/antoine-dupont-2023.jpg",
+    "name": "Antoine Dupont — Italie / France, Tournoi des Six Nations 2023",
+    "title": "AntoineDupont2023kick(cropped).jpg",
+    "author": "Stefano Delfrate (stede64)",
+    "license": "CC BY-SA 2.0",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:AntoineDupont2023kick(cropped).jpg",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0/",
+    "originalSourceUrl": "https://www.flickr.com/photos/57810730@N03/52678086732/",
+    "downloadUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e5/AntoineDupont2023kick%28cropped%29.jpg/1280px-AntoineDupont2023kick%28cropped%29.jpg?utm_campaign=index&utm_content=thumbnail&utm_source=commons.wikimedia.org",
+    "changes": "Recadrage Wikimedia Commons par AideDésintéressée ; miniature officielle Wikimedia de 1280 px. Aucun autre traitement local.",
+    "width": 1280,
+    "height": 878,
+    "focalPoint": "38% 42%",
+    "verifiedOn": "2026-10-30"
+  },
+  {
+    "src": "/images/siya-kolisi-2022.jpg",
+    "name": "Siya Kolisi — Italie / Afrique du Sud, 2022",
+    "title": "Siya Kolisi 2022.jpg",
+    "author": "Stefano Delfrate",
+    "license": "CC BY-SA 2.0",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Siya_Kolisi_2022.jpg",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0/",
+    "downloadUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/7e/Siya_Kolisi_2022.jpg/960px-Siya_Kolisi_2022.jpg?utm_campaign=index&utm_content=thumbnail&utm_source=commons.wikimedia.org",
+    "changes": "Recadrage Wikimedia Commons par Stemoc ; miniature officielle Wikimedia de 960 px. Aucun autre traitement local.",
+    "width": 960,
+    "height": 1208,
+    "focalPoint": "50% 28%",
+    "verifiedOn": "2026-10-30"
+  },
+  {
+    "src": "/images/dan-carter-2015.jpg",
+    "name": "Dan Carter — Nouvelle-Zélande / Tonga, Coupe du monde 2015",
+    "title": "Dan Carter 2015 RWC.jpg",
+    "author": "quintinsmith_ip",
+    "license": "CC BY 2.0",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Dan_Carter_2015_RWC.jpg",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "originalSourceUrl": "https://www.flickr.com/photos/quintinsmith/22081552651/",
+    "downloadUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/85/Dan_Carter_2015_RWC.jpg/1280px-Dan_Carter_2015_RWC.jpg?utm_campaign=index&utm_content=thumbnail&utm_source=commons.wikimedia.org",
+    "changes": "Miniature officielle Wikimedia de 1280 px. Aucun autre traitement local.",
+    "width": 1280,
+    "height": 853,
+    "focalPoint": "56% 48%",
+    "verifiedOn": "2026-10-30"
+  },
+  {
+    "src": "/images/rugby-ball-hero.jpg",
+    "name": "Ballon de rugby sur la ligne de touche au crépuscule",
+    "author": "Visuel généré avec OpenAI Image Generation pour Blackout Rugby Tools",
+    "license": "Visuel original généré par IA — aucune licence de banque d’images tierce",
+    "sourceUrl": null,
+    "licenseUrl": null,
+    "masterSrc": "/images/rugby-ball-hero.png",
+    "changes": "Génération originale, puis encodage JPEG qualité 88. Ce visuel est une illustration photoréaliste, pas une photographie documentaire.",
+    "width": 1536,
+    "height": 1024,
+    "focalPoint": "74% 60%",
+    "verifiedOn": "2026-10-30"
+  }
+]

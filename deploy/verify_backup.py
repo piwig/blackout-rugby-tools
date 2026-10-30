@@ -9,15 +9,22 @@ with tempfile.TemporaryDirectory(prefix='brt-restore-',dir='/var/tmp') as folder
     archives=sorted((root/'opt/brt/backups').glob('brt-*.tar.gz'))
     assert archives,'No backup archive found'
     with tarfile.open(archives[-1]) as archive:
-        for name in ('brt.sqlite','encryption.key'):
-            member=archive.extractfile(name)
-            assert member is not None
-            (root/name).write_bytes(member.read())
-    cipher=Fernet((root/'encryption.key').read_bytes())
-    with sqlite3.connect(root/'brt.sqlite') as db:
-        assert db.execute('PRAGMA integrity_check').fetchone()[0]=='ok'
-        for value, in db.execute("SELECT value FROM kv WHERE key='api_developer' OR key LIKE 'api_member:%'"):
-            assert isinstance(json.loads(cipher.decrypt(json.loads(value).encode())),dict)
-        assert db.execute('SELECT count(*) FROM snapshots').fetchone()[0]>=4
+        for member in archive.getmembers():
+            name=Path(member.name)
+            assert member.isfile() and not name.is_absolute() and '..' not in name.parts
+            assert name.name in ('brt.sqlite','accounts.sqlite','encryption.key')
+            path=root/'restored'/name;path.parent.mkdir(parents=True,exist_ok=True)
+            path.write_bytes(archive.extractfile(member).read())
+    data=root/'restored'
+    for database in data.rglob('*.sqlite'):
+        with sqlite3.connect(database) as db:
+            assert db.execute('PRAGMA integrity_check').fetchone()[0]=='ok'
+            if database.name=='brt.sqlite':
+                cipher=Fernet((database.parent/'encryption.key').read_bytes())
+                for value, in db.execute("SELECT value FROM kv WHERE key IN ('api_developer','api_manager') OR key LIKE 'api_member:%'"):
+                    assert isinstance(json.loads(cipher.decrypt(json.loads(value).encode())),dict)
+            else:
+                for ident, in db.execute("SELECT id FROM users WHERE id!='primary'"):
+                    assert (data/'users'/ident/'brt.sqlite').is_file()
     assert list((root/'opt/brt/source').glob('*.tar.gz'))
 print('Offsite restoration: SQLite integrity, encrypted credentials and source archive OK')
