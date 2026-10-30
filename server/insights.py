@@ -1,5 +1,6 @@
 """Private observations and manual scenarios; no Classic requests or predictions."""
 import json
+from collections import deque
 from datetime import datetime, timezone
 from decimal import Decimal
 from itertools import groupby
@@ -10,6 +11,7 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validato
 
 from .domain import ATTACKS, SKILLS, ZONES, attack_summary, number
 from .storage import now, pack
+from .progression import _epoch, _stamp
 
 Identifier = Annotated[str, Field(pattern=r'^[0-9]{1,15}$')]
 LocalId = Annotated[str, Field(pattern=r'^[a-zA-Z0-9_-]{1,64}$')]
@@ -17,6 +19,11 @@ SkillName = Literal['stamina', 'handling', 'attack', 'defense', 'technique', 'st
 Money = Annotated[float, Field(ge=0, le=1_000_000_000_000, allow_inf_nan=False, strict=True)]
 Capacity = Annotated[int, Field(ge=0, le=1_000_000, strict=True)]
 CATEGORIES = ('standing', 'uncovered', 'covered', 'members', 'corporate')
+ACADEMY_SNAPSHOT_LIMIT = 240
+ACADEMY_PAYLOAD_LIMIT = 250_000
+ACADEMY_TOTAL_BYTES = 8_000_000
+ACADEMY_PLAYER_BUDGET = 12_000
+ACADEMY_SNAPSHOT_PLAYERS = 4000
 
 
 class Model(BaseModel):
@@ -146,31 +153,78 @@ def export_insights(store):
 
 
 def academy_report(store, team_id, state, document):
+    # Query bounded metadata first. SQL never parses an oversized legacy payload;
+    # Python reads one accepted JSON document at a time under the same bounds.
     with store.db() as db:
-        total = db.execute('SELECT COUNT(*) FROM snapshots WHERE team_id=? AND youth=1', (team_id,)).fetchone()[0]
-        rows = [dict(r) for r in db.execute('SELECT id,observed_at,source,payload FROM snapshots WHERE team_id=? AND youth=1 ORDER BY id DESC LIMIT 240', (team_id,))]
-    dated, undated = [], 0
-    for row in rows:
-        try:
-            stamp = datetime.fromisoformat(row['observed_at'].replace('Z', '+00:00'))
-            # Legacy imports may provide only a date; keep that original precision in output.
-            row['_stamp'] = stamp.replace(tzinfo=timezone.utc) if stamp.tzinfo is None else stamp.astimezone(timezone.utc)
-            dated.append(row)
-        except (ValueError, TypeError, AttributeError):
-            undated += 1
-    dated.sort(key=lambda row: (row['_stamp'], row['id']))
-    previous, timeline = {}, []
-    for _, same_time in groupby(dated, key=lambda row: row['_stamp']):
+        db.create_function('academy_epoch', 1, _epoch, deterministic=True)
+        total, undated = db.execute('''SELECT COUNT(*),COALESCE(SUM(academy_epoch(substr(observed_at,1,80)) IS NULL),0)
+            FROM snapshots WHERE team_id=? AND youth=1''', (team_id,)).fetchone()
+        rows = [dict(row) for row in db.execute('''SELECT id,substr(observed_at,1,80) AS observed_at,substr(source,1,500) AS source,
+            length(CAST(payload AS BLOB)) AS payload_bytes,
+            CASE WHEN length(CAST(payload AS BLOB))<=? THEN
+              CASE WHEN json_valid(payload) THEN
+                CASE WHEN json_type(payload)='array' THEN json_array_length(payload) END END END AS player_count
+            FROM snapshots WHERE team_id=? AND youth=1 AND academy_epoch(substr(observed_at,1,80)) IS NOT NULL
+            ORDER BY academy_epoch(substr(observed_at,1,80)) DESC,id DESC LIMIT ?''',
+            (ACADEMY_PAYLOAD_LIMIT, team_id, ACADEMY_SNAPSHOT_LIMIT+1))]
+    reasons=set()
+    if undated:reasons.add('undated')
+    if total-undated>ACADEMY_SNAPSHOT_LIMIT:reasons.add('snapshot_limit')
+    selected=rows[:ACADEMY_SNAPSHOT_LIMIT]
+    if len(rows)>ACADEMY_SNAPSHOT_LIMIT:
+        boundary=_stamp(rows[-1]['observed_at'])
+        selected=[row for row in selected if _stamp(row['observed_at'])!=boundary]
+    # Keep whole timestamp batches, newest first. A skipped batch remains a gap
+    # in the chronological comparison and cannot contribute a partial conflict.
+    batches=[];bytes_used=players_used=0
+    for stamp, batch in groupby(selected,key=lambda row:_stamp(row['observed_at'])):
+        batch=list(batch)
+        if any(row['player_count'] is None or row['player_count']>ACADEMY_SNAPSHOT_PLAYERS for row in batch):
+            batches.append((stamp,None));reasons.add('invalid_or_oversized_snapshot');continue
+        byte_cost=sum(row['payload_bytes'] for row in batch)
+        player_cost=sum(row['player_count'] for row in batch)
+        if bytes_used+byte_cost>ACADEMY_TOTAL_BYTES or players_used+player_cost>ACADEMY_PLAYER_BUDGET:
+            reasons.add('history_budget');break
+        bytes_used+=byte_cost;players_used+=player_cost;batches.append((stamp,batch))
+    previous, timeline = {}, deque(maxlen=500)
+    usable_snapshots=0
+    for _, batch in reversed(batches):
+        if batch is None:
+            previous={};continue
         observations, current = {}, {}
-        for row in same_time:
-            for player in json.loads(row['payload']):
-                observations.setdefault(str(player.get('id', '')), []).append((player, row))
-        for pid, entries in sorted(observations.items()):
-            name = min(str(player.get('name') or pid) for player, _ in entries)
-            observed_at = min(row['observed_at'] for _, row in entries)
-            source = ' · '.join(sorted({row['source'] for _, row in entries}))
+        invalid_batch=False
+        for row in batch:
+            try:
+                with store.db() as db:
+                    stored=db.execute('''SELECT CASE WHEN length(CAST(payload AS BLOB))<=? THEN payload END
+                        FROM snapshots WHERE id=? AND team_id=? AND youth=1''',
+                        (min(ACADEMY_PAYLOAD_LIMIT,row['payload_bytes']),row['id'],team_id)).fetchone()
+                payload=json.loads(stored[0] if stored else None)
+                del stored
+                if not isinstance(payload,list) or len(payload)!=row['player_count']:
+                    raise ValueError('Observation changed or invalid')
+                for player in payload:
+                    if not isinstance(player,dict):raise ValueError('Invalid player')
+                    pid=str(player.get('id',''))
+                    if not pid.isdigit() or len(pid)>15:raise ValueError('Invalid player ID')
+                    name=str(player.get('name') or pid)[:120]
+                    merged=observations.setdefault(pid,{'name':name,'observed_at':row['observed_at'],
+                        'sources':set(),'values':{skill:set() for skill in SKILLS}})
+                    merged['name']=min(merged['name'],name)
+                    merged['observed_at']=min(merged['observed_at'],row['observed_at'])
+                    merged['sources'].add(row['source'])
+                    for skill in SKILLS:merged['values'][skill].add(number(player.get(skill)))
+                del payload
+            except (ValueError,TypeError,RecursionError):
+                invalid_batch=True;break
+        if invalid_batch:
+            previous={};reasons.add('invalid_or_oversized_snapshot');continue
+        usable_snapshots+=len(batch)
+        for pid, merged in sorted(observations.items()):
+            source=' · '.join(sorted(merged['sources']))
+            if len(source)>500:source=source[:497]+'…';reasons.add('source_limit')
             for skill in SKILLS:
-                values = sorted({number(player.get(skill)) for player, _ in entries},
+                values = sorted(merged['values'][skill],
                                 key=lambda value: (value is not None, value or 0))
                 conflicting = len(values) > 1
                 after = values[-1]
@@ -186,9 +240,10 @@ def academy_report(store, team_id, state, document):
                     before = old[0]
                     delta = None if before is None else round(after - before, 4)
                     kind = 'revealed' if before is None else 'numeric_change'
-                timeline.append({'player_id': pid, 'name': name, 'skill': skill,
+                if len(timeline)==timeline.maxlen:reasons.add('timeline_limit')
+                timeline.append({'player_id': pid, 'name': merged['name'], 'skill': skill,
                                  'before': before, 'after': after, 'delta': delta, 'kind': kind,
-                                 'observed_at': observed_at, 'source': source,
+                                 'observed_at': merged['observed_at'], 'source': source,
                                  **({'values': values} if conflicting else {})})
         previous = current
     generations = {}
@@ -215,8 +270,9 @@ def academy_report(store, team_id, state, document):
         planned_skill = planned.get(key)
         sessions.append({**session, 'provenance': 'manual', 'planned_skill': planned_skill,
                          'comparison': 'unplanned' if not planned_skill else 'matches_plan' if planned_skill == session['skill'] else 'differs_from_plan'})
-    return {'generations': generations, 'timeline': timeline[-500:], 'snapshot_count': len(dated),
-            'history_truncated': total > 240 or len(timeline) > 500, 'undated_snapshots': undated,
+    return {'generations': generations, 'timeline': list(timeline), 'snapshot_count': usable_snapshots,
+            'history_truncated': bool(reasons), 'undated_snapshots': undated,
+            'skipped_snapshots': total-usable_snapshots, 'truncation_reasons': sorted(reasons),
             'sessions': sessions, 'planned_count': len(planned), 'unrecorded_count': len(set(planned) - recorded),
             'latest_training_observation': state.get('training', []),
             'stale_goal_ids': [pid for pid in goals if pid not in {str(p['id']) for p in state.get('academy', [])}]}

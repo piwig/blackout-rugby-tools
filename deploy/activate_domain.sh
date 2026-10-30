@@ -8,6 +8,7 @@ ln -sfn /etc/nginx/sites-available/brt.conf /etc/nginx/sites-enabled/brt.conf
 nginx -t
 systemctl reload nginx
 certbot certonly --webroot -w /var/www/letsencrypt -d brt.bordebat.fr --non-interactive
+install -m 644 /opt/brt/current/deploy/brt-cloudflare-realip.conf /etc/nginx/snippets/brt-cloudflare-realip.conf
 install -m 644 /opt/brt/current/deploy/nginx.tls.conf /etc/nginx/sites-available/brt.conf
 nginx -t
 systemctl reload nginx

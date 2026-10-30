@@ -1,10 +1,34 @@
 """Application identities and isolated data stores. Never trust a client tenant ID."""
-import hashlib,json,secrets,sqlite3,time,uuid,re
+import hashlib,json,secrets,sqlite3,time,uuid,re,shutil,unicodedata
 from contextlib import contextmanager
 from contextvars import ContextVar
 from .storage import Store,password_hash,pack,now
 
 active_store=ContextVar('brt_private_store')
+
+class UsernameTaken(ValueError):
+    pass
+
+
+def normalize_email(value):
+    """Validate a bounded mailbox syntax; this does not verify its ownership."""
+    if not isinstance(value,str) or any(unicodedata.category(c).startswith('C') for c in value):
+        raise ValueError('Adresse e-mail invalide.')
+    value=value.strip()
+    if len(value)>254 or value.count('@')!=1:
+        raise ValueError('Adresse e-mail invalide.')
+    local,domain=value.rsplit('@',1)
+    if (not 1<=len(local)<=64 or not re.fullmatch(r"[A-Za-z0-9!#$%&'*+/=?^_`{|}~.-]+",local)
+            or local.startswith('.') or local.endswith('.') or '..' in local):
+        raise ValueError('Adresse e-mail invalide.')
+    try:domain=domain.encode('idna').decode('ascii').lower()
+    except UnicodeError:raise ValueError('Adresse e-mail invalide.') from None
+    labels=domain.split('.')
+    if len(labels)<2 or any(not re.fullmatch(r'[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?',label) for label in labels):
+        raise ValueError('Adresse e-mail invalide.')
+    email=local+'@'+domain
+    if len(email)>254:raise ValueError('Adresse e-mail invalide.')
+    return email
 
 class PrivateStore:
     def __getattr__(self,name):
@@ -19,6 +43,7 @@ class Accounts:
             db.executescript('''
             CREATE TABLE IF NOT EXISTS users(id TEXT PRIMARY KEY,username TEXT UNIQUE NOT NULL,password TEXT NOT NULL,admin INTEGER NOT NULL DEFAULT 0,created_at TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS sessions(token TEXT PRIMARY KEY,user_id TEXT NOT NULL,csrf TEXT NOT NULL,expires INTEGER NOT NULL);
+            CREATE TABLE IF NOT EXISTS user_contacts(user_id TEXT PRIMARY KEY REFERENCES users(id),email TEXT NOT NULL,created_at TEXT NOT NULL);
             ''')
             db.execute('INSERT OR IGNORE INTO users VALUES(?,?,?,?,?)',('primary','piwig',pack(primary.get('password')),1,now()))
     @contextmanager
@@ -40,18 +65,42 @@ class Accounts:
         p=json.loads(user['password']) if user else self.primary.get('password')
         valid=secrets.compare_digest(p['hash'],password_hash(password,bytes.fromhex(p['salt'])))
         return bool(user and valid)
-    def create(self,username,password):
+    def create(self,username,password,*,email=None,avatar_style=None):
+        from .profile import PROFILE_KEY,ProfilePreferences
         username=username.strip().lower()
         if not re.fullmatch(r'[a-z0-9][a-z0-9_.-]{2,39}',username):raise ValueError('Identifiant : 3 à 40 lettres, chiffres, tirets ou points.')
         if not 12<=len(password)<=128:raise ValueError('Mot de passe : 12 à 128 caractères.')
+        email=normalize_email(email) if email is not None else None
+        profile=ProfilePreferences(avatar_style=avatar_style).model_dump() if avatar_style is not None else None
         ident=uuid.uuid4().hex;salt=secrets.token_bytes(16)
-        hashed=pack({'salt':salt.hex(),'hash':password_hash(password,salt)})
-        with self.db() as db:
-            if db.execute('SELECT 1 FROM users WHERE username=?',(username,)).fetchone():raise ValueError('Cet identifiant est déjà utilisé.')
-            private=Store(self.root/'users'/ident,password,seed=False)
-            db.execute('INSERT INTO users VALUES(?,?,?,?,?)',(ident,username,hashed,0,now()))
+        directory=self.root/'users'/ident;owned=False
+        try:
+            with self.db() as db:
+                # Serialize the uniqueness check and every identity side effect.
+                # A failed store/contact/profile write rolls back the registry too.
+                db.execute('BEGIN IMMEDIATE')
+                if db.execute('SELECT 1 FROM users WHERE username=?',(username,)).fetchone():
+                    raise UsernameTaken('Cet identifiant est déjà utilisé.')
+                hashed=pack({'salt':salt.hex(),'hash':password_hash(password,salt)})
+                directory.parent.mkdir(parents=True,exist_ok=True)
+                directory.mkdir(exist_ok=False);owned=True
+                private=Store(directory,password,seed=False)
+                if profile is not None:
+                    private.set(PROFILE_KEY,{'revision':1,'profile':profile,'updated_at':now()})
+                db.execute('INSERT INTO users VALUES(?,?,?,?,?)',(ident,username,hashed,0,now()))
+                if email is not None:
+                    db.execute('INSERT INTO user_contacts VALUES(?,?,?)',(ident,email,now()))
+        except Exception:
+            # Delete only the random directory exclusively created by this call.
+            if owned and directory.resolve().parent==(self.root/'users').resolve() and not directory.is_symlink():
+                shutil.rmtree(directory)
+            raise
         self.stores[ident]=private
         return {'id':ident,'username':username,'admin':False}
+    def get_contact(self,user_id):
+        with self.db() as db:
+            row=db.execute('SELECT email,created_at FROM user_contacts WHERE user_id=?',(user_id,)).fetchone()
+        return dict(row) if row else None
     def start_session(self,user_id):
         token=secrets.token_urlsafe(32);csrf=secrets.token_urlsafe(32)
         with self.db() as db:

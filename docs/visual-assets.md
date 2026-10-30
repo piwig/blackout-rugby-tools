@@ -1,6 +1,6 @@
 # Visuels rugby
 
-Préparés et inspectés le 30 octobre 2026. Le code de l'application n'a pas été modifié par ce lot.
+Visuels préparés le 30 octobre 2026, puis complétés pour le lot parcours, profil et progression. Les sections ci-dessous distinguent les photographies documentaires, les créations synthétiques BRT et les marques réelles des clubs.
 
 | Fichier public | Dimensions | Poids | Usage recommandé |
 | --- | --- | --- | --- |
@@ -38,4 +38,38 @@ Les quatre visuels ont été ouverts et inspectés. Dimensions lues dans les fic
 
 La demande utilisateur de dépasser le vert uniforme remplace la recommandation initiale de photographies secondaires sous voile vert. Le stade original et le vestiaire sont désormais les scènes principales ; les photos de joueurs gardent leurs couleurs naturelles. Navigation charbon, papier ivoire, accents brique/ocre/bleu. Les dégradés derrière le texte sont neutres ; les tableaux restent sur des surfaces unies.
 
-Nouveaux fichiers et prompts exacts : docs/rugby-redesign-assets.md. Crédits IA et recadrages CSS ajoutés au catalogue visible. Les JPEG historiques ne sont pas modifiés.
+Fichiers de cette première refonte et prompts exacts : [visuels de la refonte rugby](rugby-redesign-assets.md). Crédits IA et recadrages CSS ajoutés au catalogue visible. Les JPEG historiques ne sont pas modifiés.
+
+## Identité BRT et bannières du lot parcours
+
+Trois créations originales supplémentaires ont été réalisées avec **ImageGen intégré**, sans recours à une banque d’images ni à des photos d’un lieu identifié. Le logo est un dessin de blason de rugby sans lettres ; les deux scènes sont des illustrations photoréalistes synthétiques, sans marque de club. Elles ne documentent pas un stade ou un vestiaire réel.
+
+| Fichier livré | Dimensions | Octets | Usage |
+| --- | --- | ---: | --- |
+| [brt-logo-48.png](../web/public/images/brt-logo-48.png) | 48 × 48, PNG avec alpha | 4 701 | Favicon PNG |
+| [brt-logo-180.png](../web/public/images/brt-logo-180.png) | 180 × 180, PNG avec alpha | 37 350 | Icône Apple |
+| [brt-logo-192.png](../web/public/images/brt-logo-192.png) | 192 × 192, PNG avec alpha | 41 452 | Marque dans l’interface, avatar Rugby BRT et manifeste |
+| [brt-logo-512.png](../web/public/images/brt-logo-512.png) | 512 × 512, PNG avec alpha | 199 377 | Icône de grande taille et manifeste |
+| [brt-favicon.ico](../web/public/images/brt-favicon.ico) | Conteneur ICO | 15 480 | Favicon alternatif |
+| [brt-banner-matchday.jpg](../web/public/images/brt-banner-matchday.jpg) | 1920 × 800, JPEG RGB | 217 998 | Bannière « Jour de match » |
+| [brt-banner-clubhouse.jpg](../web/public/images/brt-banner-clubhouse.jpg) | 1920 × 800, JPEG RGB | 221 692 | Bannière « Vie du club » |
+
+Les dimensions et formats PNG/JPEG ont été relus dans les fichiers ; le poids de chaque fichier a été relevé sur disque. Les dérivés sont des conversions et redimensionnements des générations initiales. Les PNG conservent un canal alpha. L’interface utilise le logo de 192 px ; les icônes et couleurs sont référencées par [index.html](../web/index.html) et le [manifeste](../web/public/manifest.webmanifest). Les crédits des trois créations sont présents dans [image-credits.json](../web/public/image-credits.json).
+
+### Provenance des générations
+
+Les maîtres restent hors dépôt dans la session locale `C:\Users\pieri\.codex\generated_images\01a18de5-548e-77a3-a09e-6d0c2573d70f`. Les descriptions suivantes résument les demandes de génération ; elles ne sont pas des transcriptions exactes des prompts.
+
+| Création | Fichier maître dans la session | Résumé de la demande |
+| --- | --- | --- |
+| Emblème BRT | `exec-0915e144-2ed2-47d1-975f-7792843d0903.png` | Blason à dessin plat, ballon ovale de rugby et poteaux ; or `#DAB66E`, ivoire `#F7F2E7`, bleu nuit `#17212B` ; fond transparent, sans lettres. |
+| Jour de match | `exec-9dd9c49c-f215-4ad6-98fc-8c8e3520539b.png` | Scène photoréaliste originale à l’entrée d’un terrain depuis un tunnel de stade ; partie gauche sombre et dégagée pour le texte ; sans marque de club. |
+| Vie du club | `exec-5c9da56c-2a9b-4cd1-888f-37c35fbc7b5b.png` | Vestiaire en bois photoréaliste original ; ambiance rugby, partie gauche sombre et dégagée pour le texte ; sans marque de club. |
+
+### Avatars et club de cœur
+
+Les quatre propositions d’avatar utilisent les icônes Lucide `Shirt`, `Shield`, `Trophy` et le logo BRT local. Aucun SVG, URL ou fichier fourni par un manager n’est accepté comme avatar. Le numéro, les initiales et le club de cœur se règlent séparément dans le profil.
+
+Les huit marques de Toulouse, La Rochelle, Leinster, Racing 92, Toulon, Clermont, Munster et Crusaders proviennent de sources officielles ; elles n’ont pas été générées. Le [catalogue et ses preuves de provenance](rugby-club-assets.md) précise les traitements, dimensions et conditions de présentation. Leur présence indique une préférence personnelle, sans affiliation de BRT aux clubs. Les variantes comportant du blanc sont posées sur une surface sombre, et les proportions sont conservées.
+
+Les [captures locales du lot parcours](experience-2026-10-30.md#captures-du-parcours) documentent l’intégration. Les contrôles sur la version publique restent à consigner dans le [suivi du déploiement](deployment.md).

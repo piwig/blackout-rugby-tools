@@ -76,7 +76,7 @@ class Store:
         p=self.get('password');return secrets.compare_digest(p['hash'],password_hash(password,bytes.fromhex(p['salt'])))
     def save_snapshot(self,team_id,youth,players,source,observed_at=None,game_date=None,db=None):
         payload=pack(players); digest=hashlib.sha256(payload.encode()).hexdigest()
-        values=(team_id,int(youth),source,observed_at or now(),now(),digest,payload,pack(game_date) if game_date else None)
+        values=(team_id,int(youth),str(source)[:500],str(observed_at or now())[:80],now(),digest,payload,pack(game_date) if game_date else None)
         sql='INSERT INTO snapshots(team_id,youth,source,observed_at,imported_at,digest,payload,game_date) VALUES(?,?,?,?,?,?,?,?)'
         def save(conn):
             last=conn.execute('SELECT digest FROM snapshots WHERE team_id=? AND youth=? ORDER BY id DESC LIMIT 1',(team_id,int(youth))).fetchone()

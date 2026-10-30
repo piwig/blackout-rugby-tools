@@ -1,1 +1,26 @@
-{"id":"/","name":"Blackout Rugby Tools","short_name":"BRT","description":"Votre atelier Blackout Rugby Classic","start_url":"/","scope":"/","display":"standalone","background_color":"#f2efe9","theme_color":"#1c222c","lang":"fr","icons":[{"src":"/icon.svg?v=rugby2","sizes":"any","type":"image/svg+xml","purpose":"any"}]}
+{
+  "id": "/",
+  "name": "Blackout Rugby Tools",
+  "short_name": "BRT",
+  "description": "Votre atelier Blackout Rugby Classic",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f2efe9",
+  "theme_color": "#1c222c",
+  "lang": "fr",
+  "icons": [
+    {
+      "src": "/images/brt-logo-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/images/brt-logo-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

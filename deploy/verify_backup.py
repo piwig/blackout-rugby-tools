@@ -21,10 +21,14 @@ with tempfile.TemporaryDirectory(prefix='brt-restore-',dir='/var/tmp') as folder
             assert db.execute('PRAGMA integrity_check').fetchone()[0]=='ok'
             if database.name=='brt.sqlite':
                 cipher=Fernet((database.parent/'encryption.key').read_bytes())
-                for value, in db.execute("SELECT value FROM kv WHERE key IN ('api_developer','api_manager') OR key LIKE 'api_member:%'"):
+                for value, in db.execute("SELECT value FROM kv WHERE key IN ('api_developer','api_developer_pending','api_developer_previous_20261030','api_manager') OR key LIKE 'api_member:%'"):
                     assert isinstance(json.loads(cipher.decrypt(json.loads(value).encode())),dict)
             else:
                 for ident, in db.execute("SELECT id FROM users WHERE id!='primary'"):
                     assert (data/'users'/ident/'brt.sqlite').is_file()
     assert list((root/'opt/brt/source').glob('*.tar.gz'))
+    # Recent releases also retain server-only SMTP/CAPTCHA configuration.
+    config=root/'etc/brt'
+    if config.exists():
+        assert (config/'contact.env').is_file() and (config/'security.env').is_file()
 print('Offsite restoration: SQLite integrity, encrypted credentials and source archive OK')

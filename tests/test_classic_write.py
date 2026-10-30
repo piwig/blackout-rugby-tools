@@ -106,19 +106,22 @@ def test_fixtures_use_future_filter_and_keep_offset_dates(transport):
     assert decrypt_request(calls[0])['future'] == ['7']
 
 
-def test_write_uses_encrypted_post_body_and_returns_unverified_submission(transport):
+def test_write_encrypts_developer_key_in_post_body_and_returns_unverified_submission(transport):
     calls = transport(lambda request: httpx.Response(200, json={'status': 'Ok'}))
     result = asyncio.run(classic.ClassicClient(CREDENTIALS).write_lineup('7', '0', payload()))
     assert calls[0].method == 'POST'
     assert dict(calls[0].url.params) == {'d': '99'}
+    assert set(parse_qs(calls[0].content.decode())) == {'er'}
     body = decrypt_request(calls[0])
+    assert body.get('dk') == [CREDENTIALS['dk']]
     assert body['r'] == ['lu'] and body['update'] == ['1']
     assert body['teamid'] == ['7'] and body['fixtureid'] == ['0']
     assert body['1'] == ['101'] and body['subminute1'] == ['40+']
     assert body['mk'] == ['synthetic-manager']
-    assert 'p1' not in body and 'iv' not in body and 'dk' not in body
+    assert 'p1' not in body and 'iv' not in body
     assert result == {'status': 'submitted', 'requires_verification': True}
     assert b'synthetic-manager' not in calls[0].content
+    assert CREDENTIALS['dk'].encode() not in calls[0].content
 
 
 @pytest.mark.parametrize('missing', ['iv', 'm', 'mk', 'd', 'dk'])

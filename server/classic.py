@@ -328,7 +328,7 @@ class ClassicClient:
         self._check_credentials(manager=True)
         team_id, fixture_id = _integer(team_id, 1), _integer(fixture_id)
         canonical = validate_lineup_payload(payload)
-        values = {'m':self.credentials['m'],'mk':self.credentials['mk'],'r':'lu','json':'1',
+        values = {'dk':self.credentials['dk'],'m':self.credentials['m'],'mk':self.credentials['mk'],'r':'lu','json':'1',
                   'update':'1','teamid':team_id,'fixtureid':fixture_id,**canonical}
         encrypted = self._encrypt(values)
         data = await self._send('POST', {'d':self.credentials['d']}, {'er':encrypted}, before_send=before_send)

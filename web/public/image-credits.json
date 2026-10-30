@@ -85,5 +85,32 @@
     "height": 941,
     "focalPoint": "75% 55%",
     "verifiedOn": "2026-10-30"
+  },
+  {
+    "name": "Emblème Blackout Rugby Tools",
+    "src": "/images/brt-logo-512.png",
+    "author": "Création originale générée pour Blackout Rugby Tools",
+    "changes": "Génération ImageGen ; conversion et tailles adaptées au web.",
+    "license": "Visuel original généré, sans affiliation à un club.",
+    "sourceUrl": null,
+    "licenseUrl": null
+  },
+  {
+    "name": "L’entrée sur le terrain",
+    "src": "/images/brt-banner-matchday.jpg",
+    "author": "Création originale générée pour Blackout Rugby Tools",
+    "changes": "Génération ImageGen ; conversion et tailles adaptées au web.",
+    "license": "Visuel original généré, sans affiliation à un club.",
+    "sourceUrl": null,
+    "licenseUrl": null
+  },
+  {
+    "name": "Le vestiaire du manager",
+    "src": "/images/brt-banner-clubhouse.jpg",
+    "author": "Création originale générée pour Blackout Rugby Tools",
+    "changes": "Génération ImageGen ; conversion et tailles adaptées au web.",
+    "license": "Visuel original généré, sans affiliation à un club.",
+    "sourceUrl": null,
+    "licenseUrl": null
   }
 ]

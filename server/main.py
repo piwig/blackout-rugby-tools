@@ -8,7 +8,8 @@ import time
 from pathlib import Path
 from typing import Literal
 from fastapi import FastAPI,Request,Response,HTTPException,Depends,UploadFile,File,Form,Query
-from fastapi.responses import JSONResponse,FileResponse
+from fastapi.responses import JSONResponse,FileResponse,StreamingResponse
+from starlette.concurrency import run_in_threadpool
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel,Field,ConfigDict,field_validator
 from fastapi.exceptions import RequestValidationError
@@ -23,12 +24,20 @@ from .vacation import VacationService,VacationRule,VacationError
 from .lineup_lab import register_lineup_lab
 from .insights import register_insights
 from .workbench import register_workbench,identity_for
+from .profile import register_profile,get_profile
+from .progression import register_progression
+from .registration import register_registration
+from .contact import register_contact,contact_history
+from .auth_security import init_login_security,consume_login
+from .antibot import register_antibot,verify as verify_antibot
+from .exports import export_chunks
 
 class Model(BaseModel):
     model_config=ConfigDict(extra='forbid')
 class Login(Model):
     username:str=Field(max_length=60)
     password:str=Field(max_length=128)
+    captcha_token:str=Field(default='',max_length=2048)
 class NewUser(Model):
     username:str=Field(min_length=3,max_length=40)
     password:str=Field(min_length=12,max_length=128)
@@ -155,7 +164,9 @@ def create_app(directory=None,password=None,secure=None):
                 with suppress(asyncio.CancelledError):await task
 
     app=FastAPI(title='Blackout Rugby Tools',docs_url=None,redoc_url=None,openapi_url=None,lifespan=lifespan)
-    app.state.store=primary;app.state.accounts=accounts;attempts={};sync_times={}
+    app.state.store=primary;app.state.accounts=accounts;sync_times={}
+    init_login_security(accounts)
+    register_antibot(app,public_url,secure)
     app.state.vacations=vacation_services;app.state.vacation_cycle=vacation_cycle
 
     @app.exception_handler(VacationError)
@@ -174,7 +185,10 @@ def create_app(directory=None,password=None,secure=None):
     @app.middleware('http')
     async def security(request,call_next):
         if request.method not in ['GET','HEAD','OPTIONS']:
-            if int(request.headers.get('content-length','0'))>8_200_000:return JSONResponse({'detail':'Fichier limité à 8 Mo.'},status_code=413)
+            try:content_length=int(request.headers.get('content-length','0'))
+            except ValueError:return JSONResponse({'detail':'Requête invalide.'},status_code=400)
+            if content_length<0:return JSONResponse({'detail':'Requête invalide.'},status_code=400)
+            if content_length>8_200_000:return JSONResponse({'detail':'Fichier limité à 8 Mo.'},status_code=413)
             origin=request.headers.get('origin')
             allowed={public_url}
             if not secure:allowed.update({'http://localhost:5173','http://localhost:3042','http://127.0.0.1:3042','http://testserver'})
@@ -186,7 +200,7 @@ def create_app(directory=None,password=None,secure=None):
         finally:
             if token is not None:active_store.reset(token)
         response.headers.update({'X-Content-Type-Options':'nosniff','X-Frame-Options':'DENY','Referrer-Policy':'no-referrer','Permissions-Policy':'camera=(), microphone=(), geolocation=()',
-          'Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"})
+          'Content-Security-Policy':"default-src 'self'; script-src 'self' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; font-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"})
         if request.url.path.startswith('/api/'):response.headers['Cache-Control']='no-store'
         return response
 
@@ -202,20 +216,15 @@ def create_app(directory=None,password=None,secure=None):
         return dict(r)
 
     @app.get('/api/health')
-    def health():return {'ok':True,'version':'2.1.0'}
+    def health():return {'ok':True,'version':'2.2.0'}
 
     @app.post('/api/login')
     def login(body:Login,request:Request,response:Response):
-        ip=request.client.host if request.client else 'unknown';clock=time.time()
-        for key in list(attempts):
-            attempts[key]=[t for t in attempts[key] if t>clock-900]
-            if not attempts[key]:attempts.pop(key)
-        history=attempts.setdefault(ip,[])
-        if len(history)>=10:raise HTTPException(429,'Trop de tentatives. Patientez 15 minutes.')
-        history.append(clock)
+        consume_login(accounts,request.client.host if request.client else 'unknown',body.username)
+        verify_antibot(request,body.captcha_token,'login')
         user=accounts.user(body.username);valid=accounts.verify(user,body.password)
         if not valid:raise HTTPException(401,'Identifiant ou mot de passe incorrect.')
-        attempts.pop(ip,None);token,csrf=accounts.start_session(user['id'])
+        token,csrf=accounts.start_session(user['id'])
         response.set_cookie('brt_session',token,httponly=True,secure=secure,samesite='strict',max_age=604800,path='/')
         return {'ok':True,'csrf':csrf,'username':user['username']}
 
@@ -301,7 +310,7 @@ def create_app(directory=None,password=None,secure=None):
         return vacation_service(session['user_id']).stop(body.team_id)
 
     def snapshot_data(tid,youth):
-        with store.db() as db:rows=db.execute('SELECT * FROM snapshots WHERE team_id=? AND youth=? ORDER BY id DESC LIMIT 2',(tid,int(youth))).fetchall()
+        with store.db() as db:rows=db.execute('SELECT id,team_id,youth,substr(source,1,500) AS source,substr(observed_at,1,80) AS observed_at,substr(imported_at,1,80) AS imported_at,digest,payload,game_date FROM snapshots WHERE team_id=? AND youth=? ORDER BY id DESC LIMIT 2',(tid,int(youth))).fetchall()
         if not rows:return [],None
         latest=dict(rows[0]);players=json.loads(latest.pop('payload'));previous={p['id']:p for p in json.loads(rows[1]['payload'])} if len(rows)>1 else {}
         game_date=json.loads(latest['game_date']) if latest['game_date'] else store.get('game_date',{})
@@ -315,18 +324,21 @@ def create_app(directory=None,password=None,secure=None):
         user={'username':session['username'],'admin':bool(session['admin'])}
         with store.db() as db:
             available=[dict(r) for r in db.execute('SELECT id,name,country FROM teams ORDER BY name')]
-        if not available:return {'setup_required':True,'teams':[],'user':user,'csrf':session['csrf'],'classic_account':store.get('classic_account'),'settings':{'developer_ready':bool(credentials().get('dk')),'manager_ready':False}}
+        if not available:return {'setup_required':True,'teams':[],'user':user,'profile':get_profile(store),'csrf':session['csrf'],'classic_account':store.get('classic_account'),'settings':{'developer_ready':bool(credentials().get('dk')),'manager_ready':False}}
         if team_id not in [t['id'] for t in available]:team_id='72450' if any(t['id']=='72450' for t in available) else available[0]['id']
         current=require_team(team_id);academy,asnap=snapshot_data(team_id,True);squad,ssnap=snapshot_data(team_id,False)
         with store.db() as db:
             teams=[dict(r) for r in db.execute('SELECT id,name,country FROM teams ORDER BY name')]
             notes={r['player_id']:{'text':r['text'],'watch':bool(r['watch'])} for r in db.execute('SELECT * FROM notes WHERE team_id=?',(team_id,))}
             plans={str(r['season']):json.loads(r['grid']) for r in db.execute('SELECT * FROM plans WHERE team_id=?',(team_id,))}
-            snapshots=[dict(r) for r in db.execute('SELECT id,youth,source,observed_at,imported_at FROM snapshots WHERE team_id=? ORDER BY id DESC LIMIT 40',(team_id,))]
-            matches=[{**json.loads(r['payload']),'updated_at':r['updated_at']} for r in db.execute('SELECT * FROM matches ORDER BY updated_at DESC LIMIT 100')]
-        for m in matches:m['summary']=attack_summary(m['events']);m['event_count']=len(m.pop('events'))
+            snapshots=[dict(r) for r in db.execute('SELECT id,youth,substr(source,1,500) AS source,substr(observed_at,1,80) AS observed_at,substr(imported_at,1,80) AS imported_at FROM snapshots WHERE team_id=? ORDER BY id DESC LIMIT 40',(team_id,))]
+            matches=[]
+            for row in db.execute('SELECT * FROM matches ORDER BY updated_at DESC LIMIT 100'):
+                match=json.loads(row['payload']);events=match.pop('events')
+                match.update(updated_at=row['updated_at'],summary=attack_summary(events),event_count=len(events))
+                matches.append(match)
         creds=credentials(team_id)
-        return {'user':user,'setup_required':False,'classic_account':store.get('classic_account'),'workbench_identity':identity_for(store,team_id),'teams':teams,'current_team':{**current,'meta':json.loads(current['meta'])},'academy':academy,'squad':squad,'academy_source':asnap,'squad_source':ssnap,'snapshots':snapshots,'notes':notes,'plans':plans,'matches':matches,'game_date':store.get('game_date'),
+        return {'user':user,'profile':get_profile(store),'setup_required':False,'classic_account':store.get('classic_account'),'workbench_identity':identity_for(store,team_id),'teams':teams,'current_team':{**current,'meta':json.loads(current['meta'])},'academy':academy,'squad':squad,'academy_source':asnap,'squad_source':ssnap,'snapshots':snapshots,'notes':notes,'plans':plans,'matches':matches,'game_date':store.get('game_date'),
           'lineup':store.get('lineup:'+team_id,{}),'training':store.get('training:'+team_id,[]),'settings':{'developer_ready':bool(creds.get('d') and creds.get('dk')),'manager_ready':bool(creds.get('m') and creds.get('mk'))},'csrf':session['csrf']}
 
     @app.get('/api/optimization')
@@ -360,7 +372,9 @@ def create_app(directory=None,password=None,secure=None):
     @app.post('/api/import',dependencies=[Depends(auth)])
     async def upload(file:UploadFile=File(...),team_id:str=Form('72450'),youth:bool=Form(True)):
         require_team(team_id);data=await file.read(8_000_001)
-        try:result=parse_import(data,file.filename or '');count=store.import_result(result,team_id,youth,Path(file.filename or 'import').name)
+        try:
+            result=await run_in_threadpool(parse_import,data,file.filename or '')
+            count=await run_in_threadpool(store.import_result,result,team_id,youth,Path(file.filename or 'import').name)
         except ValueError as e:raise HTTPException(422,str(e)) from None
         return {'ok':True,'players':count,'datasets':len(result['datasets']) or 1}
 
@@ -432,28 +446,22 @@ def create_app(directory=None,password=None,secure=None):
     @app.get('/api/history/{team_id}/{player_id}',dependencies=[Depends(auth)])
     def history(team_id:str,player_id:str):
         require_team(team_id);found=[]
-        with store.db() as db:rows=db.execute('SELECT id,observed_at,source,payload FROM snapshots WHERE team_id=? ORDER BY id DESC LIMIT 100',(team_id,)).fetchall()
-        for row in rows:
-            for p in json.loads(row['payload']):
-                if p['id']==player_id:found.append({'observed_at':row['observed_at'],'source':row['source'],'player':p})
+        with store.db() as db:
+            for row in db.execute('SELECT id,substr(observed_at,1,80) AS observed_at,substr(source,1,500) AS source,payload FROM snapshots WHERE team_id=? ORDER BY id DESC LIMIT 100',(team_id,)):
+                for p in json.loads(row['payload']):
+                    if p['id']==player_id:
+                        found.append({'observed_at':row['observed_at'],'source':row['source'],'player':p});break
         return found
 
     @app.get('/api/export',dependencies=[Depends(auth)])
-    def export(team_id:str='72450',kind:str='all'):
+    def export(team_id:str='72450',kind:str='all',session=Depends(auth)):
         if kind in ['academy','squad']:
             require_team(team_id)
             players,_=snapshot_data(team_id,kind=='academy')
             flat=[{k:v for k,v in p.items() if not isinstance(v,(list,dict))} for p in players]
             return Response(csv_export(flat),media_type='text/csv',headers={'Content-Disposition':f'attachment; filename="brt-{team_id}-{kind}.csv"'})
-        with store.db() as db:
-            export={table:[dict(r) for r in db.execute('SELECT * FROM '+table)] for table in ['teams','snapshots','notes','plans','matches']}
-            # Only explicit product namespaces; never export the general KV store.
-            export['manager_documents']={r['key']:json.loads(r['value']) for r in db.execute(
-                "SELECT key,value FROM kv WHERE key GLOB 'lineup_lab:*' OR key GLOB 'insights:*' OR key GLOB 'workbench:*' ORDER BY key")}
-        export['lineups']={team['id']:store.get('lineup:'+team['id'],{}) for team in export['teams']}
-        export['training']={team['id']:store.get('training:'+team['id'],[]) for team in export['teams']}
-        export['game_date']=store.get('game_date');export['exported_at']=now()
-        return Response(pack(export),media_type='application/json',headers={'Content-Disposition':'attachment; filename="brt-backup.json"'})
+        private=accounts.store(session['user_id'])
+        return StreamingResponse(export_chunks(private,accounts,session['user_id']),media_type='application/json',headers={'Content-Disposition':'attachment; filename="brt-backup.json"'})
 
     def throttle(key):
         key=str(store.path)+':'+key;t=time.monotonic()
@@ -502,6 +510,10 @@ def create_app(directory=None,password=None,secure=None):
     register_lineup_lab(app,store,auth,require_team,state)
     register_insights(app,store,auth,require_team,state)
     register_workbench(app,store,auth,require_team,state,accounts,vacation_service)
+    register_profile(app,store,auth)
+    register_progression(app,store,auth,require_team)
+    register_registration(app,accounts,auth,secure)
+    register_contact(app,accounts,auth,secure)
 
     dist=Path(__file__).resolve().parents[1]/'web'/'dist'
     if dist.exists():
