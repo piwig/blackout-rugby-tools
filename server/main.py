@@ -177,7 +177,7 @@ def create_app(directory=None,password=None,secure=None):
 
     @app.post('/api/matches/import',dependencies=[Depends(auth)])
     def import_match(body:Match):
-        doc=body.model_dump();doc['events']=[{k:str(v)[:2000] for k,v in e.items() if k in ['att','field','possession','text','commentary','comment','time','minute']} for e in doc['events']]
+        doc=body.model_dump();doc['events']=[{k:str(v)[:2000] for k,v in e.items() if k in ['att','field','possession','text','commentary','comment','time','minute','att_origin','possession_reported','gametime','half','rule_version']} for e in doc['events']]
         save_match(doc);return {'ok':True,'summary':attack_summary(doc['events'])}
 
     @app.get('/api/matches/{kind}/{mid}',dependencies=[Depends(auth)])
@@ -204,6 +204,8 @@ def create_app(directory=None,password=None,secure=None):
             return Response(csv_export(flat),media_type='text/csv',headers={'Content-Disposition':f'attachment; filename="brt-{team_id}-{kind}.csv"'})
         with store.db() as db:
             export={table:[dict(r) for r in db.execute('SELECT * FROM '+table)] for table in ['teams','snapshots','notes','plans','matches']}
+        export['lineups']={team['id']:store.get('lineup:'+team['id'],{}) for team in export['teams']}
+        export['training']={team['id']:store.get('training:'+team['id'],[]) for team in export['teams']}
         export['game_date']=store.get('game_date');export['exported_at']=now()
         return Response(pack(export),media_type='application/json',headers={'Content-Disposition':'attachment; filename="brt-backup.json"'})
 

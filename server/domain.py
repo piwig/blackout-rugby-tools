@@ -63,7 +63,7 @@ def attack_summary(events):
         zone=(['22','22','40','40A','22A','22A'] if possession==0 else ['22A','22A','40A','40','22','22'])[field]
         side=result['home' if possession==0 else 'away']
         side['total']+=1;side['zones'][zone][attack]+=1;side['attacks'][attack]+=1
-    return {**result,'unclassified':unknown,'classified':len(events)-unknown,'total_events':len(events)}
+    return {**result,'unclassified':unknown,'classified':len(events)-unknown,'total_events':len(events),'inferred':sum(e.get('att_origin')=='commentary-rule' for e in events)}
 
 def stadium_plan(members,seats,multiplier=9):
     members=number(members); multiplier=number(multiplier)

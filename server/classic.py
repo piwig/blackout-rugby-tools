@@ -2,6 +2,7 @@
 import asyncio
 import json
 import logging
+import re
 import time
 import httpx
 from defusedxml import ElementTree as ET
@@ -43,14 +44,41 @@ class ClassicClient:
         if not isinstance(doc,dict) or doc.get('error') or doc.get('errors'):raise ClassicError('Classic refuse cette requête : vérifiez les clés et les droits du manager.')
         return doc
 
+def classify_attack(text):
+    """Conservative, versioned EN commentary heuristics, never official tactics."""
+    text=re.sub(r'\[[^\]]+\]','',text).lower()
+    rules=[
+      ('png',r'pick(?:s|ing)?\s*(?:and|&|n|[’\x27]n[’\x27])\s*go|picks? (?:it|the ball) up (?:and|then) (?:drives|goes)'),
+      ('crea',r'something creative|creative (?:move|play|attack)|(?:triple |double )?scissors|switch move|loop move|dummy runner|decoy runner'),
+      ('large',r'out wide|go(?:es|ing)? wide|expansive (?:move|play|attack)|spread(?:s|ing)? the ball|through the hands'),
+      ('percu',r'on the drive|crash ball|crash-ball|takes? the ball up|hits? it up|charges? (?:straight )?at (?:the )?(?:defence|defense)'),
+      ('kick',r'grubber|up.and.under|box kick|chip kick|punts? (?:the ball )?(?:downfield|upfield|into touch)|hoists? (?:the ball )?high')]
+    for category,pattern in rules:
+        if re.search(pattern,text):return category
+    return None
+
 def parse_commentary(root):
-    """Accept explicit structured fields; do not infer tactical categories from prose."""
+    """Preserve raw fields and label every inferred tactical classification."""
     events=[]
+    previous=None
     for element in root.iter():
         fields=dict(element.attrib)
         fields.update({child.tag.rsplit('}',1)[-1]:(child.text or '').strip() for child in element if not list(child)})
         if ('field' in fields or 'possession' in fields) and any(k in fields for k in ['text','commentary','comment','att']):
-            events.append({k:fields[k] for k in ['field','possession','att','time','minute','text','commentary','comment'] if k in fields})
+            event={k:fields[k] for k in ['id','field','possession','att','time','minute','text','commentary','comment','gametime','half','homescore','guestscore'] if k in fields}
+            raw=event.get('commentary',event.get('text',event.get('comment','')))
+            event['text']=re.sub(r'\[[^\]]+\]','',raw)
+            if event.get('gametime','').isdigit():
+                seconds=int(event['gametime']);event['time']=f'{seconds//60}:{seconds%60:02d}'
+            if not event.get('att'):
+                attack=classify_attack(raw)
+                if attack:
+                    event['att']=attack;event['att_origin']='commentary-rule';event['rule_version']='1'
+                    # Engine possession is post-action: use prior possession on a turnover.
+                    if previous in ['0','1'] and previous!=event.get('possession'):
+                        event['possession_reported']=event.get('possession');event['possession']=previous
+            previous=fields.get('possession',previous)
+            events.append(event)
     if not events:
         # Preserve readable evidence even when this engine schema has no mapped fields.
         for element in root.iter():

@@ -69,3 +69,17 @@ def test_failed_sync_preserves_snapshot(client):
     r=client.post('/api/sync',headers=h,json={'team_id':'72450','kind':'academy'})
     assert r.status_code==422
     assert len(client.get('/api/state').json()['academy'])==1
+
+def test_return_to_earlier_values_creates_a_new_observation(client):
+    h=login(client)
+    for value in [10,11,10]:
+        r=client.post('/api/import',headers=h,data={'team_id':'72450','youth':'true'},files={'file':('a.csv',f'player_id,player_name,strength\n42,A,{value}'.encode())})
+        assert r.status_code==200
+    s=client.get('/api/state').json()
+    assert s['academy'][0]['strength']==10
+    assert len(s['snapshots'])==3
+
+def test_full_export_includes_saved_lineup_without_credentials(client):
+    h=login(client)
+    client.post('/api/lineup',headers=h,json={'team_id':'72450','slots':{'1':'42'}})
+    assert client.get('/api/export').json()['lineups']['72450']=={'1':'42'}

@@ -26,13 +26,21 @@ class Store:
             db.executescript('''
               CREATE TABLE IF NOT EXISTS kv(key TEXT PRIMARY KEY,value TEXT NOT NULL);
               CREATE TABLE IF NOT EXISTS teams(id TEXT PRIMARY KEY,name TEXT NOT NULL,country TEXT NOT NULL,meta TEXT NOT NULL DEFAULT '{}');
-              CREATE TABLE IF NOT EXISTS snapshots(id INTEGER PRIMARY KEY,team_id TEXT NOT NULL,youth INTEGER NOT NULL,source TEXT NOT NULL,observed_at TEXT NOT NULL,imported_at TEXT NOT NULL,digest TEXT NOT NULL,payload TEXT NOT NULL,game_date TEXT,UNIQUE(team_id,youth,digest));
+              CREATE TABLE IF NOT EXISTS snapshots(id INTEGER PRIMARY KEY,team_id TEXT NOT NULL,youth INTEGER NOT NULL,source TEXT NOT NULL,observed_at TEXT NOT NULL,imported_at TEXT NOT NULL,digest TEXT NOT NULL,payload TEXT NOT NULL,game_date TEXT);
               CREATE TABLE IF NOT EXISTS notes(team_id TEXT,player_id TEXT,text TEXT,watch INTEGER,PRIMARY KEY(team_id,player_id));
               CREATE TABLE IF NOT EXISTS plans(team_id TEXT,season INTEGER,grid TEXT,PRIMARY KEY(team_id,season));
               CREATE TABLE IF NOT EXISTS matches(id TEXT,type INTEGER,payload TEXT,updated_at TEXT,PRIMARY KEY(id,type));
               CREATE TABLE IF NOT EXISTS sessions(token TEXT PRIMARY KEY,csrf TEXT,expires INTEGER);
               CREATE INDEX IF NOT EXISTS snapshots_latest ON snapshots(team_id,youth,id DESC);
             ''')
+            # Migrate the development schema that incorrectly deduplicated all history.
+            schema=db.execute("SELECT sql FROM sqlite_master WHERE name='snapshots'").fetchone()[0]
+            if 'UNIQUE(team_id,youth,digest)' in schema:
+                db.executescript('''ALTER TABLE snapshots RENAME TO snapshots_old;
+                CREATE TABLE snapshots(id INTEGER PRIMARY KEY,team_id TEXT NOT NULL,youth INTEGER NOT NULL,source TEXT NOT NULL,observed_at TEXT NOT NULL,imported_at TEXT NOT NULL,digest TEXT NOT NULL,payload TEXT NOT NULL,game_date TEXT);
+                INSERT INTO snapshots SELECT * FROM snapshots_old;
+                DROP TABLE snapshots_old;
+                CREATE INDEX snapshots_latest ON snapshots(team_id,youth,id DESC);''')
             for tid,name,country in [('72450','Moeskroen','BE'),('72444','LaTouff','LT'),('57627','XV Manchot','FR'),('71184','Rapa Nui','CL'),('77847','Harragas','GE'),('81242','Pif Paf Pastèque','NL'),('41988','Strathclyde United','SL')]:
                 db.execute('INSERT OR IGNORE INTO teams(id,name,country) VALUES(?,?,?)',(tid,name,country))
         if self.get('password') is None:
@@ -66,10 +74,13 @@ class Store:
     def save_snapshot(self,team_id,youth,players,source,observed_at=None,game_date=None,db=None):
         payload=pack(players); digest=hashlib.sha256(payload.encode()).hexdigest()
         values=(team_id,int(youth),source,observed_at or now(),now(),digest,payload,pack(game_date) if game_date else None)
-        sql='INSERT OR IGNORE INTO snapshots(team_id,youth,source,observed_at,imported_at,digest,payload,game_date) VALUES(?,?,?,?,?,?,?,?)'
-        if db is not None:db.execute(sql,values)
+        sql='INSERT INTO snapshots(team_id,youth,source,observed_at,imported_at,digest,payload,game_date) VALUES(?,?,?,?,?,?,?,?)'
+        def save(conn):
+            last=conn.execute('SELECT digest FROM snapshots WHERE team_id=? AND youth=? ORDER BY id DESC LIMIT 1',(team_id,int(youth))).fetchone()
+            if not last or last['digest']!=digest:conn.execute(sql,values)
+        if db is not None:save(db)
         else:
-            with self.db() as conn:conn.execute(sql,values)
+            with self.db() as conn:save(conn)
     def import_result(self,result,team_id,youth,filename,observed_at=None):
         datasets=result['datasets'] or [{'players':result['players'],'youth':youth,'team_hint':None}]
         count=0
