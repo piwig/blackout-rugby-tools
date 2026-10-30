@@ -16,9 +16,17 @@ La connexion à l'outil est distincte du jeu. Les clés développeur Classic et 
 
 ## Tutoriel intégré
 
-Le menu **Tutoriel & aide** présente neuf chapitres, une FAQ recherchable, un lexique et les limites des estimations. Le tableau de bord et le premier accueil sans club proposent **Commencer le tutoriel**. Sur chaque écran, **Mode d’emploi** ouvre le chapitre pertinent sans démonter le formulaire en cours ; Échap ferme l’aide et rend le focus au bouton.
+Le menu **Tutoriel & aide** présente dix chapitres, dont Optimisation, une FAQ recherchable, un lexique et les limites des estimations. Le tableau de bord et le premier accueil sans club proposent **Commencer le tutoriel**. Sur chaque écran, **Mode d’emploi** ouvre le chapitre pertinent sans démonter le formulaire en cours ; Échap ferme l’aide et rend le focus au bouton.
 
 Les chapitres peuvent être marqués comme lus. Ces repères sont séparés par identifiant sur le navigateur utilisé, sans modifier les données des clubs. Ils se synchronisent entre le guide et son dialogue.
+
+## Optimisation
+
+Le centre **Optimisation** calcule un bilan pour un club ou tous les clubs présents dans l’espace privé du manager. Trois objectifs de composition : performance, récupération ou développement. L’affectation du XV maximise un indice d’affinité expliqué, sans doublons, avec un seuil d’énergie réglable et les indisponibilités connues. Les compétences manquantes ne sont jamais devinées. Le banc proposé reste à vérifier selon les remplacements souhaités.
+
+Les recommandations couvrent effectif, académie, entraînement, saison, stade et qualité des données. Le programme proposé pour l’académie complète les créneaux libres sur les semaines retenues ; il conserve les cases déjà remplies et les semaines passées. Les observations de matchs proviennent de la bibliothèque du manager et affichent leurs dénominateurs et leur couverture. Elles ne prédisent pas les résultats.
+
+Les propositions et leur méthode sont consultables avant sauvegarde. Seul le club sélectionné dans l’application peut recevoir un XV ou un programme, après confirmation explicite. Ces écritures concernent uniquement l’outil. Le bilan peut être exporté sans clé API. Les paramètres d’énergie distinguent pourcentage premium jusqu’à 110 et niveau 1–11 ; un format ambigu est signalé avant d’appliquer un filtre. Voir `docs/optimization-methodology.md`.
 
 ## Calculs et limites
 

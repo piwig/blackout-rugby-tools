@@ -1,0 +1,347 @@
+/* Matchday: warm paper, ink, brick and photography in its natural colours. */
+:root { color:#252a32; background:#f2efe9; --ink:#252a32; --muted:#62666c; --green:#a93e2d; --lime:#efd1a8; --line:#ded9d1; --paper:#fffdfa; --bg:#f2efe9; }
+body { background:var(--bg); }
+h1,h2,h3 { color:var(--ink); }
+p,.muted,.tiny { color:#60646a; }
+.eyebrow { color:#8e4d39; letter-spacing:1.8px; }
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible,.tutorial button:focus-visible,.tutorial summary:focus-visible,.tutorial-dialog button:focus-visible { outline-color:#c15c39; }
+input,select,textarea { border-color:#cec9c1; color:#2c323b; background:#fff; }
+input[type=checkbox],input[type=range] { accent-color:#b8442f; }
+.primary { background:#ad3c2b; color:#fff; }
+.primary:hover { background:#8d2f22; }
+.secondary { color:#353b43; background:#fffdfa; border-color:#d2ccc3; }
+.secondary:hover { background:#eee9e0; }
+.lime { background:#edc794; color:#252a32; }
+.text-button { color:#28526d; }
+.text-button:hover { color:#a33827; }
+.icon-button:hover { background:#e9e4dc; }
+.pill.neutral { background:#eeeae3; color:#505761; }
+.pill.green { background:#e5eee8; color:#315e47; }
+.pill.amber { background:#fbefd8; color:#79521d; }
+.card { background:#fffdfa; box-shadow:0 3px 14px #29221c03; }
+.card-heading h2 { color:#292e37; font-size:19px; }
+.card-heading .eyebrow { font-size:9px; }
+.card-foot { background:#f8f5ef; color:#66676a; border-color:#e6e0d7; font-size:10px; }
+.brand { color:#232a33; }
+.sidebar { background:#1c222c; border-color:#1c222c; padding-top:30px; overflow-y:auto; }
+.sidebar .brand { color:#fff9f1; font-size:18px; }
+.sidebar .brand small { color:#cabeb1; }
+.sidebar .brand img { box-shadow:0 0 0 1px #ffffff18; }
+.sidebar .edition { color:#bcb1a5; font-size:9px; margin-bottom:35px; }
+.sidebar .edition i { background:#d36b45; }
+.sidebar .edition span { color:#bdb4aa; }
+.sidebar .nav-label { color:#b8b4b0; font-size:9px; }
+.sidebar nav { gap:7px; }
+.sidebar nav button { color:#d0cfcf; font-size:12px; padding:13px 11px; }
+.sidebar nav button:hover { background:#2b333f; color:#fff; }
+.sidebar nav button.active { background:#b34431; color:#fff; box-shadow:0 5px 15px #00000017; }
+.sidebar nav button svg { stroke-width:1.8; }
+.sidebar .nav-dot { background:#f2caa7; }
+.sidebar .club-mini { border-color:#3b414a; color:#f3ece4; }
+.sidebar .club-mini small { color:#beb8b0; font-size:9px; }
+.sidebar .club-mini .icon-button { color:#ddd1c5; }
+.sidebar .club-mini .icon-button:hover { background:#39404a; }
+.sidebar .avatar { background:#353e4a; border-color:#56606b; color:#f2d0aa; }
+.topbar { background:#fffdfa; }
+.breadcrumbs { color:#6c6b69; font-size:11px; }
+.breadcrumbs strong { color:#343a43; font-weight:600; }
+.season { color:#64676e; font-size:11px; }
+.season i { background:#c4a082; }
+.flag { color:#64594b; border-color:#d7cec1; background:#faf5ec; }
+.club-select select { color:#2e3440; font-size:12px; }
+.page-title { margin-bottom:23px; }
+.page-title h1 { color:#242a33; font-weight:750; }
+.page-title p { color:#66696f; font-size:12px; }
+.page-title .eyebrow { color:#9b4c37; font-size:9px; }
+.page-actions { position:relative; z-index:2; }
+.page-title .page-actions .button { display:inline-flex; }
+
+/* The photograph is the first thing in the dashboard. */
+.matchday-hero { position:relative; isolation:isolate; overflow:hidden; border-radius:13px; background:#202a36; min-height:380px; padding:44px 42px; margin-bottom:22px; display:flex; align-items:center; }
+.matchday-image { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:65% 50%; z-index:-3; }
+.matchday-shade { position:absolute; inset:0; z-index:-2; background:linear-gradient(90deg,#171c27ed 0%,#171c27c9 30%,#171c2750 60%,#171c2700 82%),linear-gradient(0deg,#111a2c4a,transparent 55%); }
+.matchday-copy { max-width:68%; }
+.matchday-label { display:inline-flex; align-items:center; gap:9px; color:#fff4e8; font-size:9px; letter-spacing:1.8px; line-height:1.7; font-weight:650; margin-bottom:22px; }
+.matchday-label>span { width:6px; height:6px; background:#df8155; border-radius:50%; box-shadow:0 0 0 4px #df81551c; flex-shrink:0; }
+.matchday-hero h2 { font-family:'Arial Narrow','Bahnschrift',sans-serif; font-size:clamp(35px,3.4vw,54px); line-height:1.03; letter-spacing:-1.5px; color:#fff9f2; font-weight:750; margin-bottom:18px; }
+.matchday-hero h2 em { color:#efc191; font-style:normal; }
+.matchday-hero p { color:#e2dcd5; font-size:13px; line-height:1.7; margin-bottom:24px; }
+.matchday-cta { background:#b7432e; color:#fff; border-color:#d16b50; font-size:12px; padding:12px 17px; }
+.matchday-cta:hover { background:#923422; }
+.matchday-edge { position:absolute; right:27px; bottom:26px; text-align:right; color:#fff; }
+.matchday-edge span { display:block; font-size:8px; letter-spacing:2px; color:#eadbc9; margin-bottom:10px; }
+.matchday-edge b { font-size:10px; line-height:1.5; letter-spacing:1px; }
+.metrics { gap:15px; }
+.metric { background:#fffdfa; border-top:3px solid #b54330; border-radius:9px; padding:19px 20px; }
+.metric.accent { background:#faf3e7; border-top-color:#b68a45; }
+.metric:nth-child(3) { border-top-color:#355c7b; }
+.metric:nth-child(4) { border-top-color:#5a626d; }
+.metric:hover { border-right-color:#b7aaa0; border-bottom-color:#b7aaa0; border-left-color:#b7aaa0; }
+.metric>strong { color:#272c35; font-size:33px; }
+.metric-top { color:#5a5d62; font-size:11px; }
+.metric-top svg { color:#ad4934; }
+.metric:nth-child(2) .metric-top svg { color:#916623; }
+.metric:nth-child(3) .metric-top svg { color:#365c7a; }
+.metric:nth-child(4) .metric-top svg { color:#596373; }
+.metric-bottom { color:#67666a; font-size:10px; }
+.metric-bottom svg { color:#6e716f; }
+.rugby-editorial { margin:27px 0; }
+.editorial-heading .eyebrow { color:#a34831; }
+.editorial-heading h2 { font-size:25px; color:#252b34; }
+.editorial-heading>span { font-size:11px; color:#64696e; }
+.rugby-card { height:315px; border-radius:11px; background:#1c2632; padding:23px; }
+.rugby-card-shade { background:linear-gradient(0deg,#111b29f2 0%,#1520348a 32%,#15203400 65%),linear-gradient(180deg,#101b297a,transparent 32%); }
+.rugby-card-copy h3 { color:#fff; font-size:25px; letter-spacing:-.6px; }
+.rugby-card-copy>small { color:#f3c795; font-size:11px; }
+.rugby-card-copy p { color:#f0ece7; font-size:12px; line-height:1.6; }
+.rugby-card-top>span { color:#fff8f0; font-size:9px; }
+.rugby-card>img { opacity:1; filter:none; }
+.talent-row,.card-foot { border-color:#e8e1d7; }
+.talent-row:hover { background:#fbf5eb; }
+.player-avatar { color:#685442; background:#ede5d8; border-color:#ddd1bf; }
+.player-number,.talent-name small { color:#6f6c67; }
+.talent-name small { font-size:10px; }
+.talent-name strong { font-size:12px; }
+.next-action>span { background:#e9edf1; color:#385d7b; border-color:#d6dfe6; }
+.next-action strong { color:#323842; font-size:12px; }
+.next-action small { color:#666b70; font-size:10px; }
+.next-card .card-heading>svg { color:#9f543e; }
+.api-status { background:#f2ede4; border-color:#ded4c5; }
+.api-status strong { color:#495342; font-size:11px; }
+.api-status small { color:#5e6659; font-size:10px; }
+.footer { color:#64666a; border-color:#ddd5ca; font-size:9px; }
+
+/* Every working section has its own photographic introduction. */
+.page-masthead { position:relative; isolation:isolate; overflow:hidden; border-radius:12px; background:#263140; min-height:215px; padding:30px; flex-direction:column; align-items:flex-start; justify-content:center; gap:18px; }
+.section-photo { position:absolute; inset:0 0 0 auto; width:70%; height:100%; object-fit:cover; z-index:-3; }
+.section-photo-squad { width:38%; object-position:50% 15%!important; }
+.section-photo-shade { position:absolute; inset:0; z-index:-2; background:linear-gradient(90deg,#1a2432 8%,#1a2432e8 30%,#1a243285 58%,#1a243200 92%); }
+.page-masthead>div:not(.page-actions) { max-width:70%; }
+.page-masthead h1 { color:#fff9f1; font-size:34px; }
+.page-masthead p { color:#ede6dd; line-height:1.7; max-width:470px; }
+.page-masthead .eyebrow { color:#efbd8c; }
+.page-masthead .page-actions { align-self:flex-start; }
+.page-masthead .button { background:#fffaf0; color:#283343; border-color:#fffaf0; }
+
+/* Data remains on calm, high-contrast surfaces. */
+.prose h2,.prose h3,.empty h3,.match-loader h2 { color:#29303a; }
+.prose p,.prose .tiny,.empty p { color:#63656a; }
+.prose label,.form-grid label { color:#454b55; }
+.prose details,.onboarding-options>summary { color:#385a71; }
+.empty-icon { color:#9f5038; background:#f1e6d8; }
+.view-tabs { border-color:#d9d1c5; }
+.view-tabs>button:not(.text-button) { color:#64676c; }
+.view-tabs>.selected { color:#a23828!important; border-color:#ac3e2c; }
+.view-tabs>.selected:after { background:#ac3e2c; }
+.view-tabs>button span { color:#645849; background:#ede4d5; }
+.search { background:#fffdfa; border-color:#d4ccc1; color:#6b6c6b; }
+.result-count,.sub-cell { color:#686c71; }
+table { color:#313943; }
+th { color:#646975; background:#f5f0e8; border-color:#ded7cd; }
+td { border-color:#e9e3da; }
+.players-table th,.players-table th button { color:#5b6069; background:#f6f1e8; }
+.players-table th { position:relative; }
+.players-table .sticky-col { background:#fffdfa; }
+.players-table thead .sticky-col { background:#f6f1e8; }
+.players-table tbody tr:hover td { background:#f6efe3; }
+.player-cell strong { color:#343b44; }
+.player-cell small { color:#74706a; }
+.skill.strong { color:#315d47; background:#e5eee7; }
+.skill.good { color:#345f7c; background:#e8eff5; }
+.skill.low { color:#64584b; background:#f1e9dd; }
+.skill.hidden-skill { color:#736f69; background:#eeece8; }
+.watch { color:#827666; }
+.watch.watched { color:#a86e22; }
+.training-banner { color:#344b61; background:#e9edf1; border-color:#d5dfe7; }
+.training-banner strong { color:#34485d; }
+.training-banner p { color:#5b6470; }
+.training-icon { color:#325773; background:#d9e3eb; }
+.training-table th { color:#5b626e; background:#f5f0e8; }
+.training-table .current-week { background:#f2dfcc; color:#963c2b; }
+.training-cell.filled { background:#e8eef3; }
+.training-cell select { color:#365970; }
+.training-cell.filled select { background:#e6edf3; border-color:#ccd9e3; color:#355a76; }
+.training-cell.filled:nth-child(3n) select { background:#f1e6d2; border-color:#e0cfb0; color:#735725; }
+.training-bars>div>span,.legend { color:#5b6169; }
+.training-bars i { background:#355d7c; }
+.distribution { background:#edf1f5; }
+.distribution>i { background:#c5d6e3; }
+.distribution>span { color:#35576e; }
+.jersey { background:#253b54; color:#fff6e9; border-color:#253b54; }
+.lineup-grid small { color:#67676b; }
+.lineup-aside { background:#f3e8d9; }
+.lineup-aside h2 { color:#423b35; }
+.lineup-aside p { color:#716052; }
+.segmented { background:#ebe5db; border-color:#ded3c3; }
+.segmented button { color:#625f5a; }
+.segmented button.selected { background:#fffdfa; color:#9c3b2b; }
+.match-card.selected { border-color:#af4b34; }
+.match-card>div:first-child,.match-card-foot { color:#6d6861; }
+.match-teams strong,.match-teams>b { color:#303844; }
+.match-teams>b>span { color:#8b7a68; }
+.distribution { color:#5c6471; }
+.ratio-track { background:#e9e1d5; }
+.ratio-track i { background:#ad7850; }
+.stadium-target { border-color:#d7ccc0; }
+.stadium-target>span,.stadium-target>small { color:#706151; }
+.stadium-target>strong { color:#4a3930; }
+.range-label strong { color:#754f37; }
+.account-import { border-top-color:#b44932; }
+.account-symbol { background:#f0e1d2; color:#9b432f; }
+.account-status>span,.account-reassurance { color:#68615b; }
+.owned-clubs>span,.club-chip { background:#f2ece3; border-color:#ded2c0; color:#534c42; }
+.owned-clubs b,.club-chip b { color:#785c42; background:#e9dfd0; }
+.club-chip small { color:#756a5d; }
+.upload-zone { background:#fbf5ed; border-color:#cbbba7; color:#8e5437; }
+.upload-zone strong { color:#644b37; }
+.upload-zone span { color:#706453; }
+.backup-box { background:#eaf0f4; border-color:#d6e1e9; }
+.backup-box strong { color:#36556d; }
+.backup-box small { color:#596b78; }
+.dark-card { background:#243449; border-color:#243449; }
+.dark-card h2 { color:#fff8ee; }
+.dark-card p { color:#d6dce3; }
+.dark-card>svg { color:#e8bc8b; }
+.notice { background:#f4ecdd; border-color:#e5d2b7; color:#725c3c; }
+.notice.error { background:#f9e8e3; color:#9b3229; border-color:#e7c2b9; }
+.text-error { color:#9b3229!important; }
+.notice.success { background:#e9f1e9; color:#355b40; }
+.toast { background:#253c50; color:#fffaf2; }
+.busy { background:#f4e9d7; color:#694b2e; border-color:#d7bd99; }
+.modal { background:#fffdfa; }
+.modal>header { border-color:#e0d7ca; }
+.skill-list>div { border-color:#e7dfd3; }
+.skill-list>div>span:first-child { color:#62646b; }
+.note-box,.history-list>div { border-color:#dfd5c6; }
+.history-list strong { color:#4b5664; }
+.history-list>div { color:#6e6b66; }
+
+/* Arrival: tangible materials and warm light, with unfiltered pictures. */
+.login-story { background:#242832 url('/images/rugby-locker-v2.jpg') 65% center/cover; }
+.login-story:before { background:linear-gradient(90deg,#171c27d9,#171c2791 48%,#171c2708),linear-gradient(0deg,#181e2b91,transparent 70%); }
+.login-story .brand { color:#fffaf0; }
+.login-story .brand small { color:#e0d0bd; }
+.login-story h1 { color:#fff8ed; font-weight:700; font-family:'Arial Narrow','Bahnschrift',sans-serif; }
+.login-story p { color:#eee4d7; }
+.login-story .pill { color:#f7d4a7; background:#1a223280; border:1px solid #f5dfbe40; }
+.login-story>span { color:#e5d3bd; }
+.login-form { background:#f8f3ea; }
+.login-form h2 { color:#2a303a; }
+.login-form .eyebrow { color:#a34731; }
+.login-form p,.login-foot { color:#676364; }
+.onboarding-welcome { position:relative; isolation:isolate; overflow:hidden; max-width:none; padding:36px; border-radius:12px; margin-bottom:24px; background:#242d3b url('/images/rugby-locker-v2.jpg') 70% center/cover; }
+.onboarding-welcome:before { content:''; position:absolute; inset:0; z-index:-1; background:linear-gradient(90deg,#17202fec,#17202fc2 45%,#17202f15); }
+.onboarding-welcome .eyebrow { color:#eec395; }
+.onboarding-welcome h1 { color:#fff9ef; max-width:620px; }
+.onboarding-welcome p { color:#e3dbd3; max-width:550px; }
+
+/* Tutorial has the same editorial identity; lessons stay easy to read. */
+.tutorial-welcome { background:#eae5dc; border-color:#d4c8b8; }
+.tutorial-welcome-icon { background:#daccb9; color:#6e4a32; }
+.tutorial-welcome h2 { color:#353b43; }
+.tutorial-welcome p { color:#64615d; }
+.tutorial-hero { position:relative; isolation:isolate; overflow:hidden; background:#232c3b url('/images/rugby-locker-v2.jpg') 65% center/cover; }
+.tutorial-hero:before { content:''; position:absolute; inset:0; z-index:-1; background:linear-gradient(90deg,#17202ff0 0%,#17202fc9 42%,#17202f33 82%); }
+.tutorial-hero .eyebrow { color:#edc18e; }
+.tutorial-hero h2 { color:#fff8ed; }
+.tutorial-hero h2 em { color:#ecc093; }
+.tutorial-hero p { color:#ede5d9; max-width:520px; }
+.tutorial-hero-badge { border-color:#c6b29b60; color:#fff6e9; text-shadow:0 1px 8px #101b32; }
+.tutorial-hero-badge svg { color:#f4c897; }
+.tutorial-hero-badge span { color:#f5e7d7; }
+.tutorial-index { background:#263343!important; border-color:#263343; }
+.tutorial-index .eyebrow { color:#dfb483; }
+.tutorial-index h2 { color:#fff8ef; }
+.tutorial-index p { color:#d3d8dd; }
+.tutorial-index progress { accent-color:#dc895b; }
+.tutorial-index progress::-webkit-progress-bar { background:#4b5662; }
+.tutorial-index progress::-webkit-progress-value { background:#dc895b; }
+.tutorial-index nav button { color:#e0e2e4; }
+.tutorial-index nav button:hover { background:#36495c; }
+.tutorial-index nav button.selected { color:#fff; background:#a74330; }
+.tutorial-index nav button small { color:#d8d2cc; }
+.tutorial-index nav button.selected small { color:#fff4e7; }
+.lesson-number { border-color:#78838c; color:#eee4d5; }
+.lesson-number.done { background:#d9b17f; border-color:#d9b17f; color:#263343; }
+.tutorial-storage { color:#d4c9bb; border-color:#52606e; }
+.lesson-heading h2,.lesson-steps h3 { color:#2c3440; }
+.lesson-heading>p,.lesson-steps p { color:#5d626a; }
+.lesson-steps li { border-color:#e3dbd0; }
+.lesson-steps li>span { background:#f0e2d1; color:#895533; }
+.lesson-result { background:#e8eef3; }
+.lesson-result>svg,.lesson-result strong { color:#375e7b; }
+.lesson-result p { color:#536576; }
+.lesson-tip p { color:#746145; }
+.lesson-actions,.lesson-pagination { border-color:#e2d9ca; }
+.lesson-pagination>span { color:#6a6865; }
+.tutorial-section-heading h2,.tutorial-reference>h2,.faq-list summary,.tutorial-reference summary { color:#303a47; }
+.faq-list details { border-color:#e3dbcf; }
+.faq-list details>p,.faq-list>p { color:#5e646c; }
+.tutorial-reference-grid details { background:#f3eee5; }
+.tutorial-reference-grid p,.tutorial-reference-grid li,.tutorial-reference-grid dd { color:#62666d; }
+.tutorial-reference-grid h3,.tutorial-reference-grid dt { color:#694a33; }
+.tutorial-privacy { color:#68635c; border-color:#ded5c5; }
+.tutorial-dialog { background:#f2eee7; border-color:#d6c7b5; color:#2c3440; }
+.tutorial-dialog>header { background:#fffaf2; border-color:#e1d4c2; }
+.tutorial-dialog>header h2 { color:#293744; }
+.tutorial-dialog::backdrop { background:#101724b8; }
+
+@media(min-width:1500px) {
+  .matchday-hero { min-height:430px; padding:48px; }
+  .matchday-hero h2 { font-size:58px; }
+  .rugby-card { height:350px; }
+}
+@media(max-width:1100px) {
+  .matchday-hero { min-height:350px; padding:34px; }
+  .matchday-copy { max-width:75%; }
+  .matchday-hero h2 { font-size:42px; }
+  .matchday-edge { display:none; }
+  .rugby-card { height:290px; padding:20px; }
+  .rugby-card-copy h3 { font-size:22px; }
+  .page-masthead { flex-wrap:wrap; padding:25px; min-height:210px; }
+  .page-masthead>div:not(.page-actions) { max-width:85%; }
+  .page-masthead .page-actions { width:100%; }
+}
+@media(max-width:700px) {
+  .matchday-hero { min-height:400px; padding:30px 24px; align-items:flex-end; }
+  .matchday-copy { max-width:100%; }
+  .matchday-hero h2 { font-size:37px; line-height:1.08; }
+  .matchday-label { font-size:8px; margin-bottom:16px; }
+  .matchday-hero p { font-size:12px; margin-bottom:20px; }
+  .matchday-image { object-position:66% center; }
+  .matchday-shade { background:linear-gradient(0deg,#141e2cf2 0%,#141e2cba 36%,#141e2c10 82%); }
+  .metric { padding:16px 15px; }
+  .metric>strong { font-size:30px; }
+  .metric-top { font-size:11px; }
+  .metric-bottom { font-size:9px; }
+  .rugby-cards { grid-template-columns:1fr; gap:16px; }
+  .rugby-card { height:280px; padding:24px; }
+  .rugby-card>img { object-position:var(--mobile-photo-position,center 35%)!important; }
+  .rugby-card-copy h3 { font-size:28px; }
+  .rugby-card-copy p { font-size:13px; }
+  .editorial-heading h2 { font-size:23px; }
+  .page-masthead { min-height:245px; padding:24px; }
+  .page-masthead h1 { font-size:29px; }
+  .page-masthead p { font-size:12px; }
+  .page-masthead>div:not(.page-actions) { max-width:100%; }
+  .section-photo { width:100%; }
+  .section-photo-squad { width:60%; }
+  .section-photo-shade { background:linear-gradient(90deg,#172334e8,#172334a1 50%,#17233438); }
+  .page-masthead .page-actions { gap:8px; }
+  .page-masthead .page-actions .button { min-height:37px; padding:9px 11px; font-size:10px; }
+  .page-title p { font-size:12px; }
+  .page-title .eyebrow { font-size:8px; }
+  .page-title .page-actions .button { display:inline-flex; }
+  .login-story { min-height:365px; background-position:65% center; }
+  .login-story:before { background:linear-gradient(90deg,#17202fe8,#17202f91 50%,#17202f14); }
+  .login-story h1 { font-size:36px; }
+  .login-story p { font-size:12px; }
+  .login-form { padding-top:32px; }
+  .onboarding-welcome { padding:28px 22px; }
+  .onboarding-welcome h1 { font-size:33px; }
+  .onboarding-welcome p { font-size:13px; }
+  .tutorial-hero { min-height:320px; background-position:70% center; }
+  .tutorial-hero:before { background:linear-gradient(90deg,#17202fe8,#17202f94); }
+  .tutorial-hero h2 { font-size:29px; }
+  .footer { font-size:9px; }
+}

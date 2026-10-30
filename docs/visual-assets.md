@@ -33,3 +33,9 @@ Prompt exact :
 Les quatre visuels ont été ouverts et inspectés. Dimensions lues dans les fichiers décodés ; fichiers non vides ; JPEG Wikimedia conservés sans retouche. Le visuel généré et sa version JPEG ont été inspectés. Les titres, auteurs et licences ont été comparés aux fiches Commons. Les URLs de téléchargement ont été observées en suivant les liens de résolutions proposés par Commons, sans reconstruire de chemin de miniature.
 
 À l'intégration, conserver le ballon visible dans les recadrages mobile et prévoir un voile vert sombre pour la lisibilité du texte du hero. Les photos sportives sont volontairement secondaires ; les données de gestion restent le contenu principal du tableau de bord.
+
+## Direction photographique renforcée — 30 octobre 2026
+
+La demande utilisateur de dépasser le vert uniforme remplace la recommandation initiale de photographies secondaires sous voile vert. Le stade original et le vestiaire sont désormais les scènes principales ; les photos de joueurs gardent leurs couleurs naturelles. Navigation charbon, papier ivoire, accents brique/ocre/bleu. Les dégradés derrière le texte sont neutres ; les tableaux restent sur des surfaces unies.
+
+Nouveaux fichiers et prompts exacts : docs/rugby-redesign-assets.md. Crédits IA et recadrages CSS ajoutés au catalogue visible. Les JPEG historiques ne sont pas modifiés.

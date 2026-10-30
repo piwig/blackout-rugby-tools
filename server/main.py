@@ -5,7 +5,7 @@ import secrets
 import time
 from pathlib import Path
 from typing import Literal
-from fastapi import FastAPI,Request,Response,HTTPException,Depends,UploadFile,File,Form
+from fastapi import FastAPI,Request,Response,HTTPException,Depends,UploadFile,File,Form,Query
 from fastapi.responses import JSONResponse,FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel,Field,ConfigDict
@@ -15,6 +15,7 @@ from .imports import parse_import,normalize_player,read_csv,reject_constant
 from .classic import ClassicClient,ClassicError
 from .accounts import Accounts,PrivateStore,active_store
 from .manager import import_manager
+from .optimization import build_report
 
 class Model(BaseModel):
     model_config=ConfigDict(extra='forbid')
@@ -48,8 +49,10 @@ class Note(TeamRef):
 class Plan(TeamRef):
     season:int=Field(ge=1,le=999)
     grid:list[list[str]]
+    expected_grid:list[list[str]]|None=None
 class Lineup(TeamRef):
     slots:dict[str,str]
+    expected_slots:dict[str,str]|None=None
 class Sync(TeamRef):
     kind:Literal['academy','squad','team','fixtures']='academy'
 class FixtureSync(Model):
@@ -192,6 +195,23 @@ def create_app(directory=None,password=None,secure=None):
         return {'user':user,'setup_required':False,'classic_account':store.get('classic_account'),'teams':teams,'current_team':{**current,'meta':json.loads(current['meta'])},'academy':academy,'squad':squad,'academy_source':asnap,'squad_source':ssnap,'snapshots':snapshots,'notes':notes,'plans':plans,'matches':matches,'game_date':store.get('game_date'),
           'lineup':store.get('lineup:'+team_id,{}),'training':store.get('training:'+team_id,[]),'settings':{'developer_ready':bool(creds.get('d') and creds.get('dk')),'manager_ready':bool(creds.get('m') and creds.get('mk'))},'csrf':session['csrf']}
 
+    @app.get('/api/optimization')
+    def optimization(team_id:str=Query(default='',pattern=r'^(\d{1,15})?$'),
+                     objective:Literal['balanced','recovery','development']='balanced',
+                     energy_floor:float=Query(default=60,ge=0,le=110),
+                     energy_scale:Literal['auto','percent','level']='auto',
+                     season:int|None=Query(default=None,ge=1,le=999),
+                     scope:Literal['current','all']='current',session=Depends(auth)):
+        # Validate an explicitly selected club before state() can choose a fallback.
+        if team_id:require_team(team_id)
+        with store.db() as db:
+            available=[r['id'] for r in db.execute('SELECT id FROM teams ORDER BY name,id')]
+        if not available:return {'reports':[]}
+        selected=team_id or ('72450' if '72450' in available else available[0])
+        targets=available if scope=='all' else [selected]
+        generated=now()
+        return {'reports':[build_report(state(tid,session),objective,energy_floor,season,generated_at=generated,energy_scale=energy_scale) for tid in targets]}
+
     @app.post('/api/teams',dependencies=[Depends(auth)])
     def add_team(body:Team):
         with store.db() as db:db.execute('INSERT INTO teams(id,name,country) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,country=excluded.country',(body.team_id,body.name,body.country))
@@ -220,14 +240,30 @@ def create_app(directory=None,password=None,secure=None):
     def plans(body:Plan):
         require_team(body.team_id)
         if len(body.grid)!=4 or any(len(row)!=16 or any(s not in SKILLS+[''] for s in row) for row in body.grid):raise HTTPException(422,'Planning attendu : 4 créneaux × 16 semaines.')
-        with store.db() as db:db.execute('INSERT OR REPLACE INTO plans VALUES(?,?,?)',(body.team_id,body.season,pack(body.grid)))
+        with store.db() as db:
+            # Reserve the write lock before reading so a competing preview cannot
+            # pass the same comparison and overwrite a change from this session.
+            db.execute('BEGIN IMMEDIATE')
+            if body.expected_grid is not None:
+                row=db.execute('SELECT grid FROM plans WHERE team_id=? AND season=?',(body.team_id,body.season)).fetchone()
+                current=json.loads(row['grid']) if row else [['']*16 for _ in range(4)]
+                if current!=body.expected_grid:raise HTTPException(409,'Données modifiées dans une autre session. Rechargez la page avant de recalculer.')
+            db.execute('INSERT OR REPLACE INTO plans VALUES(?,?,?)',(body.team_id,body.season,pack(body.grid)))
         return {'ok':True}
 
     @app.post('/api/lineup',dependencies=[Depends(auth)])
     def lineup(body:Lineup):
         require_team(body.team_id);selected=[v for v in body.slots.values() if v]
         if len(selected)!=len(set(selected)) or any(k not in [str(i) for i in range(1,24)] for k in body.slots) or any(not v.isdigit() or len(v)>15 for v in selected):raise HTTPException(422,'Un joueur ne peut occuper qu’un poste, de 1 à 23.')
-        store.set('lineup:'+body.team_id,body.slots);return {'ok':True}
+        with store.db() as db:
+            db.execute('BEGIN IMMEDIATE')
+            key='lineup:'+body.team_id
+            if body.expected_slots is not None:
+                row=db.execute('SELECT value FROM kv WHERE key=?',(key,)).fetchone()
+                current=json.loads(row['value']) if row else {}
+                if current!=body.expected_slots:raise HTTPException(409,'Données modifiées dans une autre session. Rechargez la page avant de recalculer.')
+            db.execute('INSERT OR REPLACE INTO kv VALUES(?,?)',(key,pack(body.slots)))
+        return {'ok':True}
 
     def save_match(doc):
         with store.db() as db:db.execute('INSERT OR REPLACE INTO matches VALUES(?,?,?,?)',(doc['id'],doc['type'],pack(doc),now()))
