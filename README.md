@@ -16,7 +16,7 @@ La connexion à l'outil est distincte du jeu. Les clés développeur Classic et 
 
 ## Tutoriel intégré
 
-Le menu **Tutoriel & aide** présente dix chapitres, dont Optimisation, une FAQ recherchable, un lexique et les limites des estimations. Le tableau de bord et le premier accueil sans club proposent **Commencer le tutoriel**. Sur chaque écran, **Mode d’emploi** ouvre le chapitre pertinent sans démonter le formulaire en cours ; Échap ferme l’aide et rend le focus au bouton.
+Le menu **Tutoriel & aide** présente onze chapitres, dont Optimisation et Mode vacances, une FAQ recherchable, un lexique et les limites des estimations. Le tableau de bord et le premier accueil sans club proposent **Commencer le tutoriel**. Sur chaque écran, **Mode d’emploi** ouvre le chapitre pertinent sans démonter le formulaire en cours ; Échap ferme l’aide et rend le focus au bouton.
 
 Les chapitres peuvent être marqués comme lus. Ces repères sont séparés par identifiant sur le navigateur utilisé, sans modifier les données des clubs. Ils se synchronisent entre le guide et son dialogue.
 
@@ -28,6 +28,18 @@ Les recommandations couvrent effectif, académie, entraînement, saison, stade e
 
 Les propositions et leur méthode sont consultables avant sauvegarde. Seul le club sélectionné dans l’application peut recevoir un XV ou un programme, après confirmation explicite. Ces écritures concernent uniquement l’outil. Le bilan peut être exporté sans clé API. Les paramètres d’énergie distinguent pourcentage premium jusqu’à 110 et niveau 1–11 ; un format ambigu est signalé avant d’appliquer un filtre. Voir `docs/optimization-methodology.md`.
 
+## Mode vacances
+
+La rubrique réunit les compositions de match à préparer à l’avance, la composition par défaut et le suivi daté par club. Deux modes : préparer des propositions à relire ou les envoyer automatiquement pendant la période autorisée. Tout démarre désactivé ; chaque manager choisit ses dates, son objectif, le format et le seuil d’énergie, les exclusions et les rôles de capitaine/buteur. Les clubs simplement suivis ne peuvent pas recevoir d’ordres.
+
+Un aperçu présente les joueurs et les changements avant envoi. Le serveur relit le propriétaire, l’effectif, l’échéance officielle et la composition distante, puis vérifie le résultat après le POST chiffré. L’API actuelle observée renvoie parfois 23 places et un mode de tactiques basic sans zones, contrairement à la documentation historique. Ce format exige un premier envoi manuel confirmé pour être utilisé automatiquement. Les tactiques et références de remplacement existantes sont conservées ; une référence devenue incohérente bloque l’envoi.
+
+Les clés développeur `d`, `dk` et le paramètre `IV` associé sont nécessaires pour les envois chiffrés. Ils se configurent dans Connexion & données, restent chiffrés au repos et ne sont pas renvoyés au navigateur. Une lecture réussie sans IV ne prouve pas la capacité d’envoi. Si Classic ne fournit pas d’échéance pour un match, enregistrez d’abord sa composition dans le jeu ; l’outil n’invente pas une échéance depuis l’heure du coup d’envoi.
+
+Le worker du VPS, activé par `BRT_VACATION_WORKER=1`, vérifie les règles toutes les quinze minutes après le passage précédent, dans le processus unique du service. Les appels Classic sont espacés et séquentiels. Journal et alertes restent dans l’espace privé ; aucun mail n’est envoyé par ce module. Arrêt par club et arrêt de tous les clubs : une requête déjà partie ne peut être annulée. Une coupure après envoi suspend le club et nécessite une relecture ou une validation explicite de l’état actuel ; aucun POST n’est rejoué aveuglément après un redémarrage.
+
+L’autorisation d’un pilotage entièrement autonome par l’éditeur n’est pas confirmée. Ce module ne remplace pas la connexion au jeu exigée pour l’activité du compte. Les entraînements restent manuels. Voir `docs/classic-vacation-api.md` et `docs/vacation-methodology.md` pour les limites et contrôles.
+
 ## Calculs et limites
 
 - Projection WC : règle personnelle de `ctr_ya.sql`, pas une règle générale d'éligibilité officielle.
@@ -36,7 +48,7 @@ Les propositions et leur méthode sont consultables avant sauvegarde. Seul le cl
 - Stade : ratios 22/39/30/8/1 % du classeur ; multiplicateur modifiable, sans prévision de rentabilité.
 - Matchs : clés `(type,id)`, 0 club / 1 U20 / 2 NT. Les zones sont relatives à chaque équipe. Les commentaires API sont classés uniquement lorsqu'une règle textuelle explicite correspond ; ces résultats sont **estimés** et leur couverture est affichée. L'import d'événements déjà classés utilise les champs `field`, `possession`, `att`.
 - Les fonctions PostgreSQL de reclassement, le parseur PHP et les requêtes d'entraînement appelés par les scripts n'étaient pas joints. Une équivalence exacte avec tous les anciens résultats de Franck ne peut donc pas être certifiée.
-- Les plannings et le XV sont sauvegardés dans l'outil ; aucun entraînement, transfert ou tactique n'est modifié dans le jeu.
+- Les plannings et le XV des écrans historiques restent des préparations locales. Seule la rubrique Mode vacances peut transmettre une composition dans Classic, après validation ou selon une règle explicitement activée. Les tactiques existantes sont conservées ; les entraînements et transferts ne sont pas modifiés.
 
 ## Développement
 

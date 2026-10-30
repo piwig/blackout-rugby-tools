@@ -13,8 +13,9 @@ async def import_manager(store,shared,access_key,developer_id='',developer_key='
     parsed=parse_qs(query)
     mid=parsed.get('m',[''])[0];key=parsed.get('mk',[''])[0]
     if not re.fullmatch(r'\d{1,15}',mid) or not re.fullmatch(r'[A-Za-z0-9_-]{3,200}',key):raise ClassicError('Copiez la clé complète « m=…&mk=… » depuis Moi → Mon compte dans Classic.')
-    credentials={k:v for k,v in shared.items() if k in ['d','dk']}
+    credentials={k:v for k,v in shared.items() if k in ['d','dk','iv']}
     credentials.update({'m':mid,'mk':key})
+    if (developer_id and developer_id!=credentials.get('d')) or (developer_key and developer_key!=credentials.get('dk')):credentials.pop('iv',None)
     if developer_id:credentials['d']=developer_id
     if developer_key:credentials['dk']=developer_key
     client=ClassicClient(credentials)

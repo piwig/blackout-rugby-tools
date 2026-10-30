@@ -67,8 +67,9 @@ class Store:
         return out
     def save_secrets(self,team_id,values):
         existing=self.secrets(team_id)
+        if not values.get('iv') and any(values.get(k) and values[k]!=existing.get(k) for k in ['d','dk']):existing.pop('iv',None)
         existing.update({k:v for k,v in values.items() if v})
-        for key,fields in [('api_developer',['d','dk']),('api_member:'+team_id,['m','mk'])]:
+        for key,fields in [('api_developer',['d','dk','iv']),('api_member:'+team_id,['m','mk'])]:
             doc={k:existing[k] for k in fields if k in existing}
             if doc:self.set(key,self.cipher.encrypt(pack(doc).encode()).decode())
     def verify(self,password):

@@ -5,4 +5,5 @@ import './styles.css';
 import './tutorial.css';
 import './rugby-design.css';
 import './optimization.css';
+import './vacation.css';
 createRoot(document.getElementById('root')!).render(<React.StrictMode><App/></React.StrictMode>);

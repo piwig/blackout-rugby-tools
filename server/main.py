@@ -1,4 +1,6 @@
 import hashlib
+import asyncio
+from contextlib import asynccontextmanager, suppress
 import json
 import os
 import secrets
@@ -8,7 +10,8 @@ from typing import Literal
 from fastapi import FastAPI,Request,Response,HTTPException,Depends,UploadFile,File,Form,Query
 from fastapi.responses import JSONResponse,FileResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel,Field,ConfigDict
+from pydantic import BaseModel,Field,ConfigDict,field_validator
+from fastapi.exceptions import RequestValidationError
 from .storage import Store,pack,now
 from .domain import SKILLS,player_metrics,wc_projection,attack_summary,csv_export
 from .imports import parse_import,normalize_player,read_csv,reject_constant
@@ -16,6 +19,7 @@ from .classic import ClassicClient,ClassicError
 from .accounts import Accounts,PrivateStore,active_store
 from .manager import import_manager
 from .optimization import build_report
+from .vacation import VacationService,VacationRule,VacationError
 
 class Model(BaseModel):
     model_config=ConfigDict(extra='forbid')
@@ -40,8 +44,14 @@ class Team(TeamRef):
 class Settings(TeamRef):
     developer_id:str=Field(default='',max_length=30)
     developer_key:str=Field(default='',max_length=200)
+    developer_iv:str=Field(default='',max_length=64)
     manager_id:str=Field(default='',max_length=30)
     manager_key:str=Field(default='',max_length=200)
+    @field_validator('developer_iv')
+    @classmethod
+    def validate_iv(cls,value):
+        if value and len(value.encode('utf-8'))!=16:raise ValueError('Le paramètre IV Classic doit contenir exactement 16 octets.')
+        return value
 class Note(TeamRef):
     player_id:str=Field(pattern=r'^\d{1,15}$')
     text:str=Field(default='',max_length=3000)
@@ -67,13 +77,96 @@ class Match(FixtureSync):
     season:int|None=None
     round:int|None=None
 
+class VacationOptions(Model):
+    objective:Literal['balanced','recovery','development']='balanced'
+    energy_floor:float=Field(default=60,ge=0,le=110,allow_inf_nan=False)
+    energy_scale:Literal['auto','percent','level']='auto'
+    excluded_ids:list[str]=Field(default_factory=list,max_length=200)
+    captain_id:str|None=Field(default=None,pattern=r'^\d{1,15}$')
+    kicker_id:str|None=Field(default=None,pattern=r'^\d{1,15}$')
+    @field_validator('excluded_ids')
+    @classmethod
+    def validate_exclusions(cls,value):
+        if any(not x.isascii() or not x.isdigit() or not 1<=len(x)<=15 for x in value):raise ValueError('Identifiants de joueurs invalides.')
+        return list(dict.fromkeys(value))
+
+class VacationPreview(TeamRef):
+    fixture_id:str=Field(default='0',pattern=r'^\d{1,15}$')
+    source:Literal['optimized','saved']='optimized'
+    options:VacationOptions=Field(default_factory=VacationOptions)
+class VacationSend(Model):
+    preview_id:str=Field(min_length=1,max_length=100,pattern=r'^[a-zA-Z0-9_-]+$')
+class VacationReconcile(VacationSend):
+    accept_current:bool=False
+class VacationSave(Model):
+    rule:VacationRule
+    expected_revision:int=Field(default=0,ge=0)
+class VacationStop(Model):
+    team_id:str|None=Field(default=None,pattern=r'^\d{1,15}$')
+
 def create_app(directory=None,password=None,secure=None):
     directory=Path(directory or os.getenv('BRT_DATA_DIR','data'))
     primary=Store(directory,password or os.getenv('BRT_PASSWORD'));accounts=Accounts(directory,primary);store=PrivateStore()
     secure=secure if secure is not None else os.getenv('BRT_SECURE','1')=='1'
     public_url=os.getenv('BRT_PUBLIC_URL','https://brt.bordebat.fr').rstrip('/')
-    app=FastAPI(title='Blackout Rugby Tools',docs_url=None,redoc_url=None,openapi_url=None)
+    vacation_services={}
+    worker_enabled=os.getenv('BRT_VACATION_WORKER','0')=='1'
+    worker_health={'worker_enabled':worker_enabled,'worker_last_run':None,'worker_error':None}
+    manager_worker_health={}
+
+    def vacation_service(user_id):
+        shared={k:v for k,v in primary.secrets('').items() if k in ['d','dk','iv']}
+        if user_id not in vacation_services:
+            vacation_services[user_id]=VacationService(accounts.store(user_id),shared_credentials=shared)
+        service=vacation_services[user_id]
+        service.shared_credentials=shared
+        return service
+
+    async def vacation_cycle():
+        # Each manager gets an explicit Store; no request ContextVar is inherited.
+        with accounts.db() as db:identifiers=[row['id'] for row in db.execute('SELECT id FROM users ORDER BY id')]
+        for user_id in identifiers:
+            error=None
+            try:await vacation_service(user_id).tick()
+            except asyncio.CancelledError:raise
+            except Exception:
+                # Exceptions may contain upstream transport details. Never log secrets.
+                error='Votre suivi nécessite un contrôle ; consultez le journal du mode vacances.'
+            manager_worker_health[user_id]={'worker_last_run':now(),'worker_error':error}
+        worker_health.update(worker_last_run=now(),worker_error=None)
+
+    async def vacation_worker():
+        while True:
+            try:await vacation_cycle()
+            except asyncio.CancelledError:raise
+            except Exception:worker_health['worker_error']='Le suivi automatique a rencontré une erreur. Nouvelle vérification au prochain passage.'
+            await asyncio.sleep(900)
+
+    @asynccontextmanager
+    async def lifespan(app):
+        task=asyncio.create_task(vacation_worker()) if worker_enabled else None
+        try:yield
+        finally:
+            if task:
+                task.cancel()
+                with suppress(asyncio.CancelledError):await task
+
+    app=FastAPI(title='Blackout Rugby Tools',docs_url=None,redoc_url=None,openapi_url=None,lifespan=lifespan)
     app.state.store=primary;app.state.accounts=accounts;attempts={};sync_times={}
+    app.state.vacations=vacation_services;app.state.vacation_cycle=vacation_cycle
+
+    @app.exception_handler(VacationError)
+    async def vacation_error(request,exc):
+        return JSONResponse({'detail':str(exc),'code':exc.code},status_code=exc.status_code)
+
+    @app.exception_handler(ClassicError)
+    async def classic_error(request,exc):
+        return JSONResponse({'detail':str(exc),'code':'classic_unavailable'},status_code=422)
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_error(request,exc):
+        # Pydantic's default response echoes submitted values, including secret fields.
+        return JSONResponse({'detail':'Vérifiez les champs du formulaire.','fields':[{'loc':e['loc'],'type':e['type']} for e in exc.errors()]},status_code=422)
 
     @app.middleware('http')
     async def security(request,call_next):
@@ -148,8 +241,10 @@ def create_app(directory=None,password=None,secure=None):
         return {'ok':True}
 
     def credentials(tid=''):
-        shared={k:v for k,v in primary.secrets('').items() if k in ['d','dk']}
-        return {**shared,**store.secrets(tid)}
+        shared={k:v for k,v in primary.secrets('').items() if k in ['d','dk','iv']}
+        own=store.secrets(tid)
+        if any(own.get(k) and own[k]!=shared.get(k) for k in ['d','dk']):shared.pop('iv',None)
+        return {**shared,**own}
 
     @app.post('/api/classic/import',dependencies=[Depends(auth)])
     async def classic_import(body:ManagerImport):
@@ -165,6 +260,42 @@ def create_app(directory=None,password=None,secure=None):
         keys=json.loads(store.cipher.decrypt(raw.encode()))
         try:return await import_manager(store,credentials(),'m='+keys['m']+'&mk='+keys['mk'])
         except ValueError as e:raise HTTPException(422,str(e)[:250]) from None
+
+    @app.get('/api/vacation/status')
+    def vacation_status(team_id:str=Query(default='',pattern=r'^(\d{1,15})?$'),session=Depends(auth)):
+        if team_id:require_team(team_id)
+        creds=credentials(team_id)
+        ready=bool(creds.get('d') and creds.get('m') and creds.get('mk') and len(creds.get('iv','').encode())==16 and len(creds.get('dk','').encode()) in (16,24,32))
+        return {**vacation_service(session['user_id']).status(team_id or None),**worker_health,**manager_worker_health.get(session['user_id'],{}),
+                'write_ready':ready,'write_blocked_reason':None if ready else 'Pour envoyer dans Classic, renseignez les clés manager et les paramètres développeur d, dk et IV dans Connexion & données.'}
+
+    @app.get('/api/vacation/fixtures')
+    async def vacation_fixtures(team_id:str=Query(pattern=r'^\d{1,15}$'),session=Depends(auth)):
+        require_team(team_id)
+        return await vacation_service(session['user_id']).fixtures(team_id)
+
+    @app.post('/api/vacation/rules')
+    def vacation_rules(body:VacationSave,session=Depends(auth)):
+        require_team(body.rule.team_id)
+        return vacation_service(session['user_id']).save_rule(body.rule,body.expected_revision)
+
+    @app.post('/api/vacation/preview')
+    async def vacation_preview(body:VacationPreview,session=Depends(auth)):
+        require_team(body.team_id)
+        return await vacation_service(session['user_id']).preview(body.team_id,body.fixture_id,body.source,body.options.model_dump())
+
+    @app.post('/api/vacation/send')
+    async def vacation_send(body:VacationSend,session=Depends(auth)):
+        return await vacation_service(session['user_id']).send(body.preview_id)
+
+    @app.post('/api/vacation/reconcile')
+    async def vacation_reconcile(body:VacationReconcile,session=Depends(auth)):
+        return await vacation_service(session['user_id']).reconcile(body.preview_id,body.accept_current)
+
+    @app.post('/api/vacation/stop')
+    def vacation_stop(body:VacationStop,session=Depends(auth)):
+        if body.team_id:require_team(body.team_id)
+        return vacation_service(session['user_id']).stop(body.team_id)
 
     def snapshot_data(tid,youth):
         with store.db() as db:rows=db.execute('SELECT * FROM snapshots WHERE team_id=? AND youth=? ORDER BY id DESC LIMIT 2',(tid,int(youth))).fetchall()
@@ -220,7 +351,7 @@ def create_app(directory=None,password=None,secure=None):
     @app.post('/api/settings',dependencies=[Depends(auth)])
     def settings(body:Settings):
         require_team(body.team_id)
-        store.save_secrets(body.team_id,{'d':body.developer_id,'dk':body.developer_key,'m':body.manager_id,'mk':body.manager_key})
+        store.save_secrets(body.team_id,{'d':body.developer_id,'dk':body.developer_key,'iv':body.developer_iv,'m':body.manager_id,'mk':body.manager_key})
         return {'ok':True}
 
     @app.post('/api/import',dependencies=[Depends(auth)])
