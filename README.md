@@ -42,8 +42,11 @@ Tests : `.\.venv\Scripts\python.exe -m pytest -q`. Les tests utilisent des bases
 - `/opt/brt/venv` : environnement Python.
 - `/var/lib/brt/brt.sqlite` : base privée ; `/var/lib/brt/encryption.key` : clé indispensable à la restauration des identifiants API.
 - `brt.service` : compte système dédié, écoute `127.0.0.1:3042`, limite mémoire 512 Mo.
-- nginx + certificat TLS : `brt.bordebat.fr`, proxy Cloudflare.
+- Domaine prévu : `brt.bordebat.fr`, proxy Cloudflare ; l'état réel figure dans `docs/deployment.md`.
 - `brt-backup.timer` : chaque jour à 02 h 35 Europe/Paris ; 30 archives locales avec base cohérente et clé.
+- Copie chiffrée distante : dépôt restic/R2 déjà configuré sur le VPS, tag `brt` ; données et archive du code. Aucune clé R2 n'est recopiée dans le projet.
+
+Pré-requis Ubuntu : `python3.12-venv`. Une fois le DNS configuré dans Cloudflare, lancer `bash /opt/brt/current/deploy/activate_domain.sh` pour obtenir le certificat et activer HTTPS. Le vhost HTTP ne sert jamais le formulaire de connexion en clair.
 
 Vérifier : `systemctl status brt`, `journalctl -u brt -n 50`, `curl http://127.0.0.1:3042/api/health`.
 Revenir au code précédent : modifier le lien `/opt/brt/current` vers la version conservée puis `systemctl restart brt`. Sauvegarder la base avant toute migration.
