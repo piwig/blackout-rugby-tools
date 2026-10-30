@@ -101,7 +101,7 @@ export function Tutorial({username,go,initialLesson='start',setup=false,inDialog
 
 export function TutorialWelcome({onOpen,compact=false}:{onOpen:()=>void;compact?:boolean}){return <section className={'tutorial-welcome '+(compact?'compact':'')}><span className="tutorial-welcome-icon"><BookOpen size={24}/></span><div><span className="eyebrow">PREMIERS PAS</span><h2>{compact?'Besoin d’aide pour commencer ?':'Nouveau dans l’atelier ?'}</h2><p>Un parcours guidé pour connecter Classic, comprendre vos données et préparer votre équipe.</p></div><button className="button secondary" onClick={onOpen}>Commencer le tutoriel<ArrowRight size={16}/></button></section>}
 
-export function HelpButton({onClick}:{onClick:()=>void}){return <button className="button secondary help-button" onClick={onClick}><HelpCircle size={17}/><span>Mode d’emploi</span></button>}
+export function HelpButton({onClick}:{onClick:()=>void}){return <button className="button secondary help-button" aria-label="Mode d’emploi" onClick={onClick}><HelpCircle size={17}/><span>Mode d’emploi</span></button>}
 
 export function TutorialDialog({username,page,onClose,go,setup=false}:{username:string;page:string;onClose:()=>void;go:(page:string)=>void;setup?:boolean}){
   const dialog=useRef<HTMLDialogElement>(null);
