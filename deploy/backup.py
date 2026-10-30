@@ -1,5 +1,6 @@
 """Consistent local SQLite backup, including the encryption key for recovery."""
 import os,sqlite3,shutil,tarfile,tempfile
+from contextlib import closing
 from datetime import datetime,timezone
 from pathlib import Path
 
@@ -10,14 +11,14 @@ with tempfile.TemporaryDirectory(dir=destination) as temporary:
     temp=Path(temporary)
     def copy_database(database):
         saved=temp/database.relative_to(root);saved.parent.mkdir(parents=True,exist_ok=True)
-        with sqlite3.connect(database) as source,sqlite3.connect(saved) as target:
+        with closing(sqlite3.connect(database)) as source,closing(sqlite3.connect(saved)) as target:
             source.backup(target)
             if target.execute('PRAGMA integrity_check').fetchone()[0]!='ok':raise RuntimeError('SQLite backup integrity check failed')
         if database.name=='brt.sqlite':shutil.copy2(database.parent/'encryption.key',saved.parent/'encryption.key')
     databases=[root/'brt.sqlite']
     if (root/'accounts.sqlite').exists():
         copy_database(root/'accounts.sqlite')
-        with sqlite3.connect(temp/'accounts.sqlite') as registry:
+        with closing(sqlite3.connect(temp/'accounts.sqlite')) as registry:
             for ident, in registry.execute("SELECT id FROM users WHERE id!='primary'"):
                 if len(ident)!=32 or any(c not in '0123456789abcdef' for c in ident):raise RuntimeError('Invalid private space ID')
                 database=root/'users'/ident/'brt.sqlite'
