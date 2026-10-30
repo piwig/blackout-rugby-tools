@@ -12,7 +12,7 @@ type WidgetOptions = {
   'before-interactive-callback':()=>void;'after-interactive-callback':()=>void;
   'unsupported-callback':()=>void;
 };
-type Turnstile = {ready:(callback:()=>void)=>void;render:(container:HTMLElement,options:WidgetOptions)=>string|undefined;remove:(id:string)=>void};
+type Turnstile = {render:(container:HTMLElement,options:WidgetOptions)=>string|undefined;remove:(id:string)=>void};
 declare global {interface Window {turnstile?:Turnstile;brtTurnstileReady?:()=>void}}
 let providerPromise:Promise<Turnstile>|null=null;
 
@@ -78,35 +78,33 @@ export function AntiBot({action,onToken,resetKey=0}:{action:Action;onToken:(toke
         if(!active)return;
         setStatus('Vérification de sécurité en cours…');
         armWatchdog();
-        api.ready(()=>{
-          if(!active||failed)return;
-          const host=container.current;
-          if(!host?.isConnected){failure('Le formulaire a changé. Recommencez la vérification.');return}
-          renderedHost=host;
-          try {
-            widget=api!.render(host,{
-              sitekey:settings.site_key,action,theme:'light',language:'fr',size:host.clientWidth<300?'compact':'flexible',
-              'response-field':false,'refresh-expired':'manual',retry:'never',
-              callback:token=>{
-                if(!active||failed)return;
-                if(!token||token.length>2048){failure('La vérification doit être recommencée.');return}
-                verified=true;clearWatchdog();callback.current(token);setError('');setStatus('Vérification effectuée.');
-              },
-              'before-interactive-callback':()=>{
-                if(!active||failed)return;
-                verified=false;clearWatchdog();callback.current(null);setStatus('Terminez la vérification affichée ci-dessus.');
-              },
-              'after-interactive-callback':()=>{if(active&&!failed&&!verified){setStatus('Vérification de sécurité en cours…');armWatchdog()}},
-              'expired-callback':()=>failure('La vérification a expiré. Recommencez-la avant d’envoyer le formulaire.'),
-              'error-callback':()=>failure('La vérification a échoué. Vérifiez votre connexion puis réessayez.'),
-              'timeout-callback':()=>failure('Le délai de vérification est dépassé. Recommencez-la.'),
-              'unsupported-callback':()=>failure('La vérification ne fonctionne pas dans ce navigateur. Réessayez avec un navigateur à jour.'),
-            });
-            // A synchronous provider callback may already have failed the attempt.
-            if(failed)removeWidget();
-            else if(typeof widget!=='string'||!widget)failure('La vérification n’a pas démarré. Recommencez-la.');
-          } catch {failure('La vérification n’a pas pu démarrer. Réessayez.')}
-        });
+        // loadProvider resolves from the script's onload callback; render directly.
+        const host=container.current;
+        if(!host?.isConnected){failure('Le formulaire a changé. Recommencez la vérification.');return}
+        renderedHost=host;
+        try {
+          widget=api.render(host,{
+            sitekey:settings.site_key,action,theme:'light',language:'fr',size:host.clientWidth<300?'compact':'flexible',
+            'response-field':false,'refresh-expired':'manual',retry:'never',
+            callback:token=>{
+              if(!active||failed)return;
+              if(!token||token.length>2048){failure('La vérification doit être recommencée.');return}
+              verified=true;clearWatchdog();callback.current(token);setError('');setStatus('Vérification effectuée.');
+            },
+            'before-interactive-callback':()=>{
+              if(!active||failed)return;
+              verified=false;clearWatchdog();callback.current(null);setStatus('Terminez la vérification affichée ci-dessus.');
+            },
+            'after-interactive-callback':()=>{if(active&&!failed&&!verified){setStatus('Vérification de sécurité en cours…');armWatchdog()}},
+            'expired-callback':()=>failure('La vérification a expiré. Recommencez-la avant d’envoyer le formulaire.'),
+            'error-callback':()=>failure('La vérification a échoué. Vérifiez votre connexion puis réessayez.'),
+            'timeout-callback':()=>failure('Le délai de vérification est dépassé. Recommencez-la.'),
+            'unsupported-callback':()=>failure('La vérification ne fonctionne pas dans ce navigateur. Réessayez avec un navigateur à jour.'),
+          });
+          // A synchronous provider callback may already have failed the attempt.
+          if(failed)removeWidget();
+          else if(typeof widget!=='string'||!widget)failure('La vérification n’a pas démarré. Recommencez-la.');
+        } catch {failure('La vérification n’a pas pu démarrer. Réessayez.')}
       } catch {
         failure('La vérification de sécurité n’a pas pu se charger. Réessayez.');
       } finally {clearTimeout(timer)}
