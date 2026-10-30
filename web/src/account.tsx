@@ -3,6 +3,7 @@ import {KeyRound,Link2,RefreshCw,ShieldCheck,UserPlus,Users,LockKeyhole,Eye,EyeO
 import {request,type Actions} from './App';
 import {Pill} from './components';
 import {date} from './types';
+import {TutorialWelcome,TutorialDialog} from './tutorial';
 
 export function ClassicAccount({d,act,busy}:Pick<Actions,'d'|'act'|'busy'>){
   const [key,setKey]=useState(''),[dev,setDev]=useState({developer_id:'',developer_key:''}),[editing,setEditing]=useState(false),[result,setResult]=useState('');
@@ -27,4 +28,4 @@ export function UserAccount({d,act,busy}:Pick<Actions,'d'|'act'|'busy'>){
   </div>
 }
 
-export function Onboarding({d,act,busy,error}:Pick<Actions,'d'|'act'|'busy'>&{error:string}){return <div className="onboarding"><header><a className="brand" href="/"><img src="/icon.svg" alt=""/><span>BLACKOUT<small>RUGBY TOOLS</small></span></a><button className="button secondary" onClick={()=>act('/logout',{},'').then(()=>window.location.reload()).catch(()=>{})}><LogOut size={16}/>Se déconnecter</button></header><div className="onboarding-welcome"><span className="eyebrow">BIENVENUE, {d.user.username.toUpperCase()}</span><h1>Votre saison commence ici.</h1><p>Un seul compte manager, toutes vos équipes. Retrouvez votre club dans un atelier qui vous appartient.</p></div>{error&&<div className="notice error" role="alert">{error}</div>}<ClassicAccount d={d} act={act} busy={busy}/><details className="onboarding-options"><summary>Mon accès à l’outil et les options de compte</summary><UserAccount d={d} act={act} busy={busy}/></details></div>}
+export function Onboarding({d,act,busy,error}:Pick<Actions,'d'|'act'|'busy'>&{error:string}){const [help,setHelp]=useState(false);return <div className="onboarding"><header><a className="brand" href="/"><img src="/icon.svg" alt=""/><span>BLACKOUT<small>RUGBY TOOLS</small></span></a><button className="button secondary" onClick={()=>act('/logout',{},'').then(()=>window.location.reload()).catch(()=>{})}><LogOut size={16}/>Se déconnecter</button></header><div className="onboarding-welcome"><span className="eyebrow">BIENVENUE, {d.user.username.toUpperCase()}</span><h1>Votre saison commence ici.</h1><p>Un seul compte manager, toutes vos équipes. Retrouvez votre club dans un atelier qui vous appartient.</p></div><TutorialWelcome compact onOpen={()=>setHelp(true)}/>{error&&<div className="notice error" role="alert">{error}</div>}<ClassicAccount d={d} act={act} busy={busy}/><details className="onboarding-options"><summary>Mon accès à l’outil et les options de compte</summary><UserAccount d={d} act={act} busy={busy}/></details>{help&&<TutorialDialog username={d.user.username} page="settings" setup onClose={()=>setHelp(false)} go={()=>{}}/>}</div>}

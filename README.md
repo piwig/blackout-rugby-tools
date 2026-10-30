@@ -14,6 +14,12 @@ Dans **Connexion & données**, coller la clé d’accès Classic complète (m=�
 
 La connexion à l'outil est distincte du jeu. Les clés développeur Classic et les clés manager de chaque club se renseignent dans **Connexion & données**. Les champs vides conservent les valeurs existantes. Elles sont chiffrées en base et ne sont jamais renvoyées par l'API. Le mot de passe du jeu n'est jamais demandé par l'outil.
 
+## Tutoriel intégré
+
+Le menu **Tutoriel & aide** présente neuf chapitres, une FAQ recherchable, un lexique et les limites des estimations. Le tableau de bord et le premier accueil sans club proposent **Commencer le tutoriel**. Sur chaque écran, **Mode d’emploi** ouvre le chapitre pertinent sans démonter le formulaire en cours ; Échap ferme l’aide et rend le focus au bouton.
+
+Les chapitres peuvent être marqués comme lus. Ces repères sont séparés par identifiant sur le navigateur utilisé, sans modifier les données des clubs. Ils se synchronisent entre le guide et son dialogue.
+
 ## Calculs et limites
 
 - Projection WC : règle personnelle de `ctr_ya.sql`, pas une règle générale d'éligibilité officielle.
