@@ -26,7 +26,7 @@ Python 3.12+, Node 22.12+.
 
 ```powershell
 py -3 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
 $env:BRT_PASSWORD='<mot de passe initial fort>'
 $env:BRT_SECURE='0'
 .\.venv\Scripts\python.exe -m uvicorn server.main:app_factory --factory --host 127.0.0.1 --port 3042

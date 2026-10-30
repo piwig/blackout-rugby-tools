@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel,Field,ConfigDict
 from .storage import Store,pack,now
 from .domain import SKILLS,player_metrics,wc_projection,attack_summary,csv_export
-from .imports import parse_import,normalize_player
+from .imports import parse_import,normalize_player,read_csv,reject_constant
 from .classic import ClassicClient,ClassicError
 
 class Model(BaseModel):
@@ -179,6 +179,22 @@ def create_app(directory=None,password=None,secure=None):
     def import_match(body:Match):
         doc=body.model_dump();doc['events']=[{k:str(v)[:2000] for k,v in e.items() if k in ['att','field','possession','text','commentary','comment','time','minute','att_origin','possession_reported','gametime','half','rule_version']} for e in doc['events']]
         save_match(doc);return {'ok':True,'summary':attack_summary(doc['events'])}
+
+    @app.post('/api/matches/file',dependencies=[Depends(auth)])
+    async def match_file(file:UploadFile=File(...),id:str=Form(...),type:int=Form(0),home:str=Form('Domicile'),away:str=Form('Extérieur')):
+        raw=await file.read(8_000_001)
+        if len(raw)>8_000_000:raise HTTPException(413,'Fichier limité à 8 Mo.')
+        try:
+            name=(file.filename or '').lower()
+            if name.endswith('.csv'):
+                rows=read_csv(raw)
+                if not rows or not {'field','possession'}.issubset(rows[0]):raise ValueError('CSV : colonnes field et possession requises ; att et text conseillées.')
+                doc={'id':id,'type':type,'home':home,'away':away,'events':rows}
+            elif name.endswith('.json'):doc=json.loads(raw.decode('utf-8-sig'),parse_constant=reject_constant)
+            else:raise ValueError('Format CSV ou JSON attendu.')
+            body=Match.model_validate(doc)
+        except (ValueError,TypeError,UnicodeError):raise HTTPException(422,'Import invalide : vérifier les colonnes, l’identifiant, le type et les événements.') from None
+        return {**import_match(body),'id':body.id,'type':body.type}
 
     @app.get('/api/matches/{kind}/{mid}',dependencies=[Depends(auth)])
     def match_detail(kind:int,mid:str):

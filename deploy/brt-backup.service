@@ -4,6 +4,7 @@ Description=Consistent Blackout Rugby Tools backup
 [Service]
 Type=oneshot
 ExecStart=/usr/bin/python3 /opt/brt/current/deploy/backup.py
+ExecStartPost=/bin/bash /opt/brt/current/deploy/offsite.sh
 UMask=0077
 Nice=15
 IOSchedulingClass=idle

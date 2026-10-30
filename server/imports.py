@@ -9,16 +9,39 @@ from .domain import SKILLS,number
 PLAYER_FIELDS=set(SKILLS+['id','name','age','age_decimal','birthday','weight','height','nationality','dualnationality','aggression','discipline','leadership','experience','energy','form','stars','jersey','pops','reveals','WC','csr','delta_csr','salary','capped_for','injured'])
 ALIASES={'player_id':'id','playerid':'id','player_name':'name','scouting_stars_used':'stars'}
 
+def reject_constant(value):
+    raise ValueError('Valeur numérique non finie interdite.')
+
+def read_csv(data):
+    try:text=data.decode('utf-8-sig')
+    except UnicodeDecodeError:text=data.decode('cp1252')
+    try:dialect=csv.Sniffer().sniff(text[:8192],delimiters=';,\t')
+    except csv.Error:raise ValueError('CSV : colonnes séparées par virgule, point-virgule ou tabulation attendues.')
+    return list(csv.DictReader(io.StringIO(text),dialect=dialect))
+
 def normalize_player(row):
     if not isinstance(row,dict): raise ValueError('Chaque joueur doit être un objet.')
     p={ALIASES.get(str(k).strip(),str(k).strip()):v for k,v in row.items()}
     p={k:v for k,v in p.items() if k in PLAYER_FIELDS}
     ident=str(p.get('id','')).strip()
-    if not ident.isdigit() or len(ident)>15 or not str(p.get('name','')).strip(): raise ValueError('Chaque joueur doit avoir un identifiant numérique et un nom.')
+    if not ident.isdigit() or len(ident)>15 or not isinstance(p.get('name'),str) or not p['name'].strip(): raise ValueError('Chaque joueur doit avoir un identifiant numérique et un nom.')
     p['id']=ident;p['name']=str(p['name'])[:120]
     for k in PLAYER_FIELDS-{'id','name','birthday','pops','reveals','nationality','dualnationality','capped_for','injured'}:
-        n=number(p.get(k))
+        value=p.get(k)
+        if value is None or value=='':
+            p.pop(k,None);continue
+        n=number(value)
+        if k in SKILLS:
+            if isinstance(value,str) and value in ('Unknown','Low','Medium','High'):continue
+            if n is None or not 0<=n<=21:raise ValueError('Compétence '+k+' invalide : nombre de 0 à 21 ou Unknown/Low/Medium/High attendu.')
+        elif n is None:
+            if not isinstance(value,str) or len(value)>100 or value.strip().lower() in ('nan','inf','infinity','-inf','-infinity'):raise ValueError('Valeur invalide : '+k)
+        elif abs(n)>1_000_000_000:raise ValueError('Valeur hors limites : '+k)
         if n is not None:p[k]=int(n) if n.is_integer() else n
+    for k in ('birthday','nationality','dualnationality','capped_for','injured'):
+        if k in p:
+            if isinstance(p[k],(dict,list)):raise ValueError('Valeur invalide : '+k)
+            p[k]=str(p[k])[:100] if p[k] is not None else ''
     for k in ['pops','reveals']:
         value=p.get(k,[])
         if isinstance(value,str):
@@ -82,7 +105,7 @@ def parse_import(data,filename):
                         if len(grid)==4 and all(len(slot)==16 for slot in grid):result['plans'][str(row[offset])]=grid
             result['players']=result['datasets'][0]['players'] if result['datasets'] else []
         elif name.endswith('.json'):
-            doc=json.loads(data.decode('utf-8-sig'))
+            doc=json.loads(data.decode('utf-8-sig'),parse_constant=reject_constant)
             if isinstance(doc,list):players=doc
             elif isinstance(doc,dict):
                 source=doc.get('players',[])
@@ -92,11 +115,7 @@ def parse_import(data,filename):
             else:raise ValueError('Objet JSON ou liste de joueurs attendu.')
             result['players']=[normalize_player(p) for p in players]
         elif name.endswith('.csv'):
-            try:text=data.decode('utf-8-sig')
-            except UnicodeDecodeError:text=data.decode('cp1252')
-            try:dialect=csv.Sniffer().sniff(text[:8192],delimiters=';,\t')
-            except csv.Error:raise ValueError('CSV : colonnes séparées par virgule, point-virgule ou tabulation attendues.')
-            result['players']=[normalize_player(r) for r in csv.DictReader(io.StringIO(text),dialect=dialect)]
+            result['players']=[normalize_player(r) for r in read_csv(data)]
         else:raise ValueError('Formats acceptés : ODS, CSV, JSON.')
     except (ValueError,KeyError,TypeError,csv.Error,UnicodeError) as e:
         raise ValueError('Import refusé : '+str(e)[:180]) from e

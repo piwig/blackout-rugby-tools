@@ -83,3 +83,25 @@ def test_full_export_includes_saved_lineup_without_credentials(client):
     h=login(client)
     client.post('/api/lineup',headers=h,json={'team_id':'72450','slots':{'1':'42'}})
     assert client.get('/api/export').json()['lineups']['72450']=={'1':'42'}
+
+@pytest.mark.parametrize('bad',['NaN','Infinity','1e100','-1','22','true','{}','"garbage"'])
+def test_invalid_skill_import_preserves_readable_snapshot(client,bad):
+    h=login(client)
+    client.post('/api/import',headers=h,data={'team_id':'72450'},files={'file':('a.csv',b'player_id,player_name,strength\n42,A,10')})
+    raw=('{"players":[{"id":"42","name":"A","strength":'+bad+'}]}').encode()
+    r=client.post('/api/import',headers=h,data={'team_id':'72450'},files={'file':('a.json',raw)})
+    assert r.status_code==422
+    s=client.get('/api/state')
+    assert s.status_code==200
+    assert s.json()['academy'][0]['strength']==10
+    assert len(s.json()['snapshots'])==1
+
+def test_match_csv_import_keeps_quoted_comments_and_orientation(client):
+    h=login(client)
+    raw='field;possession;att;text\n1;0;percu;"Une action; avec virgule"\n1;1;large;Visiteurs'.encode()
+    r=client.post('/api/matches/file',headers=h,data={'id':'42','type':'1','home':'A','away':'B'},files={'file':('match.csv',raw)})
+    assert r.status_code==200,r.text
+    m=client.get('/api/matches/1/42').json()
+    assert m['events'][0]['text']=='Une action; avec virgule'
+    assert m['summary']['home']['zones']['22']['Percussion']==1
+    assert m['summary']['away']['zones']['22A']['Large']==1
