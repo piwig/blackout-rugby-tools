@@ -28,11 +28,15 @@ L’historique paginé donne accès à tous les matchs enregistrés. Ses statist
 
 ## Tutoriel intégré
 
-Le menu **Tutoriel & aide** présente vingt et un chapitres dans ce lot, dont l’inscription, le contact, le profil, la progression, le suivi quotidien, le calendrier et le laboratoire de composition. Leur nombre et la durée totale sont calculés depuis le catalogue. Le guide comprend une FAQ recherchable, un lexique et les limites des estimations. Le tableau de bord et le premier accueil sans club proposent **Commencer le tutoriel**. Sur chaque écran, **Mode d’emploi** ouvre le chapitre pertinent sans démonter le formulaire en cours ; Échap ferme l’aide et rend le focus au bouton.
+Le menu **Tutoriel & aide** présente des chapitres guidés, dont l’inscription, le contact, le profil, la progression, le suivi quotidien, le calendrier et le laboratoire de composition. Leur nombre et la durée totale sont calculés depuis le catalogue. Le guide comprend une FAQ recherchable, un lexique et les limites des estimations. Le tableau de bord et le premier accueil sans club proposent **Commencer le tutoriel**. Sur chaque écran, **Mode d’emploi** ouvre le chapitre pertinent sans démonter le formulaire en cours ; Échap ferme l’aide et rend le focus au bouton.
 
 Les chapitres peuvent être marqués comme lus. Ces repères sont séparés par identifiant sur le navigateur utilisé, sans modifier les données des clubs. Ils se synchronisent entre le guide et son dialogue.
 
 ## Profil et progression
+
+La sidebar regroupe les outils dans **Préparer le match**, **Faire progresser**, **Piloter le club** et **Mon espace**. Les groupes sont repliables, le tableau de bord reste direct et le profil est fixé au pied du menu. Le groupe de la page ouverte se révèle automatiquement ; les outils propres aux clubs restent masqués pour une sélection.
+
+Dans **Progression**, trois vues distinguent les courbes, les rapports d’entraînement et les statistiques individuelles. Les lectures Classic sont explicites, avec aperçu avant conservation. Les consignes actuelles ne prouvent pas la réalisation d’un entraînement ; un rapport indisponible laisse les précédents intacts. Les statistiques concernent les joueurs présents dans l’effectif lors de la collecte, en carrière ou en championnat pour une saison choisie. Elles présentent les valeurs connues, les joueurs absents, un tri et une comparaison entre relevés de même périmètre. Aucun temps joué ni poste n’est inventé pour calculer un taux par 80 minutes.
 
 **Mon profil** conserve le nom affiché, les initiales, le numéro de maillot et l’avatar. Le club de cœur est facultatif et distinct des clubs Classic gérés : Toulouse, La Rochelle, Leinster, Racing 92, Toulon, Clermont, Munster ou Crusaders. Leurs huit logos réels sont servis localement ; les sources et la mention d’indépendance sont accessibles dans les crédits. Le profil propose aussi une densité confortable ou compacte, du texte normal ou grand, des mouvements réduits, une page de départ et une bannière stade ou vestiaire. Les six rubriques du tableau de bord peuvent être masquées et réordonnées. Une sauvegarde concurrente conserve le brouillon et demande de comparer les versions.
 
@@ -53,6 +57,8 @@ La vue d’ensemble réunit les priorités de tous les clubs privés : fraîcheu
 **Saison & calendrier** conserve les matchs, séances et rappels, leurs dates avec fuseau, importance, état, notes et joueurs prévus. Un bouton lit les rencontres Classic, puis un second les ajoute au calendrier. Les rencontres déjà ajoutées sont préservées ; les dates inconnues sont signalées. Ce planning ne transmet aucun ordre au jeu et ne simule aucune récupération.
 
 Dans **Optimisation → XV & banc**, le laboratoire permet de verrouiller un poste, imposer un titulaire, exclure un joueur, calculer les places restantes et conserver jusqu’à vingt scénarios nommés par club. Le terrain est interactif et utilisable au clavier ; la couverture du banc reste indicative. La comparaison distingue des objectifs ou observations non comparables. L’application d’un XV reste locale et vérifie que la composition et l’observation n’ont pas changé.
+
+**Vos critères de sélection** ajoute jusqu’à dix profils privés de coefficients par club, réglables rôle par rôle. Les poids vont de 0 à 10 ; un poids positif demande une compétence connue. Les scénarios conservent leurs coefficients et leur méthode, même si le profil change ensuite. Deux profils différents ne produisent pas une différence d’indice présentée comme comparable. Le profil par défaut conserve le calcul historique. Voir la [méthodologie des critères et rapports](docs/community-coaching-methodology.md).
 
 **Académie** rapproche objectifs individuels, générations, variations et dévoilements, avec dates et sources. Deux observations contradictoires au même instant ne deviennent pas une progression. Les séances réalisées sont déclarées manuellement et comparées au planning ; le dernier export n’est pas reconstruit en historique.
 

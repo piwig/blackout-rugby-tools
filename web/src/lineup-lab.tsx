@@ -4,22 +4,32 @@ import {Check, CircleAlert, LockKeyhole, RefreshCw, Save, Trash2, Unlock, Users}
 import {request, type Actions} from './App';
 import {fmt} from './types';
 import './lineup-lab.css';
+import {RoleWeightsEditor} from './role-weights';
+import {validRoleWeights,type WeightCriteria,type RoleWeights} from './role-weights-model';
+import {useUnsavedChanges} from './navigation-guard';
 
 const roles = ['Pilier', 'Talonneur', 'Pilier', 'Deuxième ligne', 'Deuxième ligne', 'Troisième ligne', 'Troisième ligne', 'Troisième ligne', 'Demi de mêlée', 'Demi d’ouverture', 'Ailier', 'Centre', 'Centre', 'Ailier', 'Arrière'];
 const rows = [[1, 2, 3], [4, 5], [6, 8, 7], [9, 10], [11, 12, 13, 14], [15]];
 const objectives = {balanced: 'Performance', recovery: 'Récupération', development: 'Développement'};
-type Options = {objective: keyof typeof objectives; energy_floor: number; energy_scale: 'auto' | 'percent' | 'level'; locks: Record<string, string>; starter_ids: string[]; excluded_ids: string[]};
+type Options = WeightCriteria & {objective: keyof typeof objectives; energy_floor: number; energy_scale: 'auto' | 'percent' | 'level'; locks: Record<string, string>; starter_ids: string[]; excluded_ids: string[]};
 type Selected = {slot: number; role: string; id: string; name: string; score: number; energy: number | null; reason: string; covers?: string[]};
-type Preview = {generated_at: string; source: {id: number; observed_at: string; source: string} | null; score: number | null; warnings: string[]; summary: {selected: number; eligible: number}; lineup: {slots: Record<string, string>; players: Selected[]; unfilled: number[]; excluded: {id: string; name: string; reason: string}[]; bench_coverage: {roles: {role: string; player_ids: string[]; needed: number; missing: number}[]; gaps: string[]; method: string}}};
+type Preview = {criteria?: {name:string;method:string;role_weights:RoleWeights}; generated_at: string; source: {id: number; observed_at: string; source: string} | null; score: number | null; warnings: string[]; summary: {selected: number; eligible: number}; lineup: {slots: Record<string, string>; players: Selected[]; unfilled: number[]; excluded: {id: string; name: string; reason: string}[]; bench_coverage: {roles: {role: string; player_ids: string[]; needed: number; missing: number}[]; gaps: string[]; method: string}}};
 type Scenario = {id: string; name: string; options: Options; preview: Preview};
 type Document = {revision: number; scenarios: Scenario[]};
 type Comparison = {left: {name: string; score: number | null; starters: number; bench_gaps: string[]}; right: Comparison['left']; delta: number | null; warnings: string[]; changes: {slot: number; left: string | null; right: string | null}[]; explanation: string};
-const defaults = (): Options => ({objective: 'balanced', energy_floor: 60, energy_scale: 'auto', locks: {}, starter_ids: [], excluded_ids: []});
+const defaults = (): Options => ({weight_profile_name:tr('Profil par défaut'),objective: 'balanced', energy_floor: 60, energy_scale: 'auto', locks: {}, starter_ids: [], excluded_ids: []});
 const localDate = (value?: string) => value ? new Date(value).toLocaleString(localeTag()) : tr('Non datée');
 
-export function LineupLab({d, act, busy, openPlayer}: Actions) {
+export function LineupLab(props:Actions) {
+  return <ScopedLineupLab key={props.d.user.username+':'+props.d.csrf+':'+props.d.current_team.id} {...props}/>;
+}
+
+function ScopedLineupLab({d, act, busy, openPlayer}: Actions) {
   const team = d.current_team.id;
-  const [options, setOptions] = useState<Options>(defaults);
+  const [options, rawSetOptions] = useState<Options>(defaults);
+  const [dirty,setDirty] = useState(false);
+  const [criteriaEpoch,setCriteriaEpoch] = useState(0);
+  const setOptions = (next:Options|((previous:Options)=>Options)) => {setDirty(true);rawSetOptions(next);};
   const [energyInput, setEnergyInput] = useState('60');
   const [slot, setSlot] = useState(1);
   const [search, setSearch] = useState('');
@@ -41,8 +51,10 @@ export function LineupLab({d, act, busy, openPlayer}: Actions) {
   currentKey.current = key;
   const result = preview?.result;
   const locked = busy || working;
+  const validWeights = !options.role_weights || validRoleWeights(options.role_weights);
   const validEnergy = energyInput.trim() !== '' && Number.isInteger(Number(energyInput)) && Number(energyInput) >= 0 && Number(energyInput) <= 110;
-  const fresh = preview?.key === key && !preview.historical && validEnergy;
+  const fresh = preview?.key === key && !preview.historical && validEnergy && validWeights;
+  useUnsavedChanges(dirty||working);
   const selectedPlayer = result?.lineup.players.find(player => player.slot === slot);
   const playerAtSlot = options.locks[String(slot)] || (fresh ? result?.lineup.slots[String(slot)] : undefined) || '';
   const knownName = (id: string | null) => id ? d.squad.find(player => player.id === id)?.name || result?.lineup.players.find(player => player.id === id)?.name || `Joueur ${id}` : 'Place vide';
@@ -92,15 +104,17 @@ export function LineupLab({d, act, busy, openPlayer}: Actions) {
   }
 
   function loadScenario(id: string) {
+    if(dirty&&!window.confirm(tr('Abandonner les modifications du scénario pour ouvrir cette préparation ?')))return;
     const scenario = document?.scenarios.find(item => item.id === id);
     setSelectedScenario(id); setComparison(null); setConfirmApply(false);
     if (!scenario) {setName(''); setPreview(null); return;}
-    setName(scenario.name); setOptions(scenario.options); setEnergyInput(String(scenario.options.energy_floor));
+    setName(scenario.name); rawSetOptions(scenario.options); setEnergyInput(String(scenario.options.energy_floor));
+    setDirty(false);setCriteriaEpoch(value=>value+1);
     setPreview({key: '', result: scenario.preview, historical: true});
   }
 
   async function calculate() {
-    if (!validEnergy) return;
+    if (!validEnergy || !validWeights) return;
     const sentKey = key;
     await run(async () => {
       const value = await request('/lineup-lab/preview', {team_id: team, options}, d.csrf);
@@ -110,11 +124,13 @@ export function LineupLab({d, act, busy, openPlayer}: Actions) {
 
   async function save(asNew: boolean) {
     if (!document || !fresh || !name.trim()) return;
+    const sentKey=key;
     await run(async () => {
       const value: Document = await act('/lineup-lab/scenarios', {team_id: team, options, name: name.trim(), expected_revision: document.revision, expected_source_id: result?.source?.id ?? null,
         ...(selectedScenario && !asNew ? {id: selectedScenario} : {})}, 'Scénario conservé dans votre espace privé');
       if (!mounted.current) return;
       setDocument(value);
+      if(currentKey.current===sentKey)setDirty(false);
       if (asNew || !selectedScenario) setSelectedScenario(value.scenarios.at(-1)?.id || '');
     });
   }
@@ -126,8 +142,9 @@ export function LineupLab({d, act, busy, openPlayer}: Actions) {
       <label>{tr("Objectif")}<select value={options.objective} onChange={event => setOptions({...options, objective: event.target.value as Options['objective']})}>{Object.entries(objectives).map(([id, label]) => <option key={id} value={id}>{tr(label)}</option>)}</select></label>
       <label>{tr("Seuil d’énergie (%)")}<input type="number" min="0" max="110" step="1" value={energyInput} onChange={event => {setEnergyInput(event.target.value); setOptions({...options, energy_floor: Number(event.target.value)});}}/></label>
       <label>{tr("Échelle de la source")}<select value={options.energy_scale} onChange={event => setOptions({...options, energy_scale: event.target.value as Options['energy_scale']})}><option value="auto">{tr("Détection automatique")}</option><option value="percent">{tr("Pourcentage · 0 à 110")}</option><option value="level">{tr("Niveau · 1 à 11")}</option></select></label>
-      <button className="button primary" disabled={!validEnergy || !d.squad.length} onClick={() => void calculate()}><RefreshCw size={16} className={working ? 'spin' : ''}/>{tr("Optimiser les places libres")}</button>
+      <button className="button primary" disabled={!validEnergy || !validWeights || !d.squad.length} onClick={() => void calculate()}><RefreshCw size={16} className={working ? 'spin' : ''}/>{tr("Optimiser les places libres")}</button>
     </fieldset>
+    <RoleWeightsEditor key={criteriaEpoch} team={team} csrf={d.csrf} players={d.squad} value={options} locked={locked} onChange={criteria=>setOptions(previous=>({...previous,...criteria}))}/>
     {!validEnergy && <p className="text-error" role="alert">{tr("Le seuil doit être un entier entre 0 et 110.")}</p>}
     {!d.squad.length && <p className="muted">{tr("Importez un effectif senior pour commencer à composer.")}</p>}
     <div className="lab-layout">
@@ -156,7 +173,7 @@ export function LineupLab({d, act, busy, openPlayer}: Actions) {
       </div>
     </div>
     {result && <>
-      <div className={'lab-result-heading '+(!fresh ? 'lab-stale' : '')}><strong>{preview?.historical ? tr("Scénario enregistré") : fresh ? tr("Aperçu calculé") : tr("Aperçu à recalculer")} · {result.summary.selected}{tr("/15 titulaires · indice ")}{fmt(result.score)}</strong><p>{localDate(result.generated_at)}{tr(" · Source : ")}{result.source?.source || tr("Aucune observation")} · {localDate(result.source?.observed_at)}</p>{!fresh && <p>{tr("Recalculez avec les critères et l’effectif actuels avant de sauvegarder ou d’utiliser ce XV.")}</p>}</div>
+      <div className={'lab-result-heading '+(!fresh ? 'lab-stale' : '')}><strong>{preview?.historical ? tr("Scénario enregistré") : fresh ? tr("Aperçu calculé") : tr("Aperçu à recalculer")} · {result.summary.selected}{tr("/15 titulaires · indice ")}{fmt(result.score)}</strong><p>{tr("Critères conservés : ")}{result.criteria?.name||tr("Profil par défaut")}{tr(" · Moyenne pondérée des compétences connues")}</p><p>{localDate(result.generated_at)}{tr(" · Source : ")}{result.source?.source || tr("Aucune observation")} · {localDate(result.source?.observed_at)}</p>{!fresh && <p>{tr("Recalculez avec les critères et l’effectif actuels avant de sauvegarder ou d’utiliser ce XV.")}</p>}</div>
       {result.warnings.length > 0 && <div className="lab-warning" role="status"><CircleAlert size={18}/><ul>{result.warnings.map(warning => <li key={warning}>{tr(warning)}</li>)}</ul></div>}
       <section className="lab-bench" aria-labelledby="lab-bench-title"><h3 id="lab-bench-title">{tr("Le banc et les rôles couverts")}</h3><div className="lab-reserves">{result.lineup.players.filter(player => player.slot > 15).map(player => <article key={player.slot}><span>{player.slot}</span><div><strong>{player.name}</strong><small>{tr("Indice ")}{fmt(player.score)}{tr(" · énergie ")}{player.energy === null ? tr("inconnue") : fmt(player.energy)+' %'}</small><p>{player.covers?.join(' · ')}</p><details><summary>{tr("Pourquoi ce joueur")}</summary><p>{player.reason}</p></details></div></article>)}</div>
         {result.lineup.players.every(player => player.slot <= 15) && <p>{tr("Aucun remplaçant disponible.")}</p>}
@@ -166,7 +183,7 @@ export function LineupLab({d, act, busy, openPlayer}: Actions) {
       <div className="lab-apply"><p>{tr("Ce XV peut remplacer la composition locale du club après confirmation.")}</p>{!confirmApply ? <button className="button secondary" disabled={locked || !fresh || !Object.keys(result.lineup.slots).length} onClick={() => setConfirmApply(true)}>{tr("Utiliser ce XV dans l’outil")}</button> : <div role="group" aria-label={tr("Confirmer le remplacement du XV")}><p><strong>{tr("Remplacer le XV et le banc sauvegardés de ")}{d.current_team.name} ?</strong>{tr(" Les places non pourvues seront vides.")}</p><div className="lab-inline-actions"><button className="button secondary" disabled={locked} onClick={() => setConfirmApply(false)}>{tr("Annuler")}</button><button className="button primary" disabled={locked || !fresh} onClick={() => void run(async () => {const applied = await act('/lineup-lab/apply', {team_id: team, options, expected_source_id: result.source?.id ?? null, expected_slots: d.lineup}, 'XV et banc enregistrés dans l’outil'); if (mounted.current) {setConfirmApply(false); setPreview({key, result: applied.preview, historical: false});}})}>{tr("Confirmer le remplacement local")}</button></div></div>}</div>
     </>}
     <section className="lab-scenarios" aria-labelledby="lab-scenarios-title"><div className="lab-heading"><div><span className="eyebrow">{tr("VOS PRÉPARATIONS CONSERVÉES")}</span><h3 id="lab-scenarios-title">{tr("Scénarios nommés")}</h3></div><span>{document?.scenarios.length || 0}/20</span></div>
-      <div className="lab-controls"><label>{tr("Ouvrir un scénario")}<select value={selectedScenario} disabled={locked || !document} onChange={event => loadScenario(event.target.value)}><option value="">{tr("Nouvelle préparation")}</option>{document?.scenarios.map(scenario => <option key={scenario.id} value={scenario.id}>{scenario.name}</option>)}</select></label><label>{tr("Nom de la préparation")}<input maxLength={80} value={name} disabled={locked} onChange={event => setName(event.target.value)} placeholder={tr("Ex. Réception de samedi")}/></label><div className="lab-inline-actions"><button className="button primary" disabled={locked || !document || !fresh || !name.trim()} onClick={() => void save(false)}><Save size={15}/>{selectedScenario ? tr("Mettre à jour") : tr("Conserver")}</button>{selectedScenario && <button className="button secondary" disabled={locked || !document || !fresh || !name.trim()} onClick={() => void save(true)}>{tr("Créer une copie")}</button>}</div></div>
+      <div className="lab-controls"><label>{tr("Ouvrir un scénario")}<select value={selectedScenario} disabled={locked || !document} onChange={event => loadScenario(event.target.value)}><option value="">{tr("Nouvelle préparation")}</option>{document?.scenarios.map(scenario => <option key={scenario.id} value={scenario.id}>{scenario.name}</option>)}</select></label><label>{tr("Nom de la préparation")}<input maxLength={80} value={name} disabled={locked} onChange={event => {setDirty(true);setName(event.target.value);}} placeholder={tr("Ex. Réception de samedi")}/></label><div className="lab-inline-actions"><button className="button primary" disabled={locked || !document || !fresh || !name.trim()} onClick={() => void save(false)}><Save size={15}/>{selectedScenario ? tr("Mettre à jour") : tr("Conserver")}</button>{selectedScenario && <button className="button secondary" disabled={locked || !document || !fresh || !name.trim()} onClick={() => void save(true)}>{tr("Créer une copie")}</button>}</div></div>
       {selectedScenario && <button className="text-button lab-delete" disabled={locked || !document} onClick={() => void run(async () => {if (!document) return; const value = await act('/lineup-lab/delete', {team_id: team, id: selectedScenario, expected_revision: document.revision}, 'Scénario supprimé'); if (mounted.current) {setDocument(value); setSelectedScenario(''); setName(''); if (leftId === selectedScenario) setLeftId(''); if (rightId === selectedScenario) setRightId('');}})}><Trash2 size={14}/>{tr("Supprimer ce scénario")}</button>}
       {!document?.scenarios.length && <p className="muted">{tr("Calculez un premier XV, donnez-lui un nom, puis conservez-le pour préparer vos variantes.")}</p>}
       {!!document?.scenarios.length && <><div className="lab-compare-controls"><label>{tr("Scénario de référence")}<select value={leftId} onChange={event => setLeftId(event.target.value)}><option value="">{tr("Choisir…")}</option>{document.scenarios.map(scenario => <option key={scenario.id} value={scenario.id}>{scenario.name}</option>)}</select></label><label>{tr("Scénario à comparer")}<select value={rightId} onChange={event => setRightId(event.target.value)}><option value="">{tr("Choisir…")}</option>{document.scenarios.map(scenario => <option key={scenario.id} value={scenario.id}>{scenario.name}</option>)}</select></label></div>

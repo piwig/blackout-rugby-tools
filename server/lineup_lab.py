@@ -10,6 +10,8 @@ from .domain import number
 from .optimization import make_lineup, unique_players
 from .storage import now, pack
 from .team_identity import TeamId
+from .role_weights import (DEFAULT_NAME, METHOD, clean_profile_name, default_weights,
+                           register_role_weights, validate_weights)
 
 
 Identifier = Annotated[str, Field(strict=True, pattern=r'^\d{1,15}$')]
@@ -28,6 +30,12 @@ class Options(Model):
     locks: dict[Annotated[str, Field(pattern=r'^(?:[1-9]|1[0-5])$')], Identifier] = Field(default_factory=dict, max_length=15)
     starter_ids: list[Identifier] = Field(default_factory=list, max_length=15)
     excluded_ids: list[Identifier] = Field(default_factory=list, max_length=500)
+    role_weights: dict = Field(default_factory=default_weights)
+    weight_profile_name: Annotated[str, Field(strict=True, min_length=1, max_length=80)] = DEFAULT_NAME
+    weight_method: Literal['weighted-average-v1'] = METHOD
+
+    _weights = field_validator('role_weights', mode='before')(validate_weights)
+    _profile_name = field_validator('weight_profile_name')(clean_profile_name)
 
     @model_validator(mode='after')
     def consistent(self):
@@ -82,7 +90,8 @@ def calculate(snapshot, options):
     lineup, summary, unknown_injury = make_lineup(
         squad, snapshot.get('lineup', {}), options.objective, options.energy_floor,
         actual_scale, generated_at, locks=options.locks,
-        starter_ids=options.starter_ids, excluded_ids=options.excluded_ids)
+        starter_ids=options.starter_ids, excluded_ids=options.excluded_ids,
+        role_weights=options.role_weights)
     warnings = []
     if actual_scale == 'ambiguous':
         warnings.append('Échelle d’énergie ambiguë : aucun filtre ni bonus énergie appliqué. Choisissez le format de la source.')
@@ -93,6 +102,8 @@ def calculate(snapshot, options):
     if lineup['unfilled']:
         warnings.append('XV incomplet : certains postes n’ont aucun candidat calculable.')
     return {'generated_at': generated_at, 'source': snapshot.get('squad_source'),
+            'criteria': {'name': options.weight_profile_name, 'method': options.weight_method,
+                         'role_weights': validate_weights(options.role_weights)},
             'energy_scale': actual_scale, 'lineup': lineup, 'summary': summary,
             'score': round(sum(p['score'] for p in lineup['players'] if p['slot'] <= 15), 2)
                      if not lineup['unfilled'] else None,
@@ -102,6 +113,9 @@ def calculate(snapshot, options):
 def compare_scenarios(left, right):
     a, b = left['preview'], right['preview']
     reasons = []
+    if (left['options'].get('role_weights', default_weights()) != right['options'].get('role_weights', default_weights())
+            or left['options'].get('weight_method', METHOD) != right['options'].get('weight_method', METHOD)):
+        reasons.append('Coefficients de sélection différents : différence d’indice indisponible.')
     # Objective scores are different measures; do not imply a gain across them.
     if any(left['options'][key] != right['options'][key]
            for key in ('objective', 'energy_floor', 'energy_scale')):
@@ -126,6 +140,7 @@ def compare_scenarios(left, right):
 
 def register_lineup_lab(app, store, auth, require_team, state):
     """Register against the request's PrivateStore; no client-provided tenant."""
+    register_role_weights(app, store, auth, require_team)
     def document(team_id, db=None):
         if db is None:
             return store.get('lineup_lab:'+team_id, {'revision': 0, 'scenarios': []})

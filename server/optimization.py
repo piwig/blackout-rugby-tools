@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 
 from .domain import SKILLS, SKILL_LABELS, number, player_metrics, stadium_plan
 from .team_identity import is_selection,team_identity
+from .role_weights import validate_weights
 
 
 ROLES = ['Pilier', 'Talonneur', 'Pilier', 'Deuxième ligne', 'Deuxième ligne',
@@ -127,9 +128,11 @@ def unique_players(players):
 
 
 def make_lineup(squad, saved, objective, energy_floor, energy_scale, generated_at, *,
-                locks=None, starter_ids=None, excluded_ids=None):
+                locks=None, starter_ids=None, excluded_ids=None, role_weights=None):
     # Optional constraints keep the historical/vacation callers compatible.
     squad = unique_players(squad)
+    if role_weights is not None:
+        role_weights = validate_weights(role_weights)
     locks, starter_ids, excluded_ids = dict(locks or {}), list(starter_ids or []), list(excluded_ids or [])
     known_ids = {str(player['id']) for player in squad}
     if (any(slot not in {str(i) for i in range(1, 16)} for slot in locks)
@@ -147,7 +150,7 @@ def make_lineup(squad, saved, objective, energy_floor, energy_scale, generated_a
         unknown_energy += int(energy is None)
         unknown_injury += int(injury is None)
         scores = {r['name']: round(r['score']+objective_bonus(player, objective, energy), 2)
-                  for r in player_metrics(player)['roles']}
+                  for r in player_metrics(player, role_weights=role_weights)['roles']}
         reasons = []
         if str(player['id']) in excluded_ids:
             reasons.append('Exclusion choisie par le manager.')
@@ -195,8 +198,12 @@ def make_lineup(squad, saved, objective, energy_floor, energy_scale, generated_a
         identifier = str(player['id'])
         slots[str(slot)] = identifier
         used.add(index)
-        affinity = next(r['score'] for r in player_metrics(player)['roles'] if r['name'] == role)
+        affinity = next(r['score'] for r in player_metrics(player, role_weights=role_weights)['roles'] if r['name'] == role)
         explanation = f'Affinité {role} : {affinity:g} ; bonus objectif : {objective_bonus(player, objective, energy):.2f}.'
+        if role_weights is not None:
+            weights = role_weights[role]
+            terms = ' + '.join(f'{SKILL_LABELS[skill]}×{weight}' for skill, weight in weights.items() if weight)
+            explanation += f' Indice personnel, moyenne pondérée : ({terms}) / {sum(weights.values())} ; toutes les compétences de poids positif sont connues.'
         if energy is None:
             explanation += f' Énergie inconnue ou échelle ambiguë (valeur brute : {player.get("energy", "absente")}), à vérifier.'
         elif energy_scale == 'level':
@@ -224,7 +231,7 @@ def make_lineup(squad, saved, objective, energy_floor, energy_scale, generated_a
     needs = {role: 2 if role == 'Pilier' else 1 for role in role_names}
     coverable = {}
     for index, candidate in enumerate(candidates):
-        affinities = player_metrics(candidate['player'])['roles']
+        affinities = player_metrics(candidate['player'], role_weights=role_weights)['roles']
         best = max(r['score'] for r in affinities)
         coverable[index] = [r['name'] for r in affinities if r['score'] >= .8*best]
     coverage = {role: [] for role in role_names}

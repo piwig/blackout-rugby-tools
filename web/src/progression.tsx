@@ -4,6 +4,8 @@ import {ArrowRight, CalendarDays, ChartNoAxesCombined, ChevronLeft, ChevronRight
 import {request, type Actions} from './App';
 import {fmt, labels, skills} from './types';
 import './progression.css';
+import {ClassicCoaching} from './coaching';
+import {useNavigationGuard} from './navigation-guard';
 
 type Metric = 'csr' | typeof skills[number];
 type PlayerPoint = {values:Record<Metric,number|null>; conflicts:Metric[]; revealed:Metric[]; deltas:Partial<Record<Metric,number>>; presence_conflict:boolean};
@@ -100,7 +102,15 @@ function HistoryChart({rows,title,collective}:{rows:ChartRow[];title:string;coll
 }
 
 export function Progression(props:Actions) {
-  return <ProgressionPanel key={props.d.user.username+':'+props.d.csrf+':'+props.d.current_team.id} {...props}/>;
+  return <ProgressionWorkspace key={props.d.user.username+':'+props.d.csrf+':'+props.d.current_team.id} {...props}/>;
+}
+
+function ProgressionWorkspace(props:Actions){
+  const [view,setView]=useState<'observations'|'training'|'statistics'>('observations');
+  const {confirmLeave}=useNavigationGuard();
+  const selection=props.d.current_team.kind==='u20'||props.d.current_team.kind==='nt';
+  const views=[{id:'observations' as const,label:'Courbes de progression',Icon:ChartNoAxesCombined},...(!selection?[{id:'training' as const,label:'Rapports d’entraînement',Icon:CalendarDays},{id:'statistics' as const,label:'Statistiques individuelles',Icon:Users}]:[])];
+  return <><div className="progression-workspace-tabs" aria-label={tr('Vues de la progression')}>{views.map(({id,label,Icon})=><button key={id} aria-pressed={view===id} disabled={props.busy} onClick={()=>{if(view!==id&&confirmLeave())setView(id)}}><Icon size={17}/>{tr(label)}</button>)}</div>{view==='observations'?<ProgressionPanel {...props}/>:<ClassicCoaching {...props} mode={view}/>}</>;
 }
 
 function ProgressionPanel({d,go}:Actions) {

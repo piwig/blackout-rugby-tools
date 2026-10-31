@@ -28,6 +28,13 @@
 .lab-inline-actions { display:flex; flex-wrap:wrap; gap:9px; align-items:center; margin:12px 0; }
 .lab-inline-actions .button { font-size:11px; }
 .lab-note { color:#62695f; font-size:11px; line-height:1.7; }
+.lab-weight-panel { padding:14px 18px; margin:18px 0; border:1px solid #d9ddcf; border-radius:8px; background:#f7f8f1; }
+.lab-weight-panel>summary { font-size:13px; color:#36513b; }
+.lab-weight-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px 24px; }
+.lab-weight-grid label { display:grid; grid-template-columns:minmax(0,1fr) 64px 56px; gap:10px; align-items:center; padding:5px 0; border-bottom:1px solid #e2e5d9; }
+.lab-weight-grid input { text-align:center; }
+.lab-weight-share { text-align:right; color:#616b58; font-size:11px; }
+@media(max-width:700px) { .lab-weight-grid { grid-template-columns:1fr; } .lab-weight-panel { padding:12px; } }
 .lab-player-detail { background:#f0f2e9; padding:14px; border-radius:6px; margin:15px 0; }
 .lab-player-detail p { font-size:11px; margin:5px 0 0; }
 .lab-constraints { border-top:1px solid #dedfd4; padding-top:14px; }

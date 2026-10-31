@@ -3,6 +3,7 @@ import csv
 import io
 import math
 import re
+from .role_weights import default_weights, validate_weights
 
 SKILLS = ['stamina','handling','attack','defense','technique','strength','jumping','speed','agility','kicking']
 SKILL_LABELS = dict(zip(SKILLS, ['Endurance','Dextérité','Attaque','Défense','Technique','Force','Saut','Vitesse','Agilité','Jeu au pied']))
@@ -26,21 +27,13 @@ def wc_projection(player, game_date):
         return target if target%2==0 and target>=season else None
     except (KeyError,ValueError,TypeError): return None
 
-def player_metrics(player):
+def player_metrics(player, *, role_weights=None):
     skills={k:number(player.get(k)) for k in SKILLS}
     known=[v for v in skills.values() if v is not None]
-    roles={
-      'Pilier':{'strength':3,'technique':2,'stamina':1},
-      'Talonneur':{'handling':2,'strength':2,'technique':2},
-      'Deuxième ligne':{'jumping':3,'strength':2,'technique':1},
-      'Troisième ligne':{'defense':2,'technique':2,'stamina':1,'strength':1},
-      'Demi de mêlée':{'handling':3,'agility':2,'kicking':1},
-      'Demi d’ouverture':{'handling':2,'kicking':2,'attack':2},
-      'Centre':{'attack':2,'defense':2,'strength':1,'speed':1},
-      'Ailier':{'speed':3,'agility':2,'attack':1},
-      'Arrière':{'kicking':2,'speed':2,'handling':2}}
+    roles=default_weights() if role_weights is None else validate_weights(role_weights)
     scores=[]
     for name,weights in roles.items():
+        weights={k:w for k,w in weights.items() if w>0}
         if all(skills[k] is not None for k in weights):
             scores.append({'name':name,'score':round(sum(skills[k]*w for k,w in weights.items())/sum(weights.values()),2)})
     scores.sort(key=lambda r:r['score'],reverse=True)

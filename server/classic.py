@@ -211,6 +211,41 @@ def _lineup_payload(raw):
     return validate_lineup_payload(payload)
 
 
+def _coaching_read_params(resource, params):
+    """Narrow read-only club training/statistics parameters; no API write flags."""
+    allowed = {'ti': {'teamid'}, 'tr': {'teamid', 'season', 'round'},
+               'ps': {'playerid', 'playerids', 'league', 'season'}}[resource]
+    if set(params) - allowed:
+        raise ClassicError('Paramètre de suivi Classic non autorisé.')
+    def number(value, maximum=999_999_999_999_999):
+        if (type(value) not in (str, int) or not re.fullmatch(r'[1-9][0-9]{0,14}', str(value))
+                or int(value) > maximum):
+            raise ClassicError('Paramètre de suivi Classic invalide.')
+    if resource in ('ti', 'tr'):
+        number(params.get('teamid'))
+        if resource == 'tr' and ('season' in params) != ('round' in params):
+            raise ClassicError('La saison et la semaine doivent être indiquées ensemble.')
+        if 'season' in params:
+            number(params['season'], 999)
+            number(params['round'], 16)
+    else:
+        if ('playerid' in params) == ('playerids' in params):
+            raise ClassicError('Indiquez les joueurs à lire.')
+        ids = [params['playerid']] if 'playerid' in params else params['playerids'].split(',') if isinstance(params['playerids'], str) else []
+        if not 1 <= len(ids) <= 50:
+            raise ClassicError('Lecture limitée à 50 joueurs par requête.')
+        for value in ids:
+            number(value)
+        if len({str(value) for value in ids}) != len(ids):
+            raise ClassicError('La liste des joueurs contient un doublon.')
+        if ('season' in params) != ('league' in params):
+            raise ClassicError('Indiquez une saison explicite pour le championnat.')
+        if 'league' in params:
+            if type(params['league']) not in (str, int) or str(params['league']) != '1':
+                raise ClassicError('Périmètre de statistiques Classic invalide.')
+            number(params['season'], 999)
+
+
 class ClassicClient:
     def __init__(self,credentials):
         self.credentials={k:str(v) for k,v in credentials.items() if k in ['d','dk','m','mk','iv'] and v is not None}
@@ -270,10 +305,12 @@ class ClassicClient:
         return doc
 
     async def request(self,resource,**params):
-        self._check_credentials()
-        if resource not in ['p','t','f','fs','ls','me','m','lu']:raise ClassicError('Ressource non autorisée.')
+        self._check_credentials(manager=resource in ('ti', 'tr'))
+        if resource not in ['p','t','f','fs','ls','me','m','lu','ti','tr','ps']:raise ClassicError('Ressource non autorisée.')
         if set(params) & {'r','d','dk','m','mk','iv','er','json','update','delete','default','saved'}:
             raise ClassicError('Paramètre Classic non autorisé.')
+        if resource in ('ti', 'tr', 'ps'):
+            _coaching_read_params(resource, params)
         query={**{k:v for k,v in self.credentials.items() if k != 'iv'},'r':resource,'json':'1',**params}
         if self.credentials.get('iv'):
             encrypted = self._encrypt({k:v for k,v in query.items() if k not in ('d','dk')})

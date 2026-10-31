@@ -6,6 +6,7 @@ import {fmt, labels, short, skills, type State} from './types';
 import type {OptimizationCategory, OptimizationObjective, OptimizationPriority, OptimizationReport} from './optimization-types';
 import {LineupLab} from './lineup-lab';
 import {CoachAdvice} from './coach-advice';
+import {useNavigationGuard} from './navigation-guard';
 
 const goals = [
   {id: 'balanced', label: 'Performance', detail: 'Donner la priorité aux affinités connues à chaque poste.', Icon: Target},
@@ -32,6 +33,7 @@ function sourceDate(value: string | null) {
 }
 
 export function Optimization({d, act, go, busy, openPlayer}: Actions) {
+  const navigationGuard=useNavigationGuard();
   const [objective, setObjective] = useState<OptimizationObjective>('balanced');
   const [energy, setEnergy] = useState('60');
   const [energyScale, setEnergyScale] = useState<'auto' | 'percent' | 'level'>('auto');
@@ -132,12 +134,19 @@ export function Optimization({d, act, go, busy, openPlayer}: Actions) {
     }
   }
 
+  function changeTab(next:Tab) {
+    if(next===tab)return true;
+    if(!navigationGuard.confirmLeave())return false;
+    setTab(next);
+    return true;
+  }
+
   function tabKeys(event: KeyboardEvent<HTMLDivElement>) {
     const index = tabs.findIndex(item => item.id === tab);
     const next = event.key === 'ArrowRight' ? (index + 1) % tabs.length : event.key === 'ArrowLeft' ? (index + tabs.length - 1) % tabs.length : event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : -1;
     if (next < 0) return;
     event.preventDefault();
-    setTab(tabs[next].id);
+    if(!changeTab(tabs[next].id))return;
     event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus();
   }
 
@@ -149,7 +158,7 @@ export function Optimization({d, act, go, busy, openPlayer}: Actions) {
         <label className="opt-energy">{tr("Seuil d’énergie normalisé ")}<span className="opt-range"><input type="range" min="0" max="110" disabled={locked} value={Number(energy) || 0} aria-label={tr("Seuil d’énergie normalisé, curseur de 0 à 110 pour cent")} onChange={e => setEnergy(e.target.value)}/><input type="number" min="0" max="110" step="1" aria-label={tr("Seuil d’énergie normalisé, de 0 à 110 pour cent")} value={energy} disabled={locked} onChange={e => setEnergy(e.target.value)}/><span>%</span></span></label>
         <label>{tr("Format des énergies")}<select value={energyScale} disabled={locked} onChange={e => setEnergyScale(e.target.value as 'auto' | 'percent' | 'level')}><option value="auto">{tr("Auto (détection)")}</option><option value="percent">{tr("Pourcentage (0–110)")}</option><option value="level">{tr("Niveau (1–11)")}</option></select></label>
         <label>{tr("Saison à préparer")}<input type="number" min="1" max="999" step="1" value={season} disabled={locked} onChange={e => setSeason(e.target.value)}/></label>
-        <label>{tr("Périmètre")}<select value={scope} disabled={locked} onChange={e => setScope(e.target.value as 'current' | 'all')}><option value="current">{tr("L’équipe courante")}</option><option value="all">{tr("Toutes les équipes de cet espace")}</option></select></label>
+        <label>{tr("Périmètre")}<select value={scope} disabled={locked} onChange={e => {const next=e.target.value as 'current'|'all';if(tab==='lineup'&&next==='all'&&selectedTeam!==d.current_team.id&&!navigationGuard.confirmLeave())return;setScope(next);}}><option value="current">{tr("L’équipe courante")}</option><option value="all">{tr("Toutes les équipes de cet espace")}</option></select></label>
       </div>
       <p className="opt-helper"><Info size={15} aria-hidden="true"/>{tr("Le seuil écarte les joueurs sous cette énergie connue. ")}{energyScale === 'auto' ? tr("Si toutes les valeurs sont ≤ 11, le format est ambigu : choisissez leur échelle pour activer le seuil et le bonus d’énergie.") : energyScale === 'level' ? tr("Les niveaux de 1 à 11 sont convertis en pourcentages approximatifs (niveau × 10).") : tr("Les pourcentages Classic peuvent atteindre 110 %.")}{tr(" Une énergie inconnue reste signalée.")}</p>
       {!validOptions && <p className="opt-inline-error" role="alert">{tr("Choisissez une énergie entière entre 0 et 110 et une saison entière entre 1 et 999.")}</p>}
@@ -161,9 +170,9 @@ export function Optimization({d, act, go, busy, openPlayer}: Actions) {
       {currentError && <div className="opt-state opt-error" role="alert"><CircleAlert size={28}/><h2>{tr("Le bilan n’est pas disponible.")}</h2><p>{tr(currentError)}</p><button className="button primary" disabled={locked} onClick={() => setRevision(value => value + 1)}><RefreshCw size={16}/>{tr("Réessayer")}</button></div>}
       {fresh && !report && <div className="opt-state"><Layers size={28}/><h2>{tr("Le bilan commence avec votre club.")}</h2><p>{tr("Ajoutez votre club et importez ses joueurs pour voir les premiers repères se dessiner.")}</p><button className="button primary" onClick={() => go('settings')}>{tr("Ouvrir les données")}<ArrowRight size={16}/></button></div>}
       {report && <>
-        {scope === 'all' && <section className="opt-club-overview" aria-label={tr("Bilans des clubs")}><div className="opt-overview-heading"><h2>{tr("Votre vue multi-clubs")}</h2><span>{reports.length}{reports.length > 1 ?tr(" clubs"):tr(" club")}{tr(" dans cet espace privé")}</span></div><div className="opt-clubs">{reports.map(item => <button key={item.team.id} className={'opt-club ' + (item.team.id === report.team.id ? 'opt-selected' : '')} aria-pressed={item.team.id === report.team.id} disabled={locked} onClick={() => {setSelectedTeam(item.team.id); setConfirmation(null);}}><span className="opt-club-type">{item.team.country} · {ownedIds.includes(item.team.id) ? tr("Club du compte Classic") : tr("Club suivi")}</span><strong>{item.team.name}</strong><span>{item.summary.eligible}/{item.summary.seniors}{tr(" seniors éligibles")}</span><small>{item.recommendations.filter(r => r.priority === 'high').length}{tr(" conseil(s) prioritaire(s)")}<ArrowUpRight size={14}/></small></button>)}</div><p className="opt-helper">{tr("Sélectionner un bilan ne change pas le club courant de l’atelier. Pour enregistrer un autre club, choisissez-le dans le sélecteur en haut de page.")}</p></section>}
+        {scope === 'all' && <section className="opt-club-overview" aria-label={tr("Bilans des clubs")}><div className="opt-overview-heading"><h2>{tr("Votre vue multi-clubs")}</h2><span>{reports.length}{reports.length > 1 ?tr(" clubs"):tr(" club")}{tr(" dans cet espace privé")}</span></div><div className="opt-clubs">{reports.map(item => <button key={item.team.id} className={'opt-club ' + (item.team.id === report.team.id ? 'opt-selected' : '')} aria-pressed={item.team.id === report.team.id} disabled={locked} onClick={() => {if(tab==='lineup'&&item.team.id!==selectedTeam&&item.team.id!==d.current_team.id&&!navigationGuard.confirmLeave())return;setSelectedTeam(item.team.id); setConfirmation(null);}}><span className="opt-club-type">{item.team.country} · {ownedIds.includes(item.team.id) ? tr("Club du compte Classic") : tr("Club suivi")}</span><strong>{item.team.name}</strong><span>{item.summary.eligible}/{item.summary.seniors}{tr(" seniors éligibles")}</span><small>{item.recommendations.filter(r => r.priority === 'high').length}{tr(" conseil(s) prioritaire(s)")}<ArrowUpRight size={14}/></small></button>)}</div><p className="opt-helper">{tr("Sélectionner un bilan ne change pas le club courant de l’atelier. Pour enregistrer un autre club, choisissez-le dans le sélecteur en haut de page.")}</p></section>}
         <div className="opt-report-heading"><div><span className="eyebrow">{tr(goals.find(goal => goal.id === report.objective)?.label||'').toUpperCase()}{tr(" / SAISON ")}{report.season}</span><h2>{report.team.name}<span className="opt-report-tag">{report.team.id === d.current_team.id ? tr("Club courant") : tr("Aperçu")}</span>{!ownedIds.includes(report.team.id) && <span className="opt-report-tag">{tr("Club suivi")}</span>}</h2><p>{tr("Calculé le ")}{sourceDate(report.generated_at)}</p></div><div className="opt-report-actions"><button className="button secondary" disabled={locked} onClick={() => setRevision(value => value + 1)} aria-label={tr("Recalculer le bilan")}><RefreshCw size={16}/><span>{tr("Recalculer")}</span></button><button className="button secondary" disabled={locked} onClick={exportReport}><Download size={16}/>{tr("Exporter JSON")}</button></div></div>
-        <div className="opt-tabs" role="tablist" aria-label={tr("Contenu du bilan")} onKeyDown={tabKeys}>{tabs.map(({id, label, Icon}) => <button key={id} id={'opt-tab-' + id} role="tab" aria-selected={tab === id} aria-controls={'opt-panel-' + id} tabIndex={tab === id ? 0 : -1} onClick={() => setTab(id)}><Icon size={17} aria-hidden="true"/>{tr(label)}</button>)}</div>
+        <div className="opt-tabs" role="tablist" aria-label={tr("Contenu du bilan")} onKeyDown={tabKeys}>{tabs.map(({id, label, Icon}) => <button key={id} id={'opt-tab-' + id} role="tab" aria-selected={tab === id} aria-controls={'opt-panel-' + id} tabIndex={tab === id ? 0 : -1} onClick={() => changeTab(id)}><Icon size={17} aria-hidden="true"/>{tr(label)}</button>)}</div>
         <div id={'opt-panel-' + tab} role="tabpanel" aria-labelledby={'opt-tab-' + tab} tabIndex={0} className="opt-panel">
           {tab === 'summary' && <>
             {report.team.id===d.current_team.id&&<CoachAdvice d={d}/>}

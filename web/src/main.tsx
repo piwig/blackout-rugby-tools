@@ -10,4 +10,5 @@ import './optimization.css';
 import './vacation.css';
 import './workbench.css';
 import './experience.css';
+import './sidebar.css';
 createRoot(document.getElementById('root')!).render(<React.StrictMode><LanguageProvider><NavigationGuardProvider><App/></NavigationGuardProvider></LanguageProvider></React.StrictMode>);
