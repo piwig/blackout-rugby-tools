@@ -12,7 +12,7 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validato
 from .domain import ATTACKS, SKILLS, ZONES, number
 from .match_review import effective_match
 from .storage import now, pack
-from .progression import _epoch, _stamp
+from .progression import _epoch, _metric, _stamp
 from .team_identity import TEAM_PATTERN,is_selection,require_club_id
 
 Identifier = Annotated[str, Field(pattern=r'^[0-9]{1,15}$')]
@@ -189,12 +189,16 @@ def academy_report(store, team_id, state, document):
             reasons.add('history_budget');break
         bytes_used+=byte_cost;players_used+=player_cost;batches.append((stamp,batch))
     previous, timeline = {}, deque(maxlen=500)
+    previous_stamp, previous_day_only = None, False
     usable_snapshots=0
-    for _, batch in reversed(batches):
+    for stamp, batch in reversed(batches):
         if batch is None:
-            previous={};continue
+            previous={};previous_stamp=None;continue
         observations, current = {}, {}
         invalid_batch=False
+        day_only=any(len(row['observed_at'])==10 for row in batch)
+        date_precision=bool(previous_stamp and previous_stamp.date()==stamp.date()
+                            and (previous_day_only or day_only))
         for row in batch:
             try:
                 with store.db() as db:
@@ -211,33 +215,37 @@ def academy_report(store, team_id, state, document):
                     if not pid.isdigit() or len(pid)>15:raise ValueError('Invalid player ID')
                     name=str(player.get('name') or pid)[:120]
                     merged=observations.setdefault(pid,{'name':name,'observed_at':row['observed_at'],
-                        'sources':set(),'values':{skill:set() for skill in SKILLS}})
+                        'sources':set(),'rows':set(),'values':{skill:set() for skill in SKILLS}})
                     merged['name']=min(merged['name'],name)
                     merged['observed_at']=min(merged['observed_at'],row['observed_at'])
                     merged['sources'].add(row['source'])
-                    for skill in SKILLS:merged['values'][skill].add(number(player.get(skill)))
+                    merged['rows'].add(row['id'])
+                    for skill in SKILLS:merged['values'][skill].add(_metric(player,skill))
                 del payload
             except (ValueError,TypeError,RecursionError):
                 invalid_batch=True;break
         if invalid_batch:
-            previous={};reasons.add('invalid_or_oversized_snapshot');continue
+            previous={};previous_stamp=None;reasons.add('invalid_or_oversized_snapshot');continue
         usable_snapshots+=len(batch)
         for pid, merged in sorted(observations.items()):
             source=' · '.join(sorted(merged['sources']))
             if len(source)>500:source=source[:497]+'…';reasons.add('source_limit')
+            presence_conflict=len(merged['rows'])!=len(batch)
             for skill in SKILLS:
-                values = sorted(merged['values'][skill],
+                values = sorted(merged['values'][skill] | ({None} if presence_conflict else set()),
                                 key=lambda value: (value is not None, value or 0))
-                conflicting = len(values) > 1
+                conflicting = presence_conflict or len(values) > 1
                 after = values[-1]
                 # A timestamp is one observation batch. Never emit a change before
                 # all values for this player/skill at this instant are reconciled.
                 current[(pid, skill)] = (after, conflicting)
                 old = previous.get((pid, skill))
                 if conflicting:
+                    if after is None:
+                        continue
                     before, delta, kind = values[0], None, 'conflicting_observation'
                 else:
-                    if old is None or old[1] or after is None or old[0] == after:
+                    if old is None or old[1] or after is None or old[0] == after or date_precision:
                         continue
                     before = old[0]
                     delta = None if before is None else round(after - before, 4)
@@ -248,13 +256,14 @@ def academy_report(store, team_id, state, document):
                                  'observed_at': merged['observed_at'], 'source': source,
                                  **({'values': values} if conflicting else {})})
         previous = current
+        previous_stamp, previous_day_only = stamp, day_only
     generations = {}
     goals = {goal['player_id']: goal for goal in document['goals']}
     for player in state.get('academy', []):
         projection = player.get('wc_projection')
         key = str(projection) if projection else 'unknown'
         goal = goals.get(str(player['id']))
-        current_value = number(player.get(goal['skill'])) if goal and goal.get('skill') else None
+        current_value = _metric(player,goal['skill']) if goal and goal.get('skill') else None
         generations.setdefault(key, []).append({'id': str(player['id']), 'name': player.get('name', ''),
                                                'age': player.get('age'), 'goal': goal,
                                                'current_value': current_value,

@@ -187,3 +187,22 @@ def test_future_match_start_cannot_be_reclassified_as_completed_by_a_contradicto
     assert result['matches'] == []
     assert result['excluded_count'] == 1
     assert len(client.calls) == 2
+
+
+def test_ratio_averages_round_once_after_averaging_each_match():
+    def replies(resource, params):
+        if params == {'fixtureid': '900'}:
+            return {'fixtures': {'900': fixture(900)}}
+        if resource == 'f':
+            return {'fixtures': {str(n): fixture(n, home='20', guest='30', finish=f'2026-10-{28+n}T12:00:00Z') for n in (1, 2)}}
+        return {'fixtures': {str(n): {
+            'home team stats': {'possession': 1, 'territory': 1, 'lineouts won': 1,
+                                'lineouts lost': other, 'scrums won': 1, 'scrums lost': other},
+            'guest team stats': {'possession': other, 'territory': other},
+        } for n, other in ((1, 5), (2, 1))}}
+    result = asyncio.run(match_prep.scout_opponent(Client(replies), '9', '900', now=NOW))
+    summary = {row['key']: row for row in result['summary']}
+    for key in ('possession_pct', 'territory_pct', 'lineouts_pct', 'scrums_pct'):
+        # (100 * 1/6 + 100 * 1/2) / 2 = 100/3, rather than a mean of rounded displays.
+        assert summary[key]['average'] == 33.33
+        assert summary[key]['sample_count'] == 2

@@ -1,13 +1,13 @@
-import {localeTag,tr} from './i18n';
+import {tr} from './i18n';
 import {useEffect,useState} from 'react';
 import {ArrowRight,CalendarRange,RefreshCw,Star,Target} from 'lucide-react';
 import {request} from './App';
-import {date,labels,skills,type State} from './types';
+import {date,labels,skills,formatStatistic,type State} from './types';
 import {academyNumber,academyTarget,prioritizeAcademy,projectAcademy,type AcademyGoal} from './academy-planner-model';
 import './academy-planner.css';
 
 type Props={d:State;draftSeason:number;draftGrid:string[][];dirty:boolean;locked:boolean;onSeason:(season:number)=>void};
-const decimal=(value:number|null)=>value===null?tr('Non dévoilé'):new Intl.NumberFormat(localeTag(),{maximumFractionDigits:2}).format(value);
+const decimal=(value:number|null)=>value===null?tr('Non dévoilé'):formatStatistic(value);
 const nextWeek=(d:State,season:number)=>season===d.game_date?.season?(d.game_date.round>=16?1:d.game_date.round+1):1;
 
 export function AcademyPlanner(props:Props) {
@@ -49,6 +49,7 @@ export function AcademyProjectionPanel({d,draftSeason,draftGrid,dirty,locked,onS
       case 'unknown':return 'Valeur inconnue';
       case 'above-cap':return 'Hors plafond des séances';
       case 'no-gain':return 'Gain nul : cible non atteinte';
+      case 'out-of-range':return 'Gain trop faible : nombre de séances hors limite fiable';
       case 'remaining':return `${status.sessions} séance(s) supplémentaire(s)`;
       case 'reached':return 'Cible atteinte dans la simulation';
     }

@@ -6,7 +6,7 @@ import {tr} from './i18n';
 import {useUnsavedChanges} from './navigation-guard';
 import {useFormDraft} from './use-form-draft';
 import {annotationChange,attackOptions,eventDraft,eventSource,eventText,eventTime,needsReview,reviewPage,useSuggestion,type Classification,type EventDraft,type ReviewEvent,type ReviewFilter} from './match-review-model';
-import type {Match} from './types';
+import {formatStatistic,type Match} from './types';
 import './match-review.css';
 
 type ReviewProps=Pick<Actions,'act'|'busy'>&{match:Match;scope:string;onUpdated:(match:Match)=>void};
@@ -26,7 +26,7 @@ export function MatchReview({match:m,act,busy,scope,onUpdated}:ReviewProps) {
   const events=m.events??[],positions=useMemo(()=>new Map(events.map((event,index)=>[event.event_key,index])),[events]);
   const shown=useMemo(()=>reviewPage(events,filter,query,page),[events,filter,query,page]);
   const event=editing?events.find(item=>item.event_key===editing):undefined;
-  const total=m.summary.total_events??events.length,classified=m.summary.classified??0,coverage=total?Math.round(classified/total*100):0;
+  const total=m.summary.total_events??events.length,classified=m.summary.classified??0,coverage=total?classified/total*100:null;
   const nextUnknown=()=>{
     const unknown=events.find(needsReview);if(unknown?.event_key){setEditing(unknown.event_key);setFeedback('')}
     else setFeedback(tr("Tous les événements disponibles ont été relus ou disposent d’un classement exploitable."));
@@ -40,7 +40,7 @@ export function MatchReview({match:m,act,busy,scope,onUpdated}:ReviewProps) {
   return <section className="match-review" aria-labelledby="match-review-title">
     <div className="card-heading"><div><span className="eyebrow">{tr("ATELIER DES ÉVÉNEMENTS")}</span><h2 id="match-review-title">{tr("Donnez un sens aux actions non classées.")}</h2><p>{tr("Cliquez sur « Non classé » pour choisir une attaque, préciser son contexte ou signaler un événement hors attaque.")}</p></div><button className="button secondary" disabled={busy||!m.review||!events.some(needsReview)} onClick={nextUnknown}>{tr("Prochain événement à relire")}<ArrowRight size={16}/></button></div>
     <div className="match-review-metrics">
-      <div><strong>{classified} <small>/ {total}</small></strong><span>{tr("Attaques exploitables")}</span><small>{tr('{percent} % des événements',{percent:coverage})}</small></div>
+      <div><strong>{classified} <small>/ {total}</small></strong><span>{tr("Attaques exploitables")}</span><small>{tr('{percent} % des événements',{percent:formatStatistic(coverage)})}</small></div>
       <div><strong>{m.summary.unclassified??events.filter(needsReview).length}</strong><span>{tr("À relire")}</span><small>{tr('Dont {count} attaques sans contexte complet',{count:m.summary.attack_missing_context??0})}</small></div>
       <div><strong>{m.review?.annotation_count??m.summary.manual??0}</strong><span>{tr("Corrections manuelles")}</span><small>{tr('Hors attaque : {count}',{count:m.summary.non_attack??0})}</small></div>
       <div><strong>{m.review?.suggestion_count??m.summary.suggested??0}</strong><span>{tr("Suggestions à valider")}</span><small>{tr("Jamais ajoutées seules aux statistiques")}</small></div>

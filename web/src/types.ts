@@ -1,5 +1,6 @@
 import type {ProfileDocument} from './profile';
 import {localeTag,tr} from './i18n/runtime.ts';
+export {formatStatistic} from './statistic-format.ts';
 export const skills=['stamina','handling','attack','defense','technique','strength','jumping','speed','agility','kicking'] as const;
 export const labels:Record<string,string>={stamina:'Endurance',handling:'Dextérité',attack:'Attaque',defense:'Défense',technique:'Technique',strength:'Force',jumping:'Saut',speed:'Vitesse',agility:'Agilité',kicking:'Jeu au pied'};
 export const short=['END','DEX','ATT','DEF','TEC','FOR','SAU','VIT','AGI','JAP'];

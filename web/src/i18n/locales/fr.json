@@ -2857,5 +2857,20 @@
   "Lecture limitée à 50 joueurs par requête.": "Lecture limitée à 50 joueurs par requête.",
   "La liste des joueurs contient un doublon.": "La liste des joueurs contient un doublon.",
   "Indiquez une saison explicite pour le championnat.": "Indiquez une saison explicite pour le championnat.",
-  "Périmètre de statistiques Classic invalide.": "Périmètre de statistiques Classic invalide."
+  "Périmètre de statistiques Classic invalide.": "Périmètre de statistiques Classic invalide.",
+  "Comprendre les statistiques": "Comprendre les statistiques",
+  "Un bon chiffre aide à poser la bonne question. Avant de comparer deux joueurs ou deux matchs, vérifiez ce qu’il mesure.": "Un bon chiffre aide à poser la bonne question. Avant de comparer deux joueurs ou deux matchs, vérifiez ce qu’il mesure.",
+  "Lire la source, la date et l’échantillon": "Lire la source, la date et l’échantillon",
+  "Repérez l’origine du relevé, la date des observations et le nombre de joueurs ou de matchs réellement documentés. Deux matchs restent deux observations, même si le pourcentage est précis. Les compteurs de carrière peuvent inclure les anciens clubs du joueur.": "Repérez l’origine du relevé, la date des observations et le nombre de joueurs ou de matchs réellement documentés. Deux matchs restent deux observations, même si le pourcentage est précis. Les compteurs de carrière peuvent inclure les anciens clubs du joueur.",
+  "Retrouver le dénominateur": "Retrouver le dénominateur",
+  "Avec 8 plaquages réussis et 2 manqués, la réussite vaut 8 / (8 + 2), soit 80 %. Pour les commentaires de match, la couverture vaut attaques classées / tous les événements. Dans la matrice adverse, chaque pourcentage porte sur les attaques classées de sa zone.": "Avec 8 plaquages réussis et 2 manqués, la réussite vaut 8 / (8 + 2), soit 80 %. Pour les commentaires de match, la couverture vaut attaques classées / tous les événements. Dans la matrice adverse, chaque pourcentage porte sur les attaques classées de sa zone.",
+  "Comparer ce qui est comparable": "Comparer ce qui est comparable",
+  "Une valeur inconnue ne vaut pas zéro. Une compétence dévoilée ne mesure pas un gain. Avant de comparer deux relevés, vérifiez leur périmètre, les joueurs renseignés et l’ordre des dates. Un changement d’effectif peut modifier la moyenne sans progrès individuel.": "Une valeur inconnue ne vaut pas zéro. Une compétence dévoilée ne mesure pas un gain. Avant de comparer deux relevés, vérifiez leur périmètre, les joueurs renseignés et l’ordre des dates. Un changement d’effectif peut modifier la moyenne sans progrès individuel.",
+  "Séparer l’observation de l’hypothèse": "Séparer l’observation de l’hypothèse",
+  "L’affinité de poste, la projection de l’académie et les ratios du stade sont des calculs locaux. Ils aident à préparer une décision ; ils ne prédisent ni un résultat ni une progression officielle de Classic.": "L’affinité de poste, la projection de l’académie et les ratios du stade sont des calculs locaux. Ils aident à préparer une décision ; ils ne prédisent ni un résultat ni une progression officielle de Classic.",
+  "Vous pouvez expliquer ce que dit un chiffre, sur quelles observations il repose et ce qu’il ne permet pas de conclure.": "Vous pouvez expliquer ce que dit un chiffre, sur quelles observations il repose et ce qu’il ne permet pas de conclure.",
+  "Une hausse après un entraînement ne prouve pas que cette séance en est la cause. Gardez les valeurs brutes et relisez plusieurs observations.": "Une hausse après un entraînement ne prouve pas que cette séance en est la cause. Gardez les valeurs brutes et relisez plusieurs observations.",
+  "Examiner mes observations": "Examiner mes observations",
+  "La comparaison utilise les observations de cette page. Changez de page pour consulter le reste de l’historique.": "La comparaison utilise les observations de cette page. Changez de page pour consulter le reste de l’historique.",
+  "Gain trop faible : nombre de séances hors limite fiable": "Gain trop faible : nombre de séances hors limite fiable"
 }

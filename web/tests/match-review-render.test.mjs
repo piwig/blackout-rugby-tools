@@ -47,3 +47,11 @@ test('an empty historical distribution displays unknown percentages without a fa
   assert.doesNotMatch(html,/>0 %<|NaN|Infinity/);
   assert.match(html,/aria-hidden="true"/);
 });
+
+test('match review distinguishes an unknown coverage from a small real percentage',()=>{
+  for(const [classified,total,text] of [[1,20000,'0,005 %'],[0,0,'— %']]){
+    const match={id:'123',type:0,home:'Home',away:'Away',events:[],summary:{classified,total_events:total},review:{revision:0}};
+    const html=renderToStaticMarkup(React.createElement(NavigationGuardProvider,null,React.createElement(MatchReview,{match,scope:'test',act:()=>{},busy:false,onUpdated:()=>{}})));
+    assert.ok(html.includes(text),text);
+  }
+});

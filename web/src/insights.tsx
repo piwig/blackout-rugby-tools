@@ -1,8 +1,9 @@
 import {localeTag,tr} from './i18n';
+import {allocateStadiumSeats,stadiumRatios} from './stadium-model';
 import {useEffect, useReducer, useRef, useState} from 'react';
 import {BookOpen, Plus, RefreshCw, Save, Sprout, Trash2} from 'lucide-react';
 import {request, type Actions} from './App';
-import {date, fmt, labels, skills} from './types';
+import {date, formatStatistic as fmt, labels, skills} from './types';
 import {useUnsavedChanges} from './navigation-guard';
 import './insights.css';
 
@@ -215,17 +216,12 @@ function OpponentPanel({d}:Props) {
 
 const blankValues=():Values=>({standing:null,uncovered:null,covered:null,members:null,corporate:null});
 const stadiumMaximumTotal=2_564_103;
-const stadiumRatios=[22,39,30,8,1];
 
 export function stadiumCapacityTarget(value:string):{target:Record<Category,number>|null;error:string} {
   const total=Number(value);
   if(!/^\d+$/.test(value.trim())||!Number.isSafeInteger(total)||total<0||total>stadiumMaximumTotal)
     return {target:null,error:'Saisissez une capacité totale entière entre 0 et 2 564 103 places.'};
-  const parts=categories.map(([key],index)=>({key,index,seats:Math.floor(total*stadiumRatios[index]/100),remainder:total*stadiumRatios[index]%100}));
-  const remaining=total-parts.reduce((sum,part)=>sum+part.seats,0);
-  const ranked=[...parts].sort((a,b)=>b.remainder-a.remainder||a.index-b.index);
-  for(let index=0;index<remaining;index++)ranked[index].seats++;
-  return {target:Object.fromEntries(parts.map(part=>[part.key,part.seats])) as Record<Category,number>,error:''};
+  return {target:allocateStadiumSeats(total),error:''};
 }
 
 type StadiumObservation = Pick<Scenario,'current'|'treasury'>;

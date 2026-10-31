@@ -2857,5 +2857,20 @@
   "Lecture limitée à 50 joueurs par requête.": "La lectura se limita a 50 jugadores por solicitud.",
   "La liste des joueurs contient un doublon.": "La lista de jugadores contiene un duplicado.",
   "Indiquez une saison explicite pour le championnat.": "Indica una temporada concreta para la liga.",
-  "Périmètre de statistiques Classic invalide.": "Ámbito de estadísticas de Classic no válido."
+  "Périmètre de statistiques Classic invalide.": "Ámbito de estadísticas de Classic no válido.",
+  "Comprendre les statistiques": "Entender las estadísticas",
+  "Un bon chiffre aide à poser la bonne question. Avant de comparer deux joueurs ou deux matchs, vérifiez ce qu’il mesure.": "Una buena estadística ayuda a plantear la pregunta adecuada. Antes de comparar dos jugadores o dos partidos, comprueba qué mide.",
+  "Lire la source, la date et l’échantillon": "Comprobar la fuente, la fecha y la muestra",
+  "Repérez l’origine du relevé, la date des observations et le nombre de joueurs ou de matchs réellement documentés. Deux matchs restent deux observations, même si le pourcentage est précis. Les compteurs de carrière peuvent inclure les anciens clubs du joueur.": "Comprueba de dónde procede el registro, cuándo se hicieron las observaciones y cuántos jugadores o partidos tienen datos disponibles. Dos partidos siguen siendo dos observaciones, por muy preciso que parezca el porcentaje. Los totales de carrera pueden incluir los clubes anteriores del jugador.",
+  "Retrouver le dénominateur": "Identificar el denominador",
+  "Avec 8 plaquages réussis et 2 manqués, la réussite vaut 8 / (8 + 2), soit 80 %. Pour les commentaires de match, la couverture vaut attaques classées / tous les événements. Dans la matrice adverse, chaque pourcentage porte sur les attaques classées de sa zone.": "Con 8 placajes acertados y 2 fallados, el porcentaje de acierto es 8 / (8 + 2), es decir, el 80 %. En los comentarios del partido, la cobertura equivale a ataques clasificados / todos los eventos. En la matriz del rival, cada porcentaje se calcula sobre los ataques clasificados de esa zona.",
+  "Comparer ce qui est comparable": "Comparar datos comparables",
+  "Une valeur inconnue ne vaut pas zéro. Une compétence dévoilée ne mesure pas un gain. Avant de comparer deux relevés, vérifiez leur périmètre, les joueurs renseignés et l’ordre des dates. Un changement d’effectif peut modifier la moyenne sans progrès individuel.": "Un valor desconocido no equivale a cero. Una habilidad recién revelada no mide una mejora. Antes de comparar dos registros, comprueba su ámbito, qué jugadores tienen datos y el orden de las fechas. Un cambio de plantilla puede modificar la media sin que ningún jugador haya mejorado.",
+  "Séparer l’observation de l’hypothèse": "Distinguir las observaciones de las hipótesis",
+  "L’affinité de poste, la projection de l’académie et les ratios du stade sont des calculs locaux. Ils aident à préparer une décision ; ils ne prédisent ni un résultat ni une progression officielle de Classic.": "La afinidad por posición, la proyección de la academia y las proporciones del estadio son cálculos locales. Ayudan a preparar una decisión; no predicen resultados ni una progresión oficial en Classic.",
+  "Vous pouvez expliquer ce que dit un chiffre, sur quelles observations il repose et ce qu’il ne permet pas de conclure.": "Puedes explicar qué dice una cifra, en qué observaciones se basa y qué conclusiones no permite sacar.",
+  "Une hausse après un entraînement ne prouve pas que cette séance en est la cause. Gardez les valeurs brutes et relisez plusieurs observations.": "Una subida después de un entrenamiento no demuestra que esa sesión sea la causa. Conserva los valores originales y revisa varias observaciones.",
+  "Examiner mes observations": "Revisar mis observaciones",
+  "La comparaison utilise les observations de cette page. Changez de page pour consulter le reste de l’historique.": "La comparación utiliza las observaciones de esta página. Cambia de página para consultar el resto del historial.",
+  "Gain trop faible : nombre de séances hors limite fiable": "Ganancia demasiado pequeña: el número de sesiones supera el límite de cálculo fiable"
 }

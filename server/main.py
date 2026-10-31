@@ -116,6 +116,11 @@ class Match(FixtureSync):
     round:int|None=None
     source_game_date:MatchSourceDate|None=None
     source_observed_at:str|None=Field(default=None,max_length=80)
+    @field_validator('home_score','away_score',mode='before')
+    @classmethod
+    def reject_boolean_scores(cls,value):
+        if isinstance(value,bool):raise ValueError('Un score doit être un nombre entier, pas un booléen.')
+        return value
 
 class VacationOptions(Model):
     objective:Literal['balanced','recovery','development']='balanced'
@@ -259,7 +264,7 @@ def create_app(directory=None,password=None,secure=None):
         require_club_id(tid)
 
     @app.get('/api/health')
-    def health():return {'ok':True,'version':'2.8.0'}
+    def health():return {'ok':True,'version':'2.8.1'}
 
     @app.post('/api/login')
     def login(body:Login,request:Request,response:Response):

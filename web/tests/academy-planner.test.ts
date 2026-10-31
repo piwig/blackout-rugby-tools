@@ -35,7 +35,7 @@ test('academy sessions stop at 13.99 and never lower an observed 14 or estimate 
   const result=api.projectAcademy({player:{attack:13.9,defense:14},plans:{64:plan},gameDate,startSeason:64,startWeek:1,horizon:1,gain:0.2});
   assert.equal(result.seasons[0].projected.attack,13.99);
   assert.equal(result.seasons[0].projected.defense,14);
-  assert.equal(result.seasons[0].gains.attack,0.09);
+  assert.ok(Math.abs(result.seasons[0].gains.attack-0.09)<1e-12);
   assert.equal(result.seasons[0].gains.defense,0);
 });
 
@@ -65,6 +65,49 @@ test('target estimates distinguish achieved, unknown and unreachable without IGT
   assert.deepEqual(api.academyTarget(null,10,0.2),{status:'unknown',sessions:null});
   assert.deepEqual(api.academyTarget(10,'',0.2),{status:'unset',sessions:null});
   assert.deepEqual(api.academyTarget(10,11,0),{status:'no-gain',sessions:null});
+});
+
+test('a projection with no effective sessions preserves the observation and has no gain',()=>{
+  const base={player:{strength:10.125},plans:{},gameDate,startSeason:64,startWeek:1,horizon:4,gain:0.2};
+  for(const input of [base,{...base,plans:{64:blank()},gain:0}]){
+    const result=api.projectAcademy(input);
+    assert.deepEqual(result.seasons.map((s:any)=>s.projected.strength),[10.125,10.125,10.125,10.125]);
+    assert.deepEqual(result.seasons.map((s:any)=>s.gains.strength),[0,0,0,0]);
+  }
+});
+
+test('small hypothetical gains accumulate independently of season boundaries',()=>{
+  const one=blank();one[0][0]='strength';
+  const four=blank();four[0].splice(0,4,'strength','strength','strength','strength');
+  const base={player:{strength:10},gameDate,startSeason:64,startWeek:1,horizon:4,gain:0.004};
+  const split=api.projectAcademy({...base,plans:{64:one,65:one,66:one,67:one}});
+  const combined=api.projectAcademy({...base,plans:{64:four}});
+  // Four sessions at 0.004 add 0.016, regardless of their season placement.
+  assert.equal(split.totalSessions,4);
+  assert.equal(combined.totalSessions,4);
+  assert.ok(Math.abs(split.seasons[3].projected.strength-10.016)<1e-12);
+  assert.equal(split.seasons[3].projected.strength,combined.seasons[3].projected.strength);
+});
+
+test('remaining sessions use the full positive target gap',()=>{
+  assert.deepEqual(api.academyTarget(10.001,10.002,0.2),{status:'remaining',sessions:1});
+  // A two-hundredth rounding of 0.204 would incorrectly claim one session.
+  assert.deepEqual(api.academyTarget(10,10.204,0.2),{status:'remaining',sessions:2});
+  assert.deepEqual(api.academyTarget(10,10.2,0.2),{status:'remaining',sessions:1});
+  assert.deepEqual(api.academyTarget(1.001,1.002,0.001),{status:'remaining',sessions:1});
+  assert.deepEqual(api.academyTarget(10,10.20000000001,0.2),{status:'remaining',sessions:2});
+});
+
+for(const gain of [Number.MIN_VALUE,1e-20,1/(Number.MAX_SAFE_INTEGER+1)]){
+  test(`target estimates reject an unsafe session count with gain ${gain}`,()=>{
+    assert.deepEqual(api.academyTarget(0,1,gain),{status:'out-of-range',sessions:null});
+    assert.deepEqual(api.academyTarget(1,1,gain),{status:'reached',sessions:0});
+  });
+}
+
+test('zero gain and a one-session subnormal gain retain their distinct meanings',()=>{
+  assert.deepEqual(api.academyTarget(0,Number.MIN_VALUE,Number.MIN_VALUE),{status:'remaining',sessions:1});
+  assert.deepEqual(api.academyTarget(0,1,0),{status:'no-gain',sessions:null});
 });
 
 test('copying a saved plan cannot replace filled destination cells or alias the source',()=>{

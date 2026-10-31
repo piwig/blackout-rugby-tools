@@ -94,6 +94,8 @@ L’autorisation d’un pilotage entièrement autonome par l’éditeur n’est 
 
 ## Calculs et limites
 
+Les calculs contrôlés, les exemples indépendants et les limites connues sont détaillés dans le [bilan de validation statistique du 31 octobre 2026](docs/statistics-validation.md).
+
 - Projection WC : règle personnelle de `ctr_ya.sql`, pas une règle générale d'éligibilité officielle.
 - Les compétences inconnues ne sont ni estimées ni converties en zéro.
 - Affinités par poste : moyennes pondérées explicables, pas une simulation du moteur.

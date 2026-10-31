@@ -189,6 +189,8 @@ def fatigue_summary(squad, preferences):
             continue
         if scale == 'unknown' or not (1 <= value <= 11 if scale == 'level' else 0 <= value <= 110):
             continue
+        if scale == 'level' and not float(value).is_integer():
+            continue
         valid += 1
         low += value < floor
     return {'scale': scale, 'floor': floor, 'low_count': low if scale != 'unknown' else None,

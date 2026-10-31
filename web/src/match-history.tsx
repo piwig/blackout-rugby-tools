@@ -3,7 +3,7 @@ import {ArrowUpRight,ChevronLeft,ChevronRight,RefreshCw} from 'lucide-react';
 import {request,type Actions} from './App';
 import {Empty,Pill} from './components';
 import {tr} from './i18n';
-import {fmt,type Match} from './types';
+import {formatStatistic as fmt,type Match} from './types';
 import './match-review.css';
 
 type HistoryTotals={matches:number;scored_matches:number;events:number;classified:number;unclassified:number;non_attack:number;manual:number;inferred:number;coverage_pct:number|null;points_total:number;points_per_match:number|null};

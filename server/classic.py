@@ -400,12 +400,16 @@ def parse_commentary(root):
     """Preserve raw fields and label every inferred tactical classification."""
     events=[]
     previous=None
-    for element in root.iter():
+    pending=[root]
+    while pending:
+        element=pending.pop()
+        tag=element.tag.rsplit('}',1)[-1].lower()
         fields=dict(element.attrib)
-        fields.update({child.tag.rsplit('}',1)[-1]:(child.text or '').strip() for child in element if not list(child)})
-        if ('field' in fields or 'possession' in fields) and any(k in fields for k in ['text','commentary','comment','att']):
+        fields.update({child.tag.rsplit('}',1)[-1]:''.join(child.itertext()).strip() for child in element
+                       if not list(child) or child.tag.rsplit('}',1)[-1].lower() in ('text','commentary','comment')})
+        if tag=='event' or ('field' in fields or 'possession' in fields) and any(k in fields for k in ['text','commentary','comment','att']):
             event={k:fields[k] for k in ['id','field','possession','att','time','minute','text','commentary','comment','gametime','half','homescore','guestscore'] if k in fields}
-            raw=event.get('commentary',event.get('text',event.get('comment','')))
+            raw=event.get('commentary',event.get('text',event.get('comment',(element.text or '').strip())))
             event['text']=re.sub(r'\[[^\]]+\]','',raw)
             if event.get('gametime','').isdigit():
                 seconds=int(event['gametime']);event['time']=f'{seconds//60}:{seconds%60:02d}'
@@ -418,11 +422,16 @@ def parse_commentary(root):
                         event['possession_reported']=event.get('possession');event['possession']=previous
             previous=fields.get('possession',previous)
             events.append(event)
-    if not events:
-        # Preserve readable evidence even when this engine schema has no mapped fields.
-        for element in root.iter():
-            if element.tag.rsplit('}',1)[-1].lower() in ['comment','commentary','event','text'] and element.text and len(element.text.strip())>5:
-                events.append({'text':element.text.strip()[:2000]})
-    if len(events)>20000:
-        raise ClassicError('Le commentaire Classic dépasse la limite de 20 000 événements. Aucune rencontre enregistrée.')
+            # A record's child text is part of that record, not another event.
+        elif tag in ('comment','commentary','text') and not any(
+                child is not element and (child.tag.rsplit('}',1)[-1].lower() in ('event','comment','commentary','field','possession')
+                                          or 'field' in child.attrib or 'possession' in child.attrib)
+                for child in element.iter()) and sum(child is not element and child.tag.rsplit('}',1)[-1].lower()=='text'
+                                                     for child in element.iter())<=1:
+            raw=''.join(element.itertext()).strip()
+            if raw:events.append({'text':raw[:2000]})
+        else:
+            pending.extend(reversed(list(element)))
+        if len(events)>20000:
+            raise ClassicError('Le commentaire Classic dépasse la limite de 20 000 événements. Aucune rencontre enregistrée.')
     return events

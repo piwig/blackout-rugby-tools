@@ -196,3 +196,24 @@ def test_unknown_possession_is_retained_even_when_attack_is_inferred(client):
     assert result['events'][1]['possession'] == 'Unknown'
     assert result['events'][1]['att_origin'] == 'commentary-rule'
     assert result['summary']['classified'] == 0
+
+
+@pytest.mark.parametrize('method', ['paste', 'file'])
+@pytest.mark.parametrize('scores', [(True, False), (False, False), (0, True)])
+def test_boolean_scores_are_rejected_without_creating_a_known_result(client, method, scores):
+    doc = {'id': '123', 'type': 0, 'home': 'Home', 'away': 'Away',
+           'home_score': scores[0], 'away_score': scores[1], 'events': []}
+    response = (client.post('/api/matches/import', json=doc) if method == 'paste'
+                else upload(client, doc, type='0'))
+    assert response.status_code == 422
+    assert client.get('/api/matches/history').json()['totals']['scored_matches'] == 0
+
+
+def test_numeric_score_strings_keep_zero_scores_known_in_history(client):
+    response = upload(client, source(homescore='0', guestscore='12'))
+    assert response.status_code == 200, response.text
+    result = client.get('/api/matches/history?type=1').json()
+    assert result['matches'][0]['home_score'] == 0
+    assert result['matches'][0]['away_score'] == 12
+    assert result['totals']['scored_matches'] == 1
+    assert result['totals']['points_per_match'] == 12

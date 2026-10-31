@@ -2857,5 +2857,20 @@
   "Lecture limitée à 50 joueurs par requête.": "Reading is limited to 50 players per request.",
   "La liste des joueurs contient un doublon.": "The player list contains a duplicate.",
   "Indiquez une saison explicite pour le championnat.": "Specify a season for the league.",
-  "Périmètre de statistiques Classic invalide.": "Invalid Classic statistics scope."
+  "Périmètre de statistiques Classic invalide.": "Invalid Classic statistics scope.",
+  "Comprendre les statistiques": "Understanding statistics",
+  "Un bon chiffre aide à poser la bonne question. Avant de comparer deux joueurs ou deux matchs, vérifiez ce qu’il mesure.": "A useful statistic helps you ask the right question. Before comparing two players or two matches, check what it measures.",
+  "Lire la source, la date et l’échantillon": "Check the source, date and sample",
+  "Repérez l’origine du relevé, la date des observations et le nombre de joueurs ou de matchs réellement documentés. Deux matchs restent deux observations, même si le pourcentage est précis. Les compteurs de carrière peuvent inclure les anciens clubs du joueur.": "Check where the record came from, when the observations were made and how many players or matches have usable data. Two matches are still just two observations, however precise the percentage looks. Career totals may include the player’s previous clubs.",
+  "Retrouver le dénominateur": "Identify the denominator",
+  "Avec 8 plaquages réussis et 2 manqués, la réussite vaut 8 / (8 + 2), soit 80 %. Pour les commentaires de match, la couverture vaut attaques classées / tous les événements. Dans la matrice adverse, chaque pourcentage porte sur les attaques classées de sa zone.": "With 8 successful tackles and 2 missed tackles, the success rate is 8 / (8 + 2), or 80%. For match commentary, coverage means classified attacks / all events. In the opponent’s matrix, each percentage uses the classified attacks in that zone.",
+  "Comparer ce qui est comparable": "Compare like with like",
+  "Une valeur inconnue ne vaut pas zéro. Une compétence dévoilée ne mesure pas un gain. Avant de comparer deux relevés, vérifiez leur périmètre, les joueurs renseignés et l’ordre des dates. Un changement d’effectif peut modifier la moyenne sans progrès individuel.": "An unknown value is not zero. A newly revealed skill does not measure an improvement. Before comparing two records, check their scope, which players have data and the order of the dates. A squad change can alter the average without any individual improving.",
+  "Séparer l’observation de l’hypothèse": "Separate observations from assumptions",
+  "L’affinité de poste, la projection de l’académie et les ratios du stade sont des calculs locaux. Ils aident à préparer une décision ; ils ne prédisent ni un résultat ni une progression officielle de Classic.": "Positional suitability, academy projections and stadium ratios are local calculations. They help you prepare a decision; they do not predict a result or official progression in Classic.",
+  "Vous pouvez expliquer ce que dit un chiffre, sur quelles observations il repose et ce qu’il ne permet pas de conclure.": "You can explain what a statistic says, which observations support it and what it cannot tell you.",
+  "Une hausse après un entraînement ne prouve pas que cette séance en est la cause. Gardez les valeurs brutes et relisez plusieurs observations.": "An increase after training does not prove that the session caused it. Keep the raw values and review several observations.",
+  "Examiner mes observations": "Review my observations",
+  "La comparaison utilise les observations de cette page. Changez de page pour consulter le reste de l’historique.": "The comparison uses the observations on this page. Change pages to view the rest of the history.",
+  "Gain trop faible : nombre de séances hors limite fiable": "Gain too small: session count exceeds reliable numerical limits"
 }

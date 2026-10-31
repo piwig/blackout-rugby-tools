@@ -3,6 +3,7 @@ import csv
 import io
 import math
 import re
+from decimal import Decimal, ROUND_HALF_UP
 from .role_weights import default_weights, validate_weights
 
 SKILLS = ['stamina','handling','attack','defense','technique','strength','jumping','speed','agility','kicking']
@@ -78,11 +79,17 @@ def attack_summary(events):
 def stadium_plan(members,seats,multiplier=9):
     members=number(members); multiplier=number(multiplier)
     if members is None or multiplier is None or not 0<=members<=1_000_000 or not 1<=multiplier<=20: raise ValueError('Membres ou multiplicateur invalide.')
-    ratios=[('standing','Debout',.22),('uncovered','Assis découvert',.39),('covered','Assis couvert',.30),('members','Abonnés',.08),('corporate','Loges',.01)]
+    ratios=[('standing','Debout',22),('uncovered','Assis découvert',39),('covered','Assis couvert',30),('members','Abonnés',8),('corporate','Loges',1)]
+    # Round the capacity once, then allocate whole seats by largest remainder.
+    # Rounding each section independently could invent or lose a seat.
+    total=int((Decimal(str(members))*Decimal(str(multiplier))).quantize(Decimal(1),rounding=ROUND_HALF_UP))
+    targets=[total*ratio//100 for _,_,ratio in ratios]
+    ranked=sorted(range(len(ratios)),key=lambda index:(-(total*ratios[index][2]%100),index))
+    for index in ranked[:total-sum(targets)]:targets[index]+=1
     sections=[]
-    for key,label,ratio in ratios:
-        current=max(0,number(seats.get(key)) or 0); target=math.floor(members*multiplier*ratio+.5)
-        sections.append({'key':key,'label':label,'ratio':ratio,'current':current,'target':target,'delta':target-current,'to_add':max(0,target-current)})
+    for (key,label,ratio),target in zip(ratios,targets):
+        current=max(0,number(seats.get(key)) or 0)
+        sections.append({'key':key,'label':label,'ratio':ratio/100,'current':current,'target':target,'delta':target-current,'to_add':max(0,target-current)})
     return {'sections':sections,'target_total':sum(x['target'] for x in sections),'to_add':sum(x['to_add'] for x in sections)}
 
 def csv_export(rows):

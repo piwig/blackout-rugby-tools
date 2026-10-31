@@ -2,7 +2,7 @@ import {localeTag,tr} from './i18n';
 import {useEffect,useId,useRef,useState} from 'react';
 import {CalendarRange,ChartNoAxesCombined,RefreshCw,Search,ShieldCheck} from 'lucide-react';
 import {request} from './App';
-import {fmt,type State} from './types';
+import {formatStatistic as fmt,type State} from './types';
 import './match-preparation.css';
 
 type Fixture={id:string;home_id:string;guest_id:string;opponent_id:string;side:'home'|'guest';start_at:string|null;finish_at:string|null;competition:string};

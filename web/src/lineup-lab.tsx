@@ -2,7 +2,7 @@ import {localeTag,tr} from './i18n';
 import {useEffect, useRef, useState} from 'react';
 import {Check, CircleAlert, LockKeyhole, RefreshCw, Save, Trash2, Unlock, Users} from 'lucide-react';
 import {request, type Actions} from './App';
-import {fmt} from './types';
+import {formatStatistic as fmt} from './types';
 import './lineup-lab.css';
 import {RoleWeightsEditor} from './role-weights';
 import {validRoleWeights,type WeightCriteria,type RoleWeights} from './role-weights-model';

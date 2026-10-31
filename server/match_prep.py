@@ -123,7 +123,8 @@ def _number(value):
 def _percentage(first, second):
     if first is None or second is None or first + second <= 0:
         return None
-    return round(100 * first / (first + second), 2)
+    # Keep each ratio precise until the average across matches is rounded.
+    return 100 * first / (first + second)
 
 
 def _stats(raw, fixture, opponent_id):

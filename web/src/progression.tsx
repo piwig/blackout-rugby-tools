@@ -2,7 +2,7 @@ import {localeTag,tr} from './i18n';
 import {useEffect, useId, useMemo, useRef, useState} from 'react';
 import {ArrowRight, CalendarDays, ChartNoAxesCombined, ChevronLeft, ChevronRight, RefreshCw, Users} from 'lucide-react';
 import {request, type Actions} from './App';
-import {fmt, labels, skills} from './types';
+import {formatStatistic as fmt, labels, skills} from './types';
 import './progression.css';
 import {ClassicCoaching} from './coaching';
 import {useNavigationGuard} from './navigation-guard';
@@ -17,7 +17,7 @@ type ChartRow = {point:Point;value:number|null;delta:number|null;status:string;k
 const metricLabel = (metric:string) => metric === 'csr' ? tr('CSR observé') : tr(labels[metric] || metric);
 const dayLabel = (value:string) => new Date(value).toLocaleDateString(localeTag(),{day:'numeric',month:'short',year:'numeric',timeZone:'UTC'});
 const preciseLabel = (value:string) => new Date(value).toLocaleString(localeTag(),{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',timeZone:'UTC'})+' UTC';
-const axisNumber = (value:number) => new Intl.NumberFormat(localeTag(),{notation:Math.abs(value)>=10000?'compact':'standard',maximumFractionDigits:1}).format(value);
+const axisNumber = (value:number) => Math.abs(value)>=10000?new Intl.NumberFormat(localeTag(),{notation:'compact',maximumFractionDigits:1}).format(value):fmt(value);
 const comparisonLabels:Record<string,string> = {first_observation:'Premier repère',conflicting_observation:'Observations contradictoires',truncated_roster:'Effectif limité',date_precision:'Ordre incertain dans cette journée',roster_changed:'Effectif différent',coverage_changed:'Joueurs renseignés différents',unknown:'Valeur inconnue',comparable:'Même effectif et mêmes joueurs renseignés'};
 
 /** Kept pure so the table and chart always agree on gaps and revelations. */
