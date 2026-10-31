@@ -213,6 +213,20 @@ function OpponentPanel({d}:Props) {
 }
 
 const blankValues=():Values=>({standing:null,uncovered:null,covered:null,members:null,corporate:null});
+const stadiumMaximumTotal=2_564_103;
+const stadiumRatios=[22,39,30,8,1];
+
+export function stadiumCapacityTarget(value:string):{target:Record<Category,number>|null;error:string} {
+  const total=Number(value);
+  if(!/^\d+$/.test(value.trim())||!Number.isSafeInteger(total)||total<0||total>stadiumMaximumTotal)
+    return {target:null,error:'Saisissez une capacité totale entière entre 0 et 2 564 103 places.'};
+  const parts=categories.map(([key],index)=>({key,index,seats:Math.floor(total*stadiumRatios[index]/100),remainder:total*stadiumRatios[index]%100}));
+  const remaining=total-parts.reduce((sum,part)=>sum+part.seats,0);
+  const ranked=[...parts].sort((a,b)=>b.remainder-a.remainder||a.index-b.index);
+  for(let index=0;index<remaining;index++)ranked[index].seats++;
+  return {target:Object.fromEntries(parts.map(part=>[part.key,part.seats])) as Record<Category,number>,error:''};
+}
+
 type StadiumObservation = Pick<Scenario,'current'|'treasury'>;
 type StadiumDraftState = {draft:Scenario;observation:StadiumObservation;dirty:boolean;stale:boolean};
 type StadiumDraftAction = {type:'observe';observation:StadiumObservation}|{type:'edit';draft:Scenario}|{type:'replace';draft:Scenario;observation:StadiumObservation;dirty:boolean}|{type:'use_latest'};
@@ -241,18 +255,30 @@ export function StadiumScenarios(props:Props) {return <StadiumPanel key={props.d
 function StadiumPanel({d}:Props) {
   const model=useInsights(d),{bundle,save,pending}=model;
   const [draftState,dispatch]=useReducer(stadiumDraftReducer,d,value=>({draft:initialScenario(value),observation:stadiumObservation(value),dirty:false,stale:false}));
+  const [capacityTotal,setCapacityTotal]=useState(''),[capacityMessage,setCapacityMessage]=useState('');
+  const distribution=stadiumCapacityTarget(capacityTotal);
   const draft=draftState.draft,observation=stadiumObservation(d),observationKey=JSON.stringify(observation);
   useEffect(()=>{dispatch({type:'observe',observation})},[observationKey]);
   const setDraft=(value:Scenario)=>dispatch({type:'edit',draft:value});
-  const resetDraft=()=>dispatch({type:'replace',draft:initialScenario(d),observation,dirty:false});
+  const clearCapacity=()=>{setCapacityTotal('');setCapacityMessage('');};
+  const resetDraft=()=>{dispatch({type:'replace',draft:initialScenario(d),observation,dirty:false});clearCapacity();};
   const [compare,setCompare]=useState<string[]>([]);
-  const select=(id:string)=>{const saved=bundle?.document.stadium_scenarios.find(s=>s.id===id);if(saved)dispatch({type:'replace',draft:structuredClone(saved),observation,dirty:true});else resetDraft();};
+  const select=(id:string)=>{const saved=bundle?.document.stadium_scenarios.find(s=>s.id===id);if(saved){dispatch({type:'replace',draft:structuredClone(saved),observation,dirty:true});clearCapacity();}else resetDraft();};
   const setValue=(group:'current'|'target'|'unit_costs',key:Category,value:string)=>setDraft({...draft,[group]:{...draft[group],[key]:optionalNumber(value)}});
   const rows=bundle?.stadium.filter(s=>compare.length===0||compare.includes(s.id))||[];
   return <section className="card insights-card" aria-label="Scénarios financiers du stade"><div className="card-heading"><div><span className="eyebrow">STADE / FINANCEMENT</span><h2>Nommer, chiffrer, comparer.</h2></div><span className="insights-tag">Monnaie virtuelle</span></div><div className="insights-body"><Status model={model}/>{bundle&&<>
     <p className="muted">Les capacités et la trésorerie d’un nouveau scénario suivent la dernière observation tant que vous ne le modifiez pas. Les scénarios enregistrés conservent leurs valeurs. Renseignez les cibles, les coûts unitaires du jeu et votre réserve. Une case vide reste inconnue ; aucun tarif n’est proposé.</p>
     {draftState.stale&&<div className="notice" role="status"><p>Les capacités ou la trésorerie de ce scénario diffèrent de la dernière observation du club. Vos choix ont été conservés.</p><button className="button secondary" disabled={pending} onClick={()=>dispatch({type:'use_latest'})}><RefreshCw size={16}/>Reprendre la dernière observation</button><p className="tiny">Actualise uniquement les capacités actuelles et la trésorerie ; conserve vos cibles, tarifs, réserve et notes.</p></div>}
     <div className="insights-actions"><label>Scénario<select value={bundle.document.stadium_scenarios.some(s=>s.id===draft.id)?draft.id:''} onChange={e=>select(e.target.value)}><option value="">Nouveau scénario</option>{bundle.document.stadium_scenarios.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label><button className="button secondary" onClick={resetDraft}><Plus size={16}/>Nouveau scénario</button></div>
+    <div className="insights-distribution">
+      <h3>Répartir une capacité totale</h3>
+      <p className="muted">Reprenez les proportions du modèle de Franck : 22 / 39 / 30 / 8 / 1 %. Saisissez la capacité totale souhaitée, puis remplacez explicitement les cinq cibles du scénario ci-dessous. Les places entières conservent exactement votre total.</p>
+      <div className="insights-actions"><label>Capacité totale souhaitée<input type="number" min="0" max={stadiumMaximumTotal} step="1" placeholder="À renseigner" value={capacityTotal} aria-invalid={capacityTotal!==''&&Boolean(distribution.error)} onChange={e=>{setCapacityTotal(e.target.value);setCapacityMessage('');}}/></label><button type="button" className="button secondary" disabled={pending||!distribution.target} onClick={()=>{if(distribution.target){setDraft({...draft,target:{...distribution.target}});setCapacityMessage('Les cinq capacités cibles ont été remplacées dans le brouillon. Enregistrez le scénario pour le conserver.');}}}>Remplacer les cinq capacités cibles</button></div>
+      {capacityTotal!==''&&distribution.error&&<p className="notice error" role="alert">{distribution.error}</p>}
+      {distribution.target&&<ul className="insights-distribution-preview" aria-label="Aperçu de la répartition">{categories.map(([key,label],index)=><li key={key}><span>{label} · {stadiumRatios[index]} %</span><strong>{fmt(distribution.target![key])} places</strong></li>)}</ul>}
+      {capacityMessage&&<p className="insights-status" role="status">{capacityMessage}</p>}
+      <p className="tiny">Ce bouton modifie uniquement les cibles du brouillon. Vérifiez les tarifs et frais du devis réel dans Classic, puis renseignez les coûts et la réserve ci-dessous. Les montants sont virtuels ; aucun travail de construction n’est lancé.</p>
+    </div>
     <form className="insights-form" onSubmit={e=>{e.preventDefault();void save({stadium_scenarios:[...bundle.document.stadium_scenarios.filter(s=>s.id!==draft.id),draft]});}}><label>Nom du scénario<input required maxLength={100} value={draft.name} onChange={e=>setDraft({...draft,name:e.target.value})} placeholder="Ex. Extension prudente, saison 64"/></label><div className="table-scroll"><table className="insights-capacities"><thead><tr><th>Catégorie</th><th>Capacité actuelle</th><th>Capacité cible</th><th>Coût par place ajoutée</th></tr></thead><tbody>{categories.map(([key,label])=><tr key={key}><th>{label}</th>{(['current','target','unit_costs'] as const).map(group=><td key={group}><input aria-label={label+' · '+{current:'capacité actuelle',target:'capacité cible',unit_costs:'coût unitaire'}[group]} type="number" min="0" max={group==='unit_costs'?1e12:1e6} step={group==='unit_costs'?'0.01':'1'} placeholder="Inconnu" value={draft[group][key]??''} onChange={e=>setValue(group,key,e.target.value)}/></td>)}</tr>)}</tbody></table></div><div className="insights-grid"><label>Trésorerie disponible<input type="number" min="0" max="1000000000000" step="0.01" placeholder="Inconnue" value={draft.treasury??''} onChange={e=>setDraft({...draft,treasury:optionalNumber(e.target.value)})}/></label><label>Réserve à conserver<input type="number" min="0" max="1000000000000" step="0.01" placeholder="À renseigner, même si 0" value={draft.reserve??''} onChange={e=>setDraft({...draft,reserve:optionalNumber(e.target.value)})}/></label></div><label>Hypothèses / date de vérification des tarifs<textarea maxLength={1000} value={draft.note} onChange={e=>setDraft({...draft,note:e.target.value})}/></label><div className="insights-actions"><button className="button primary" disabled={pending}><Save size={16}/>Enregistrer et calculer</button>{bundle.document.stadium_scenarios.some(s=>s.id===draft.id)&&<button className="text-button" type="button" disabled={pending} onClick={()=>void save({stadium_scenarios:bundle.document.stadium_scenarios.filter(s=>s.id!==draft.id)}).then(ok=>{if(ok){setCompare(compare.filter(id=>id!==draft.id));resetDraft();}})}>Supprimer ce scénario</button>}</div></form>
     {bundle.stadium.length>0&&<><h3>Comparaison des scénarios enregistrés</h3><p className="tiny">Sélectionnez les scénarios à comparer ; sans sélection, tous sont affichés. Les modifications du formulaire ne figurent ici qu’après enregistrement.</p><div className="insights-choices">{bundle.stadium.map(s=><label key={s.id}><input type="checkbox" checked={compare.includes(s.id)} onChange={()=>setCompare(compare.includes(s.id)?compare.filter(id=>id!==s.id):[...compare,s.id])}/>{s.name}</label>)}</div><div className="table-scroll"><table><thead><tr><th>Scénario</th><th>Capacité cible</th><th>Coût des ajouts</th><th>Reste après travaux et réserve</th><th>Données à vérifier</th></tr></thead><tbody>{rows.map(s=><tr key={s.id}><td><button className="text-button" onClick={()=>select(s.id)}>{s.name}</button></td><td>{fmt(s.target_capacity)}</td><td>{s.construction_cost===null?'Incomplet':fmt(s.construction_cost)}</td><td className={s.remaining_available!==null&&s.remaining_available<0?'text-amber':''}>{s.remaining_available===null?'Non calculable':fmt(s.remaining_available)}</td><td>{s.missing_categories.length>0&&<span>Capacité ou coût manquant : {s.missing_categories.map(key=>categories.find(([k])=>k===key)?.[1]).join(', ')}. </span>}{s.reduction_categories.length>0&&<span>Réduction demandée : coût de démolition et éventuel remboursement non évalués. </span>}{s.remaining_available!==null&&s.remaining_available<0&&<span>La réserve ne serait pas couverte.</span>}{s.remaining_available===null&&s.missing_categories.length===0&&<span>Renseignez trésorerie et réserve.</span>}</td></tr>)}</tbody></table></div></>}
     <p className="notice">Coût = places ajoutées × tarif saisi, par catégorie. Reste disponible = trésorerie − travaux − réserve. Les réductions n’accordent aucun remboursement. Frais annexes, affluence et rentabilité ne sont pas évalués.</p>

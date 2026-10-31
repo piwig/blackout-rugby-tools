@@ -77,7 +77,7 @@ export default function App(){
     <aside className={'sidebar '+(menu?'is-open':'')} inert={mobile&&!menu} role={mobile&&menu?'dialog':undefined} aria-modal={mobile&&menu?true:undefined} aria-label={mobile&&menu?'Menu de navigation':undefined}>
       <button className="icon-button sidebar-close" aria-label="Fermer la navigation" onClick={()=>{setMenu(false);menuButton.current?.focus()}}><X size={20}/></button>
       <a className="brand" href="#" onClick={e=>{e.preventDefault();go('home')}}><img src="/images/brt-logo-192.png" alt=""/><span>BLACKOUT<small>RUGBY TOOLS</small></span></a>
-      <div className="edition"><i/> CLASSIC EDITION <span>2.3</span></div><span className="nav-label">VOTRE CLUB-HOUSE</span>
+      <div className="edition"><i/> CLASSIC EDITION <span>2.4</span></div><span className="nav-label">VOTRE CLUB-HOUSE</span>
       <nav id="main-navigation" aria-label="Navigation principale">{nav.map(n=><button key={n.id} aria-current={page===n.id?'page':undefined} className={(page===n.id?'active ':'')+(n.id==='profile'?'nav-separator':'')} onClick={()=>go(n.id)}><n.icon size={19}/><span>{n.label}</span>{page===n.id&&<span className="nav-dot"/>}</button>)}</nav>
       <div className="sidebar-bottom"><div className="club-mini"><button className="profile-nav" onClick={()=>go('profile')} aria-label="Ouvrir mon profil"><ProfileAvatar profile={profile} username={d.user.username} small/><span><strong>{displayName}</strong><small>Mon espace privé</small></span></button><button className="icon-button" aria-label="Se déconnecter" disabled={busy} onClick={()=>{if(confirmLeave())void act('/logout',{},'').catch(()=>{})}}><LogOut size={17}/></button></div></div>
     </aside>

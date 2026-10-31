@@ -24,6 +24,7 @@ from .vacation import VacationService,VacationRule,VacationError
 from .lineup_lab import register_lineup_lab
 from .insights import register_insights
 from .workbench import register_workbench,identity_for
+from .starter import register_starter
 from .profile import register_profile,get_profile
 from .progression import register_progression
 from .registration import register_registration
@@ -220,7 +221,7 @@ def create_app(directory=None,password=None,secure=None):
         return dict(r)
 
     @app.get('/api/health')
-    def health():return {'ok':True,'version':'2.3.0'}
+    def health():return {'ok':True,'version':'2.4.0'}
 
     @app.post('/api/login')
     def login(body:Login,request:Request,response:Response):
@@ -520,6 +521,7 @@ def create_app(directory=None,password=None,secure=None):
     register_lineup_lab(app,store,auth,require_team,state)
     register_insights(app,store,auth,require_team,state)
     register_workbench(app,store,auth,require_team,state,accounts,vacation_service)
+    register_starter(app,store,auth,require_team)
     register_profile(app,store,auth)
     register_progression(app,store,auth,require_team)
     register_registration(app,accounts,auth,secure)

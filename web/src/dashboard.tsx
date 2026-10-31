@@ -4,6 +4,7 @@ import type {Actions} from './App';
 import {date} from './types';
 import {Empty,Metric,Pill} from './components';
 import {DailyHub} from './workbench';
+import {StarterCard} from './starter';
 import {MatchdayHero,RugbyGallery} from './rugby';
 import {ProgressionSummary} from './progression';
 import {defaultProfile,type ProfilePreferences} from './profile';
@@ -41,6 +42,7 @@ export function Dashboard(props:Actions&{selectTeam:(id:string,page:string)=>voi
       <button onClick={()=>go('profile')}><span className="orientation-icon"><Palette size={20}/></span><span><strong>Un atelier à votre image</strong><small>Profil, couleurs et ordre des rubriques</small></span><ArrowUpRight size={16}/></button>
     </section>
     {!hasPlayers&&<section className="dashboard-start card"><div><span className="eyebrow">PREMIERS PAS</span><h2>Votre club prend vie avec ses données.</h2><p>Importez vos joueurs, découvrez leurs profils, puis préparez votre première composition. Le guide vous accompagne à chaque étape.</p></div><button className="button primary" onClick={()=>go('settings')}>Importer mes joueurs<ArrowRight size={16}/></button><button className="button secondary" onClick={()=>go('guide')}>Voir le tutoriel</button></section>}
+    <StarterCard d={d} go={go} busy={props.busy}/>
     <div className="dashboard-widgets">{(profile.dashboard_sections??defaultProfile.dashboard_sections).map(id=><div className={'dashboard-widget widget-'+id} key={id}>{sections[id]}</div>)}</div>
     {!profile.dashboard_sections.length&&<Empty title="Votre accueil est en mode essentiel" action={<button className="button primary" onClick={()=>go('profile')}>Choisir mes rubriques</button>}>Réactivez les priorités, les chiffres ou les courbes depuis Profil & affichage.</Empty>}
     <div className="dashboard-bottom"><span>Besoin d’un repère ? Le mode d’emploi suit l’écran que vous consultez.</span><button className="text-button" onClick={()=>go('guide')}>Parcourir le tutoriel<ArrowRight size={16}/></button></div>
