@@ -1,3 +1,4 @@
+import {tr} from './i18n';
 import {createContext,useContext,useEffect,useLayoutEffect,useMemo,useRef,type ReactNode} from 'react';
 import {createDraftRegistry} from './draft-registry';
 
@@ -33,7 +34,7 @@ export function useUnsavedChanges(active:boolean):void{
 export function useNavigationGuard(){
  const registry=useRegistry();
  return useMemo(()=>({
-  confirmLeave:()=>registry.canLeave(()=>window.confirm(message)),
+  confirmLeave:()=>registry.canLeave(()=>window.confirm(tr(message))),
  }),[registry]);
 }
 

@@ -55,6 +55,12 @@ def accepted(action='register', **changes):
     return httpx.Response(200, json={'success': True, 'hostname': 'brt.example.test', 'action': action, **changes})
 
 
+def contact_session(app, client):
+    token, csrf = app.state.accounts.start_session('primary')
+    client.cookies.set('brt_session', token)
+    return {'X-CSRF-Token': csrf}
+
+
 def test_enabled_signup_requires_captcha_before_creating_account(tmp_path, monkeypatch):
     app = app_with_captcha(tmp_path, monkeypatch)
     with TestClient(app) as client:
@@ -138,7 +144,8 @@ def test_provider_timeout_keeps_secrets_out_of_error_and_does_not_retry(tmp_path
         raise httpx.ReadTimeout('synthetic-private-secret synthetic-token', request=request)
     calls = provider(monkeypatch, timeout)
     with TestClient(app) as client:
-        result = client.post('/api/contact', json=contact())
+        headers = contact_session(app, client)
+        result = client.post('/api/contact', headers=headers, json=contact())
         assert result.status_code == 503 and 'synthetic' not in result.text
     assert len(calls) == 1
     with app.state.accounts.db() as db:
@@ -156,10 +163,11 @@ def test_rate_limit_is_consumed_before_provider_and_replayed_token_is_rejected(t
         return accepted('contact')
     calls = provider(monkeypatch, upstream)
     with TestClient(app) as client:
-        assert client.post('/api/contact', json=contact()).status_code == 200
+        headers = contact_session(app, client)
+        assert client.post('/api/contact', headers=headers, json=contact()).status_code == 200
         for _ in range(4):
-            assert client.post('/api/contact', json=contact()).status_code == 403
-        assert client.post('/api/contact', json=contact(captcha_token='new-token')).status_code == 429
+            assert client.post('/api/contact', headers=headers, json=contact()).status_code == 403
+        assert client.post('/api/contact', headers=headers, json=contact(captcha_token='new-token')).status_code == 429
     assert len(calls) == 5
     with app.state.accounts.db() as db:
         assert db.execute('SELECT count(*) FROM contact_tickets').fetchone()[0] == 1

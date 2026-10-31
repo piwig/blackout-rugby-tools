@@ -9,3 +9,7 @@ __pycache__/
 .env
 *.db*
 .superpowers/
+
+# Generated i18n extraction inventories
+web/src/i18n/manifest.json
+web/src/i18n/candidates.json

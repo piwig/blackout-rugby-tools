@@ -6,9 +6,11 @@ import vm from 'node:vm';
 import ts from 'typescript';
 
 const require=createRequire(import.meta.url);
+const {translate}=require('../src/i18n/core.ts');
+const french=JSON.parse(readFileSync(new URL('../src/i18n/locales/fr.json',import.meta.url),'utf8'));
 const artifact={exports:{}};
 const source=ts.transpileModule(readFileSync(new URL('../src/starter.tsx',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;
-const load=id=>id==='./App'||id==='./navigation-guard'||id.endsWith('.css')?{}:id==='./starter-state'?require('../src/starter-state.ts'):require(id);
+const load=id=>id==='./i18n'?{tr:(source,params)=>translate(french,source,params)}:id==='./App'||id==='./navigation-guard'||id.endsWith('.css')?{}:id==='./starter-state'?require('../src/starter-state.ts'):require(id);
 vm.runInNewContext(source,{module:artifact,exports:artifact.exports,require:load});
 const {renderToStaticMarkup}=require('react-dom/server');
 const React=require('react');

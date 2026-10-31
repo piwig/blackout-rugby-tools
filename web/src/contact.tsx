@@ -1,7 +1,9 @@
+import {localeTag,tr} from './i18n';
 import {useCallback, useEffect, useId, useRef, useState} from 'react';
 import {Bug, CheckCircle2, Inbox, Lightbulb, Mail, RefreshCw, Send, ShieldCheck, Sparkles} from 'lucide-react';
 import {request, type Actions} from './App';
 import {AntiBot} from './antibot';
+import {useUnsavedChanges} from './navigation-guard';
 import './contact.css';
 
 type ContactKind = 'bug'|'improvement'|'feature';
@@ -19,15 +21,16 @@ const kinds = [
 const kindNames:Record<ContactKind,string> = {bug:'Bug',improvement:'Amélioration',feature:'Nouveauté'};
 const statusNames:Record<ContactStatus,string> = {new:'Reçu',reviewing:'En cours de lecture',planned:'Prévu',resolved:'Traité'};
 const notificationNames = {pending:'Notification en attente',disabled:'Notification mail désactivée',sent:'Notification mail envoyée',failed:'Notification mail non envoyée · message conservé'};
-const dateLabel = (value:string) => new Date(value).toLocaleString('fr-FR',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+const dateLabel = (value:string) => new Date(value).toLocaleString(localeTag(),{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
 const errorText = (error:unknown) => error instanceof Error ? error.message : 'La demande n’a pas abouti. Réessayez.';
 
-export function ContactForm({csrf,email='',onDone}:{csrf?:string;email?:string;onDone?:(ticket:ContactTicket)=>void}) {
+function ContactForm({csrf,email='',onDone}:{csrf:string;email?:string;onDone?:(ticket:ContactTicket)=>void}) {
   const id=useId(),[kind,setKind]=useState<ContactKind>('bug'),[subject,setSubject]=useState(''),[message,setMessage]=useState('');
   const [reply,setReply]=useState(email),[website,setWebsite]=useState(''),[consent,setConsent]=useState(false);
   const [saving,setSaving]=useState(false),[error,setError]=useState(''),[sent,setSent]=useState<ContactTicket|null>(null);
   const [captchaToken,setCaptchaToken]=useState<string|null>(null),[captchaReset,setCaptchaReset]=useState(0);
-  const mounted=useRef(false),emailEdited=useRef(false),scope=csrf||'public',current=useRef(scope);current.current=scope;
+  const mounted=useRef(false),emailEdited=useRef(false),scope=csrf,current=useRef(scope);current.current=scope;
+  useUnsavedChanges(!sent&&(!!subject.trim()||!!message.trim()||consent||saving));
   useEffect(()=>{mounted.current=true;return()=>{mounted.current=false}},[]);
   useEffect(()=>{if(!emailEdited.current)setReply(email)},[email]);
   const submit=async()=>{
@@ -44,28 +47,28 @@ export function ContactForm({csrf,email='',onDone}:{csrf?:string;email?:string;o
   };
   if(sent)return <div className="contact-success" role="status">
     <span className="contact-success-icon"><CheckCircle2 size={30}/></span>
-    <h3>Votre message est bien enregistré.</h3>
-    <p>Pierig peut maintenant le retrouver dans sa boîte de réception. L’adresse de réponse indiquée est <strong>{sent.email}</strong>.</p>
-    <p>{csrf?'Vous pouvez suivre son état dans votre historique ci-dessous.':'Conservez cette référence si vous souhaitez reparler de ce message.'}</p>
-    <span className="contact-reference">Référence : {sent.id}</span>
-    <button type="button" className="button secondary" onClick={()=>{setSent(null);setError('')}}>Écrire un autre message</button>
+    <h3>{tr("Votre message est bien enregistré.")}</h3>
+    <p>{tr("Pierig peut maintenant le retrouver dans sa boîte de réception. L’adresse de réponse indiquée est ")}<strong>{sent.email}</strong>.</p>
+    <p>{tr("Vous pouvez suivre son état dans votre historique ci-dessous.")}</p>
+    <span className="contact-reference">{tr("Référence : ")}{sent.id}</span>
+    <button type="button" className="button secondary" onClick={()=>{setSent(null);setError('')}}>{tr("Écrire un autre message")}</button>
   </div>;
   return <form className="contact-form" onSubmit={event=>{event.preventDefault();void submit()}} aria-busy={saving}>
-    <fieldset className="contact-kinds" disabled={saving}><legend>Que souhaitez-vous partager ?</legend>
+    <fieldset className="contact-kinds" disabled={saving}><legend>{tr("Que souhaitez-vous partager ?")}</legend>
       <div>{kinds.map(item=><label className={kind===item.id?'selected':''} key={item.id}>
         <input type="radio" name={id+'-kind'} value={item.id} checked={kind===item.id} onChange={()=>setKind(item.id)}/>
-        <item.icon size={20} aria-hidden="true"/><strong>{item.label}</strong><small>{item.hint}</small>
+        <item.icon size={20} aria-hidden="true"/><strong>{tr(item.label)}</strong><small>{tr(item.hint)}</small>
       </label>)}</div>
     </fieldset>
-    <label htmlFor={id+'-subject'}>Le sujet<input id={id+'-subject'} required maxLength={160} value={subject} disabled={saving} onChange={e=>setSubject(e.target.value)} placeholder="Ex. La date d’un match ne s’affiche pas"/></label>
-    <label htmlFor={id+'-message'}>Votre message<textarea id={id+'-message'} required maxLength={4000} rows={6} value={message} disabled={saving} onChange={e=>setMessage(e.target.value)} aria-describedby={id+'-message-help'} placeholder={kind==='bug'?'Indiquez l’écran concerné, ce que vous avez fait et le résultat attendu.':'Décrivez votre idée et ce qu’elle vous aiderait à faire.'}/><small id={id+'-message-help'} className="contact-field-help">Sans mot de passe, clé API ni autre secret. <span>{message.length} / 4 000</span></small></label>
-    <label htmlFor={id+'-email'}>Votre e-mail pour une réponse<input id={id+'-email'} type="email" required maxLength={254} autoComplete="email" inputMode="email" value={reply} disabled={saving} onChange={e=>{emailEdited.current=true;setReply(e.target.value)}} aria-describedby={id+'-email-help'}/><small id={id+'-email-help'}>Utilisé pour vous répondre au sujet de ce message.</small></label>
-    <div className="contact-trap" aria-hidden="true"><label htmlFor={id+'-website'}>Site web<input id={id+'-website'} name="website" tabIndex={-1} autoComplete="off" value={website} onChange={e=>setWebsite(e.target.value)}/></label></div>
-    <label className="contact-consent"><input type="checkbox" required checked={consent} disabled={saving} onChange={e=>setConsent(e.target.checked)}/><span>Je transmets ce message et mon e-mail à Pierig, administrateur de l’outil{csrf?', avec mon identifiant de connexion':''}.</span></label>
-    <p className="contact-privacy"><ShieldCheck size={16} aria-hidden="true"/><span>Seuls les champs de ce formulaire{csrf?' et votre identifiant':''} sont partagés. Vos données de club ne sont pas jointes.</span></p>
+    <label htmlFor={id+'-subject'}>{tr("Le sujet")}<input id={id+'-subject'} required maxLength={160} value={subject} disabled={saving} onChange={e=>setSubject(e.target.value)} placeholder={tr("Ex. La date d’un match ne s’affiche pas")}/></label>
+    <label htmlFor={id+'-message'}>{tr("Votre message")}<textarea id={id+'-message'} required maxLength={4000} rows={6} value={message} disabled={saving} onChange={e=>setMessage(e.target.value)} aria-describedby={id+'-message-help'} placeholder={kind==='bug'?tr("Indiquez l’écran concerné, ce que vous avez fait et le résultat attendu."):tr("Décrivez votre idée et ce qu’elle vous aiderait à faire.")}/><small id={id+'-message-help'} className="contact-field-help">{tr("Sans mot de passe, clé API ni autre secret. ")}<span>{message.length} / 4 000</span></small></label>
+    <label htmlFor={id+'-email'}>{tr("Votre e-mail pour une réponse")}<input id={id+'-email'} type="email" required maxLength={254} autoComplete="email" inputMode="email" value={reply} disabled={saving} onChange={e=>{emailEdited.current=true;setReply(e.target.value)}} aria-describedby={id+'-email-help'}/><small id={id+'-email-help'}>{tr("Utilisé pour vous répondre au sujet de ce message.")}</small></label>
+    <div className="contact-trap" aria-hidden="true"><label htmlFor={id+'-website'}>{tr("Site web")}<input id={id+'-website'} name="website" tabIndex={-1} autoComplete="off" value={website} onChange={e=>setWebsite(e.target.value)}/></label></div>
+    <label className="contact-consent"><input type="checkbox" required checked={consent} disabled={saving} onChange={e=>setConsent(e.target.checked)}/><span>{tr("Je transmets ce message et mon e-mail à Pierig, administrateur de l’outil, avec mon identifiant de connexion.")}</span></label>
+    <p className="contact-privacy"><ShieldCheck size={16} aria-hidden="true"/><span>{tr("Seuls les champs de ce formulaire et votre identifiant sont partagés. Vos données de club ne sont pas jointes.")}</span></p>
     <AntiBot action="contact" onToken={setCaptchaToken} resetKey={captchaReset}/>
-    {error&&<p className="notice error" role="alert">{error}</p>}
-    <button className="button primary contact-submit" disabled={saving||!consent||captchaToken===null}><Send size={17}/>{saving?'Enregistrement du message…':'Envoyer à Pierig'}</button>
+    {error&&<p className="notice error" role="alert">{tr(error)}</p>}
+    <button className="button primary contact-submit" disabled={saving||!consent||captchaToken===null}><Send size={17}/>{saving?tr("Enregistrement du message…"):tr("Envoyer à Pierig")}</button>
   </form>;
 }
 
@@ -93,10 +96,10 @@ function useTickets(path:string, scope:string) {
 
 function Ticket({ticket,children,admin=false}:{ticket:ContactTicket;children?:React.ReactNode;admin?:boolean}) {
   return <article className="contact-ticket">
-    <div className="contact-ticket-heading"><span className="contact-kind">{kindNames[ticket.kind]}</span><span className={'contact-status contact-status-'+ticket.status}>{statusNames[ticket.status]}</span><time dateTime={ticket.created_at}>{dateLabel(ticket.created_at)}</time></div>
+    <div className="contact-ticket-heading"><span className="contact-kind">{tr(kindNames[ticket.kind])}</span><span className={'contact-status contact-status-'+ticket.status}>{tr(statusNames[ticket.status])}</span><time dateTime={ticket.created_at}>{dateLabel(ticket.created_at)}</time></div>
     <h3>{ticket.subject}</h3><p className="contact-message">{ticket.message}</p>
-    <div className="contact-ticket-meta"><span>{admin?(ticket.author?'Manager : '+ticket.author:'Depuis la page de connexion'):'Votre adresse de réponse'}</span><span className="contact-email"><Mail size={14} aria-hidden="true"/>{ticket.email}</span></div>
-    <details className="contact-ticket-details"><summary>Référence et suivi</summary><p>Référence : <span>{ticket.id}</span></p><p>Suivi mis à jour le {dateLabel(ticket.updated_at)}</p>{admin&&ticket.notification_status&&<p>{notificationNames[ticket.notification_status]}</p>}</details>
+    <div className="contact-ticket-meta"><span>{admin?(ticket.author?tr("Manager : ")+ticket.author:tr("Ancien message sans compte")):tr("Votre adresse de réponse")}</span><span className="contact-email"><Mail size={14} aria-hidden="true"/>{ticket.email}</span></div>
+    <details className="contact-ticket-details"><summary>{tr("Référence et suivi")}</summary><p>{tr("Référence : ")}<span>{ticket.id}</span></p><p>{tr("Suivi mis à jour le ")}{dateLabel(ticket.updated_at)}</p>{admin&&ticket.notification_status&&<p>{tr(notificationNames[ticket.notification_status])}</p>}</details>
     {children}
   </article>;
 }
@@ -110,15 +113,15 @@ export function ContactPage(props:Actions) {
     return()=>{active=false};
   },[scope]);
   return <div className="contact-page">
-    <section className="card contact-compose"><div className="contact-intro"><span className="contact-intro-icon"><Mail size={25}/></span><div><span className="eyebrow">EN CONTACT AVEC PIERIG</span><h2>Un bug, une idée, une envie ?</h2><p>Votre retour aide à faire évoluer l’atelier. Expliquez ce qui compte pour vous.</p></div></div>
-      {emailError&&<p className="contact-field-help">{emailError}</p>}<ContactForm key={scope} csrf={props.d.csrf} email={email} onDone={()=>void history.load()}/>
+    <section className="card contact-compose"><div className="contact-intro"><span className="contact-intro-icon"><Mail size={25}/></span><div><span className="eyebrow">{tr("EN CONTACT AVEC PIERIG")}</span><h2>{tr("Votre regard compte aussi.")}</h2><p>{tr("Un détail qui gêne, une fonction qui manque : racontez à Pierig ce qui vous aiderait à mieux préparer votre club.")}</p></div></div>
+      {emailError&&<p className="contact-field-help">{tr(emailError)}</p>}<ContactForm key={scope} csrf={props.d.csrf} email={email} onDone={()=>void history.load()}/>
     </section>
-    <section className="card contact-history" aria-labelledby="contact-history-title"><div className="contact-section-heading"><div><span className="eyebrow">LE SUIVI DE VOS MESSAGES</span><h2 id="contact-history-title">Votre historique</h2></div><button type="button" className="button secondary" disabled={history.loading} onClick={()=>void history.load()}><RefreshCw size={16}/>Actualiser</button></div>
-      <p>Vos messages envoyés depuis ce compte et leur état de traitement.</p>
-      {history.error&&<p className="notice error" role="alert">{history.error}</p>}{history.loading&&<p role="status">Chargement de vos messages…</p>}
-      {!history.loading&&!history.error&&!history.items.length&&<div className="contact-empty"><Inbox size={28}/><h3>Votre premier échange commence ici.</h3><p>Les messages que vous envoyez depuis ce compte apparaîtront dans cet espace.</p></div>}
+    <section className="card contact-history" aria-labelledby="contact-history-title"><div className="contact-section-heading"><div><span className="eyebrow">{tr("LE SUIVI DE VOS MESSAGES")}</span><h2 id="contact-history-title">{tr("Votre historique")}</h2></div><button type="button" className="button secondary" disabled={history.loading} onClick={()=>void history.load()}><RefreshCw size={16}/>{tr("Actualiser")}</button></div>
+      <p>{tr("Vos messages envoyés depuis ce compte et leur état de traitement.")}</p>
+      {history.error&&<p className="notice error" role="alert">{history.error}</p>}{history.loading&&<p role="status">{tr("Chargement de vos messages…")}</p>}
+      {!history.loading&&!history.error&&!history.items.length&&<div className="contact-empty"><Inbox size={28}/><h3>{tr("Votre premier échange commence ici.")}</h3><p>{tr("Les messages que vous envoyez depuis ce compte apparaîtront dans cet espace.")}</p></div>}
       <div className="contact-ticket-list">{history.items.map(ticket=><Ticket key={ticket.id} ticket={ticket}/>)}</div>
-      {history.hasMore&&<button type="button" className="button secondary" disabled={history.loading} onClick={()=>void history.load(history.items.length)}>Voir les messages plus anciens</button>}
+      {history.hasMore&&<button type="button" className="button secondary" disabled={history.loading} onClick={()=>void history.load(history.items.length)}>{tr("Voir les messages plus anciens")}</button>}
     </section>
     {props.d.user.admin&&<ContactInbox {...props} onChanged={()=>void history.load()}/>}
   </div>;
@@ -136,11 +139,11 @@ export function ContactInbox({d,act,busy,onChanged}:Actions&{onChanged?:()=>void
     } catch(error) {if(mounted.current&&current.current===scope)setError(errorText(error))}
     finally {if(mounted.current&&current.current===scope)setSaving('')}
   };
-  return <section className="card contact-admin" aria-labelledby="contact-inbox-title"><div className="contact-section-heading"><div><span className="eyebrow">ADMINISTRATION</span><h2 id="contact-inbox-title">La boîte de réception</h2></div><button type="button" className="button secondary" disabled={resource.loading||Boolean(saving)} onClick={()=>{setError('');void resource.load()}}><RefreshCw size={16}/>Recharger la boîte</button></div>
-    <p>Les messages volontairement transmis par les visiteurs et les managers. Les changements de suivi sont visibles par leurs auteurs connectés.</p>
-    {(resource.error||error)&&<p className="notice error" role="alert">{error||resource.error}</p>}{resource.loading&&<p role="status">Chargement de la boîte…</p>}
-    {!resource.loading&&!resource.error&&!resource.items.length&&<div className="contact-empty"><Inbox size={28}/><h3>La boîte est à jour.</h3><p>Aucun message reçu pour le moment.</p></div>}
-    <div className="contact-ticket-list">{resource.items.map(ticket=><Ticket key={ticket.id} ticket={ticket} admin><label className="contact-status-edit">Suivi de « {ticket.subject} »<select value={ticket.status} disabled={busy||resource.loading||Boolean(saving)} onChange={event=>void update(ticket,event.target.value as ContactStatus)}>{Object.entries(statusNames).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label></Ticket>)}</div>
-    {resource.hasMore&&<button type="button" className="button secondary" disabled={resource.loading||Boolean(saving)} onClick={()=>void resource.load(resource.items.length)}>Voir les messages plus anciens</button>}
+  return <section className="card contact-admin" aria-labelledby="contact-inbox-title"><div className="contact-section-heading"><div><span className="eyebrow">{tr("ADMINISTRATION")}</span><h2 id="contact-inbox-title">{tr("La boîte de réception")}</h2></div><button type="button" className="button secondary" disabled={resource.loading||Boolean(saving)} onClick={()=>{setError('');void resource.load()}}><RefreshCw size={16}/>{tr("Recharger la boîte")}</button></div>
+    <p>{tr("Les messages reçus dans BRT. Les changements de suivi sont visibles par leurs auteurs connectés.")}</p>
+    {(resource.error||error)&&<p className="notice error" role="alert">{error||resource.error}</p>}{resource.loading&&<p role="status">{tr("Chargement de la boîte…")}</p>}
+    {!resource.loading&&!resource.error&&!resource.items.length&&<div className="contact-empty"><Inbox size={28}/><h3>{tr("La boîte est à jour.")}</h3><p>{tr("Aucun message reçu pour le moment.")}</p></div>}
+    <div className="contact-ticket-list">{resource.items.map(ticket=><Ticket key={ticket.id} ticket={ticket} admin><label className="contact-status-edit">{tr("Suivi de « ")}{ticket.subject} »<select value={ticket.status} disabled={busy||resource.loading||Boolean(saving)} onChange={event=>void update(ticket,event.target.value as ContactStatus)}>{Object.entries(statusNames).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label></Ticket>)}</div>
+    {resource.hasMore&&<button type="button" className="button secondary" disabled={resource.loading||Boolean(saving)} onClick={()=>void resource.load(resource.items.length)}>{tr("Voir les messages plus anciens")}</button>}
   </section>;
 }

@@ -19,6 +19,7 @@ class StrictProfile(BaseModel):
 
 
 class ProfilePreferences(StrictProfile):
+    language: Literal['fr', 'en', 'es', 'it'] = 'fr'
     display_name: str = Field(default='', max_length=60)
     initials: str = Field(default='BRT', pattern=r'^[A-Z0-9À-ÖØ-Þ]{1,3}$')
     jersey_number: int = Field(default=15, strict=True, ge=0, le=99)

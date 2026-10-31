@@ -22,6 +22,7 @@ class Registration(BaseModel):
     password: str = Field(min_length=12, max_length=128)
     email: str = Field(min_length=3, max_length=254)
     avatar_style: Literal['jersey', 'shield', 'trophy', 'rugby'] = 'jersey'
+    language: Literal['fr', 'en', 'es', 'it'] = 'fr'
     website: str = Field(default='', max_length=200)
     captcha_token: str = Field(default='', max_length=2048)
 
@@ -81,7 +82,7 @@ def register_registration(app, accounts, auth, secure):
             raise HTTPException(422, 'Vérifiez les champs du formulaire.')
         verify(request, body.captcha_token, 'register')
         try:
-            user = accounts.create(body.username, body.password, email=body.email, avatar_style=body.avatar_style)
+            user = accounts.create(body.username, body.password, email=body.email, avatar_style=body.avatar_style, language=body.language)
         except UsernameTaken:
             raise HTTPException(409, 'Cet identifiant est déjà utilisé.') from None
         except (OSError, sqlite3.Error):

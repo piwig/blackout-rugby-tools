@@ -7,6 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from server.main import create_app
+from server.profile import PROFILE_KEY
 
 
 def profile_app(directory):
@@ -59,6 +60,7 @@ def test_profile_defaults_and_normalized_roundtrip(app):
         assert initial['updated_at'] is None
         assert initial['profile']['dashboard_sections'] == ['priorities', 'metrics', 'progress', 'talents', 'actions', 'gallery']
         assert initial['profile']['density'] == 'comfortable'
+        assert initial['profile']['language'] == 'fr'
         response = save(client, headers, {'display_name': '  Cécile du XV  ', 'initials': ' cé ',
             'jersey_number': 0, 'favorite_club': 'toulouse', 'density': 'compact',
             'text_size': 'large', 'motion': 'reduced', 'start_page': 'progression',
@@ -81,12 +83,17 @@ def test_profiles_are_manager_private_even_before_adding_a_club(app):
         assert created.status_code == 200
         oh = login(other, 'alice', 'Another-password-5678')
         assert other.get('/api/state').json()['setup_required'] is True
-        assert save(admin, ah, {'display_name': 'Private admin', 'initials': 'PA'}).status_code == 200
+        assert save(admin, ah, {'display_name': 'Private admin', 'initials': 'PA', 'language': 'en'}).status_code == 200
         before = other.get('/api/profile').json()
         assert before['revision'] == 0 and before['profile']['display_name'] == ''
-        assert save(other, oh, {'display_name': 'Private Alice', 'initials': 'AL'}).status_code == 200
+        assert before['profile']['language'] == 'fr'
+        assert save(other, oh, {'display_name': 'Private Alice', 'initials': 'AL', 'language': 'it'}).status_code == 200
         assert admin.get('/api/profile').json()['profile']['display_name'] == 'Private admin'
         assert other.get('/api/profile').json()['profile']['display_name'] == 'Private Alice'
+        assert admin.get('/api/state').json()['profile']['profile']['language'] == 'en'
+        assert other.get('/api/state').json()['profile']['profile']['language'] == 'it'
+        assert admin.get('/api/export').json()['manager_documents'][PROFILE_KEY]['profile']['language'] == 'en'
+        assert other.get('/api/export').json()['manager_documents'][PROFILE_KEY]['profile']['language'] == 'it'
         assert save(other, oh, {'display_name': 'Other manager'}, revision=1, user_id='primary').status_code == 422
 
 
@@ -108,8 +115,8 @@ def test_concurrent_profile_writers_cannot_both_win(app):
         fh, sh = login(first), login(second)
         with ThreadPoolExecutor(max_workers=2) as pool:
             results = list(pool.map(lambda item: save(*item), [
-                (first, fh, {'display_name': 'First writer'}),
-                (second, sh, {'display_name': 'Second writer'})]))
+                (first, fh, {'display_name': 'First writer', 'language': 'en'}),
+                (second, sh, {'display_name': 'Second writer', 'language': 'es'})]))
         assert sorted(response.status_code for response in results) == [200, 409]
         winner = next(response.json() for response in results if response.status_code == 200)
         assert first.get('/api/profile').json() == winner
@@ -123,6 +130,8 @@ def test_concurrent_profile_writers_cannot_both_win(app):
     {'jersey_number': 1.5}, {'jersey_number': '12'},
     {'favorite_club': 'https://example.test/logo.svg'}, {'favorite_club': 'unknown'},
     {'density': 'tiny'}, {'text_size': 'huge'}, {'motion': 'always'},
+    {'language': 'de'}, {'language': 'en-US'}, {'language': 'EN'}, {'language': ''},
+    {'language': None}, {'language': 123}, {'language': True}, {'language': ['fr']},
     {'start_page': 'admin'}, {'banner': 'https://example.test/image.png'},
     {'dashboard_sections': ['metrics', 'metrics']}, {'dashboard_sections': ['password']},
     {'avatar_url': 'https://example.test/logo.png'}, {'team_id': '72450'},
@@ -151,3 +160,40 @@ def test_profile_persists_after_reopening_application(tmp_path):
     with TestClient(profile_app(tmp_path)) as reopened:
         login(reopened)
         assert reopened.get('/api/profile').json() == saved
+
+
+@pytest.mark.parametrize('language', ['fr', 'en', 'es', 'it'])
+def test_language_survives_save_export_and_application_restart(tmp_path, language):
+    with TestClient(profile_app(tmp_path)) as client:
+        headers = login(client)
+        response = save(client, headers, {'language': language})
+        assert response.status_code == 200, response.text
+        saved = response.json()
+        assert saved['profile']['language'] == language
+        assert client.get('/api/state').json()['profile'] == saved
+        assert client.get('/api/export').json()['manager_documents'][PROFILE_KEY] == saved
+        assert save(client, headers, {'language': 'fr' if language != 'fr' else 'en'}).status_code == 409
+        assert client.get('/api/profile').json() == saved
+    with TestClient(profile_app(tmp_path)) as reopened:
+        login(reopened)
+        assert reopened.get('/api/profile').json() == saved
+
+
+def test_legacy_profile_defaults_to_french_without_rewriting_its_revision(app):
+    legacy = {'revision': 7, 'profile': {'display_name': 'Existing manager', 'density': 'compact'},
+              'updated_at': '2026-10-01'}
+    app.state.store.set(PROFILE_KEY, legacy)
+    with TestClient(app) as client:
+        headers = login(client)
+        profile = client.get('/api/profile').json()
+        assert profile['profile']['language'] == 'fr'
+        assert profile['profile']['display_name'] == 'Existing manager'
+        assert profile['profile']['density'] == 'compact'
+        assert profile['revision'] == 7 and profile['updated_at'] == '2026-10-01'
+        assert app.state.store.get(PROFILE_KEY) == legacy
+        assert client.get('/api/export').json()['manager_documents'][PROFILE_KEY] == legacy
+        # Existing clients and saved profile documents can still omit the new field.
+        saved = save(client, headers, legacy['profile'], revision=7)
+        assert saved.status_code == 200
+        assert saved.json()['profile']['language'] == 'fr'
+        assert saved.json()['revision'] == 8

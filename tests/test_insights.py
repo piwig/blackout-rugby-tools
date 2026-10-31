@@ -298,7 +298,9 @@ const compiled = ts.transpileModule(fs.readFileSync('src/insights.tsx','utf8'), 
   compilerOptions: {module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}
 }).outputText;
 const artifact = {exports:{}};
-const load = id => id === './App' ? {} : id === './types' || id === './navigation-guard' ? {} : id.endsWith('.css') ? {} : require(id);
+const i18n = require('./src/i18n/runtime.ts');
+i18n.installCatalogs({fr:JSON.parse(fs.readFileSync('src/i18n/locales/fr.json','utf8'))});
+const load = id => id === './i18n' ? i18n : id === './App' ? {} : id === './types' || id === './navigation-guard' ? {} : id.endsWith('.css') ? {} : require(id);
 vm.runInNewContext(compiled,{module:artifact,exports:artifact.exports,require:load,structuredClone});
 assert.equal(typeof artifact.exports.stadiumDraftReducer, 'function', 'Stadium observation transitions must be explicit');
 const reduce = artifact.exports.stadiumDraftReducer;

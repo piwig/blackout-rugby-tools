@@ -1,10 +1,14 @@
 # Blackout Rugby Tools
 
+**Application : [brt.bordebat.fr](https://brt.bordebat.fr)** · [Dépôt GitHub](https://github.com/piwig/blackout-rugby-tools)
+
+**Compte BRT obligatoire.** Créez votre compte, puis connectez-vous pour accéder aux outils et au formulaire Contact & idées. Chaque manager dispose de son espace privé.
+
 Atelier pour Blackout Rugby **Classic**, organisé en espaces privés par manager, réalisé à partir du mail de Franck du 30 octobre 2026 et de ses six pièces jointes.
 
 ## Utiliser
 
-Interface en français : tableau de bord, académie et suivi des jeunes, compétences et comparaisons, composition du XV, historique, plans d'entraînement 16 semaines × 4 créneaux, calculateur de stade, analyses par zone, import ODS/CSV/JSON et exports.
+Interface en français, anglais, espagnol et italien : tableau de bord, académie et suivi des jeunes, compétences et comparaisons, composition du XV, historique, plans d'entraînement 16 semaines × 4 créneaux, calculateur de stade, analyses par zone, import ODS/CSV/JSON et exports.
 
 Les données importées de `Moeskroen.ods` concernent Moeskroen (72450) et LaTouff (72444). Le classeur est daté du 27 octobre 2026. Le nom actuel du club 72450 est Waterschei RFC.
 
@@ -15,6 +19,10 @@ L’inscription connecte le manager à un espace vide, sans droits d’administr
 Dans **Connexion & données**, coller la clé d’accès Classic complète (m=…&mk=…) importe le compte, ses clubs, les seniors et les académies. Le bouton d’actualisation relit toutes les équipes. Une erreur API avant la fin de la collecte conserve les observations précédentes.
 
 La connexion à l'outil est distincte du jeu. Les clés développeur Classic et les clés manager de chaque club se renseignent dans **Connexion & données**. Les champs vides conservent les valeurs existantes. Elles sont chiffrées en base et ne sont jamais renvoyées par l'API. Le mot de passe du jeu n'est jamais demandé par l'outil.
+
+Le sélecteur de langue est disponible dès la connexion et dans l’atelier. Le choix est conservé dans le profil ; les noms, notes et commentaires source restent dans leur langue d’origine.
+
+Dans **Analyse des matchs → Importer des événements**, collez le JSON brut de Classic ou choisissez un JSON/CSV (8 Mo, 20 000 événements maximum). Indiquez le type Club/U20/Nationale et vérifiez l’aperçu avant de confirmer. Les 677 événements du fichier de régression sont conservés ; seules les actions reconnues contribuent aux répartitions. Un score, un nom d’équipe ou une saison absent reste inconnu.
 
 ## Tutoriel intégré
 
@@ -30,11 +38,11 @@ Les chapitres peuvent être marqués comme lus. Ces repères sont séparés par 
 
 ## Contact & idées
 
-Le formulaire est accessible avant connexion et dans l’espace manager pour signaler un bug, demander une amélioration ou proposer une nouveauté. Il demande un sujet, un message, un e-mail de réponse et l’accord explicite pour transmettre ces champs à Pierig. Aucun mot de passe ou clé API n’est nécessaire. Lorsque le manager est connecté, son identifiant est associé par la session ; une session expirée ne transforme pas silencieusement son message en envoi anonyme.
+Le formulaire est réservé aux managers connectés pour signaler un bug, demander une amélioration ou proposer une nouveauté. Il demande un sujet, un message, un e-mail de réponse et l’accord explicite pour transmettre ces champs à Pierig. Aucun mot de passe ou clé API n’est nécessaire. Son identifiant est associé par la session ; une session expirée refuse l’envoi et demande une nouvelle connexion.
 
-Les messages connectés figurent dans l’historique privé du manager. La boîte administrateur rassemble les envois et permet les statuts **Reçu**, **En cours de lecture**, **Prévu** et **Traité**, avec contrôle des modifications concurrentes. Un visiteur reçoit une référence mais ne peut pas relire un message public par son identifiant. Une notification SMTP peut informer l’administrateur lorsqu’elle est configurée ; son échec ne perd pas le message. Elle contient une référence et un lien vers la boîte, sans reprendre le texte du visiteur. Les réponses aux managers ne sont pas envoyées automatiquement.
+Les messages connectés figurent dans l’historique privé du manager. La boîte administrateur rassemble les envois et permet les statuts **Reçu**, **En cours de lecture**, **Prévu** et **Traité**, avec contrôle des modifications concurrentes. Une notification SMTP peut informer l’administrateur lorsqu’elle est configurée ; son échec ne perd pas le message. Elle contient une référence et un lien vers la boîte, sans reprendre le texte du message. Les réponses aux managers ne sont pas envoyées automatiquement.
 
-L’export JSON privé inclut le profil dans `manager_documents`, l’adresse d’inscription dans `account_contact` et les messages propres au manager dans `contact_messages`. L’adresse d’inscription n’apparaît pas dans la liste des utilisateurs. Les messages publics ne sont pas rattachés rétroactivement à un compte.
+L’export JSON privé inclut le profil dans `manager_documents`, l’adresse d’inscription dans `account_contact` et les messages propres au manager dans `contact_messages`. L’adresse d’inscription n’apparaît pas dans la liste des utilisateurs. Les anciens messages reçus avant connexion restent conservés dans l’administration et ne sont pas rattachés rétroactivement à un compte.
 
 ## Atelier quotidien et saison
 

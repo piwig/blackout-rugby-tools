@@ -35,9 +35,11 @@ def login(client, name='piwig'):
     return {'X-CSRF-Token': response.json()['csrf']}
 
 
-def test_public_submission_is_saved_but_cannot_be_read_by_id(app):
-    with TestClient(app) as public, TestClient(app) as admin:
-        response = public.post('/api/contact', json=payload())
+def test_registered_submission_is_saved_but_cannot_be_read_by_id(app):
+    app.state.accounts.create('alice', 'Testing-password-1234')
+    with TestClient(app) as manager, TestClient(app) as public, TestClient(app) as admin:
+        headers = login(manager, 'alice')
+        response = manager.post('/api/contact', headers=headers, json=payload())
         assert response.status_code == 200, response.text
         ticket = response.json()['ticket']
         assert len(ticket['id']) >= 24 and ticket['status'] == 'new'
@@ -45,11 +47,12 @@ def test_public_submission_is_saved_but_cannot_be_read_by_id(app):
         assert 'notification_status' not in ticket and 'user_id' not in ticket
         assert public.get('/api/contact').status_code == 401
         assert public.get('/api/contact/admin').status_code == 401
-        assert public.get('/api/contact/' + ticket['id']).status_code == 404
+        assert public.get('/api/contact/' + ticket['id']).status_code == 401
+        assert manager.get('/api/contact/' + ticket['id']).status_code == 404
         login(admin)
         inbox = admin.get('/api/contact/admin').json()['items']
         assert inbox[0]['id'] == ticket['id']
-        assert inbox[0]['author'] is None
+        assert inbox[0]['author'] == 'alice'
         assert inbox[0]['notification_status'] == 'disabled'
         assert admin.get('/api/contact').json()['items'] == []
 
@@ -101,15 +104,16 @@ def test_only_admin_changes_status_with_current_revision(app):
 ])
 def test_validation_rejects_invalid_fields_without_saving(app, changes):
     with TestClient(app) as client:
-        assert client.post('/api/contact', json=payload(**changes)).status_code == 422
-        login(client)
+        headers = login(client)
+        assert client.post('/api/contact', headers=headers, json=payload(**changes)).status_code == 422
         assert client.get('/api/contact/admin').json()['items'] == []
 
 
 def test_html_is_preserved_as_plain_text_and_never_returned_as_html(app):
     text = '<script>alert("contact")</script><img src=x onerror=alert(1)>'
     with TestClient(app) as client:
-        result = client.post('/api/contact', json=payload(subject=text, message=text))
+        headers = login(client)
+        result = client.post('/api/contact', headers=headers, json=payload(subject=text, message=text))
         assert result.status_code == 200
         assert result.headers['content-type'].startswith('application/json')
         assert result.json()['ticket']['message'] == text
@@ -118,25 +122,28 @@ def test_html_is_preserved_as_plain_text_and_never_returned_as_html(app):
 
 def test_contact_rejects_cross_origin_posts(app):
     with TestClient(app) as client:
-        assert client.post('/api/contact', headers={'Origin': 'https://external.example'}, json=payload()).status_code == 403
+        headers = login(client)
+        assert client.post('/api/contact', headers={**headers, 'Origin': 'https://external.example'}, json=payload()).status_code == 403
 
 
 def test_rate_limit_survives_new_client_and_cannot_use_forwarded_header(app):
     with TestClient(app) as client:
+        headers = login(client)
         for _ in range(5):
-            assert client.post('/api/contact', json=payload()).status_code == 200
+            assert client.post('/api/contact', headers=headers, json=payload()).status_code == 200
     with TestClient(app) as restarted:
-        limited = restarted.post('/api/contact', headers={'X-Forwarded-For': '203.0.113.41'}, json=payload())
+        headers = login(restarted)
+        limited = restarted.post('/api/contact', headers={**headers, 'X-Forwarded-For': '203.0.113.41'}, json=payload())
         assert limited.status_code == 429
         assert int(limited.headers['retry-after']) > 0
-        login(restarted)
         assert len(restarted.get('/api/contact/admin').json()['items']) == 5
 
 
 def test_rate_limit_survives_application_restart(app):
     with TestClient(app) as client:
+        headers = login(client)
         for _ in range(5):
-            assert client.post('/api/contact', json=payload()).status_code == 200
+            assert client.post('/api/contact', headers=headers, json=payload()).status_code == 200
     reopened = create_app(app.state.accounts.root, 'Testing-password-1234', secure=False)
     if not any(getattr(r, 'path', '') == '/api/contact' for r in reopened.routes):
         from server.contact import register_contact
@@ -144,25 +151,26 @@ def test_rate_limit_survives_application_restart(app):
         register_contact(reopened, reopened.state.accounts, state.dependant.dependencies[0].call, False)
         reopened.router.routes.sort(key=lambda r: getattr(r, 'path', '') == '/{path:path}')
     with TestClient(reopened) as client:
-        assert client.post('/api/contact', json=payload()).status_code == 429
-        login(client)
+        headers = login(client)
+        assert client.post('/api/contact', headers=headers, json=payload()).status_code == 429
         assert len(client.get('/api/contact/admin').json()['items']) == 5
 
 
 def test_rate_limit_counts_concurrent_requests_atomically(app):
     with TestClient(app) as client:
+        headers = login(client)
         def send(_):
-            return client.post('/api/contact', json=payload()).status_code
+            return client.post('/api/contact', headers=headers, json=payload()).status_code
         with ThreadPoolExecutor(max_workers=6) as pool:
             assert sorted(pool.map(send, range(6))) == [200, 200, 200, 200, 200, 429]
 
 
 def test_invalid_attempts_consume_the_limit_without_creating_tickets(app):
     with TestClient(app) as client:
+        headers = login(client)
         for _ in range(5):
-            assert client.post('/api/contact', json=payload(website='robot')).status_code == 422
-        assert client.post('/api/contact', json=payload()).status_code == 429
-        login(client)
+            assert client.post('/api/contact', headers=headers, json=payload(website='robot')).status_code == 422
+        assert client.post('/api/contact', headers=headers, json=payload()).status_code == 429
         assert client.get('/api/contact/admin').json()['items'] == []
 
 
@@ -171,7 +179,8 @@ def test_global_limit_blocks_new_addresses_before_saving(app, monkeypatch):
     monkeypatch.setattr(contact, 'GLOBAL_LIMIT', 2)
     for i in range(3):
         with TestClient(app, client=(f'192.0.2.{i+1}', 50000)) as client:
-            response = client.post('/api/contact', json=payload())
+            headers = login(client)
+            response = client.post('/api/contact', headers=headers, json=payload())
             assert response.status_code == (200 if i < 2 else 429)
     with TestClient(app) as admin:
         login(admin)
@@ -203,8 +212,9 @@ def test_mail_failure_keeps_ticket_and_exposes_only_generic_admin_status(app, mo
     def failed(*args, **kwargs):
         raise OSError('secret-provider-credential')
     monkeypatch.setattr(contact.smtplib, 'SMTP', failed)
-    with TestClient(app) as public, TestClient(app) as admin:
-        result = public.post('/api/contact', json=payload())
+    with TestClient(app) as manager, TestClient(app) as admin:
+        headers = login(manager)
+        result = manager.post('/api/contact', headers=headers, json=payload())
         assert result.status_code == 200 and 'secret-provider-credential' not in result.text
         assert 'notification_status' not in result.text
         login(admin)
@@ -232,14 +242,14 @@ def test_mail_uses_tls_fixed_recipient_and_no_user_content(app, monkeypatch):
             delivered.append((message, from_addr, to_addrs))
     monkeypatch.setattr(contact.smtplib, 'SMTP', SMTP)
     with TestClient(app) as client:
-        result = client.post('/api/contact', json=payload(subject='untrusted-header', message='private-content'))
+        headers = login(client)
+        result = client.post('/api/contact', headers=headers, json=payload(subject='untrusted-header', message='private-content'))
         assert result.status_code == 200
         message, sender, recipients = delivered[0]
         assert recipients == ['owner@example.test'] and sender == 'tools@example.test'
         assert message['Reply-To'] is None and message.get_content_type() == 'text/plain'
         assert 'untrusted-header' not in str(message) and 'private-content' not in str(message)
         assert 'https://tools.example.test' in message.get_content()
-        login(client)
         assert client.get('/api/contact/admin').json()['items'][0]['notification_status'] == 'sent'
 
 
@@ -247,9 +257,11 @@ def test_private_export_has_only_own_messages_and_no_notification_metadata(app):
     from server.contact import contact_history
     user = app.state.accounts.create('alice', 'Testing-password-1234')
     with TestClient(app) as client:
-        client.post('/api/contact', json=payload(subject='Public message'))
+        headers = login(client)
+        assert client.post('/api/contact', headers=headers, json=payload(subject='Other manager message')).status_code == 200
+        assert client.post('/api/logout', headers=headers).status_code == 200
         headers = login(client, 'alice')
-        client.post('/api/contact', headers=headers, json=payload(subject='Own message'))
+        assert client.post('/api/contact', headers=headers, json=payload(subject='Own message')).status_code == 200
     exported = contact_history(app.state.accounts, user['id'])
     assert len(exported) == 1 and exported[0]['subject'] == 'Own message'
     assert 'notification_status' not in exported[0] and 'author' not in exported[0]

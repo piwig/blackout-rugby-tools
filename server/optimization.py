@@ -318,27 +318,27 @@ def match_reports(matches):
                         f'{classified}/{total} événements classés ({coverage:g} %) ; {actions} actions classées pour ce côté.',
                         f'{summary["inferred"]} événements portent une classification déduite des commentaires.']
             if actions < 20 or coverage < 60:
-                advice = ['Échantillon insuffisant pour proposer une tendance : réunir au moins 20 actions de ce côté et 60 % de couverture.']
+                advice = ['Il manque encore du jeu à observer pour dégager une tendance : réunissez au moins 20 actions de ce côté et 60 % de couverture.']
             else:
                 attack, count = max(observed['attacks'].items(), key=lambda pair: pair[1])
                 evidence.append(f'Attaque la plus observée : {attack}, {count}/{actions} actions classées de ce côté.')
                 if count/actions >= .5:
                     dominant, share = attack, round(100*count/actions, 1)
-                    advice = [f'Revoir les séquences « {attack} » et les comparer à plusieurs rencontres avant de préparer une réponse.']
+                    advice = [f'Le jeu « {attack} » revient le plus souvent dans ces actions classées. Revoyez ces séquences sur plusieurs rencontres avant de préparer votre réponse.']
                     preparation = {
-                        'Large': 'Piste de préparation : comparer les profils Vitesse, Agilité et Défense des arrières et vérifier leur couverture du terrain.',
-                        'Percussion': 'Piste de préparation : comparer les profils Force, Technique et Défense du pack sur les séquences de contact.',
-                        'Pick and go': 'Piste de préparation : comparer les profils Force, Technique et Défense du pack autour des regroupements.',
-                        'Créatif': 'Piste de préparation : examiner Dextérité et Attaque des joueurs de soutien et relire les séquences concernées.',
-                        'Jeu au pied': 'Piste de préparation : comparer le Jeu au pied et la couverture arrière des profils disponibles.',
+                        'Large': 'Pour préparer la largeur, comparez la Vitesse, l’Agilité et la Défense de vos arrières, puis vérifiez leur couverture du terrain.',
+                        'Percussion': 'Au contact, regardez la Force, la Technique et la Défense de votre pack, puis revoyez les séquences concernées.',
+                        'Pick and go': 'Autour des regroupements, comparez la Force, la Technique et la Défense de votre pack pour préparer vos options.',
+                        'Créatif': 'Regardez la Dextérité et l’Attaque de vos joueurs de soutien, puis reprenez les séquences pour préciser votre préparation.',
+                        'Jeu au pied': 'Examinez le Jeu au pied des profils disponibles et la couverture de votre arrière-garde pour préparer vos options.',
                     }
-                    advice.append(preparation[attack]+' Cette piste heuristique ne prouve pas un contre tactique efficace.')
+                    advice.append(preparation[attack]+' Cette piste de travail ne prouve pas qu’une réponse tactique sera efficace.')
                     zone, zone_attacks = max(observed['zones'].items(), key=lambda pair: sum(pair[1].values()))
                     zone_count = sum(zone_attacks.values())
                     evidence.append(f'Zone relative la plus représentée parmi les actions classées : {zone}, {zone_count}/{actions} actions ; égalités départagées par ordre des zones.')
                 else:
-                    advice = ['Répartition variée dans les actions classées : comparer les zones et plusieurs rencontres avant de choisir une réponse.']
-                advice.append('Observation descriptive ; aucun lien causal démontré avec le score du match.')
+                    advice = ['Les actions classées montrent plusieurs choix d’attaque, sans dominante nette. Comparez les zones et d’autres rencontres avant de choisir votre réponse.']
+                advice.append('Ces observations décrivent le jeu ; elles ne suffisent pas à expliquer le score du match.')
             sides.append({'side': side, 'name': match[side], 'dominant': dominant, 'share': share,
                           'actions': actions, 'advice': advice, 'evidence': evidence})
         results.append({'id': str(match['id']), 'type': match['type'], 'home': match['home'], 'away': match['away'],
@@ -420,38 +420,38 @@ def build_report(state, objective='balanced', energy_floor=60, season=None, *, g
     elif not selection:
         warnings.append(f'Horizon fondé sur la dernière date de jeu importée : saison {int(observed_season)}, semaine {int(number(date.get("round")))}. Le calendrier réel actuel reste à vérifier.')
     if lineup['unfilled']:
-        recommend('lineup-incomplete', 'squad', 'high', 'Compléter les postes calculables',
-                  'Le moteur conserve les postes sans candidat disponible. Importer les compétences manquantes ou revoir les disponibilités avant de modifier le seuil.',
+        recommend('lineup-incomplete', 'squad', 'high', 'Il reste des places à pourvoir',
+                  'Certains postes n’ont pas de candidat disponible avec un profil calculable. Complétez les compétences manquantes ou vérifiez les disponibilités avant d’assouplir le seuil d’énergie.',
                   [f'{summary["selected"]}/15 titulaires proposés ; {summary["eligible"]} seniors éligibles.',
                    'Postes vacants : '+', '.join(map(str, lineup['unfilled']))], 'squad')
     else:
-        recommend('lineup-review', 'squad', 'medium', 'Examiner le XV proposé',
-                  'Affectation globale des affinités connues. Contrôler la disponibilité, le rôle réel et les remplaçants avant toute sauvegarde locale.',
+        recommend('lineup-review', 'squad', 'medium', 'Le XV se dessine : à vous de le relire',
+                  'Les affinités connues ont permis d’attribuer les quinze postes ensemble. Vérifiez maintenant la disponibilité, le rôle réel de chacun et les solutions du banc avant d’enregistrer votre choix dans l’outil.',
                   [f'15 titulaires distincts ; {len(lineup["players"])-15} réserves.', f'Seuil minimal d’énergie connue : {energy_floor:g} %.'], 'squad')
     if summary['low_energy']:
-        recommend('energy', 'squad', 'high' if objective == 'recovery' else 'medium', 'Préparer la rotation',
-                  'Les joueurs sous le seuil sont exclus de cet aperçu. Actualiser leur énergie et comparer les candidats disponibles sans prédire leur récupération.',
+        recommend('energy', 'squad', 'high' if objective == 'recovery' else 'medium', 'La rotation mérite un coup d’œil',
+                  'Les joueurs sous votre seuil d’énergie sont écartés de cet aperçu. Actualisez leurs valeurs et comparez les solutions disponibles : ces données ne permettent pas de prévoir leur récupération.',
                   [f'{summary["low_energy"]}/{len(squad)} seniors sous {energy_floor:g} %.'], 'squad')
     if training['priorities']:
         first = training['priorities'][0]
-        recommend('academy-training', 'training', 'medium', 'Examiner les priorités de l’académie',
-                  'Les quatre moyennes connues les plus basses guident une rotation des cases libres. Une faible couverture demande d’abord de nouvelles observations.',
+        recommend('academy-training', 'training', 'medium', 'Où faire porter l’effort à l’académie ?',
+                  'Les quatre moyennes connues les plus basses orientent les séances proposées dans les cases libres. Regardez combien de jeunes sont observés : si la couverture est faible, complétez d’abord vos repères.',
                   [f'{first["label"]} : moyenne {first["average"]:g}, {first["count"]}/{len(academy)} jeunes observés.',
                    f'{training["added"]} cases proposées ; {training["preserved"]} cases existantes conservées.'], 'training')
     hidden = sum(number(p.get(skill)) is None for p in academy for skill in SKILLS)
     if hidden or not academy:
         recommend('academy-observe', 'academy', 'high' if not training['priorities'] else 'medium',
-                  'Compléter les observations des jeunes',
-                  'Importer l’académie et suivre les dévoilements avant d’inférer un niveau ou de décider une promotion. Aucune compétence masquée ne vaut zéro.',
+                  'La relève a encore des choses à montrer',
+                  'Importez l’académie et suivez les dévoilements pour préciser les profils avant de juger un niveau ou de décider une promotion. Une compétence masquée reste inconnue, jamais égale à zéro.',
                   [f'{len(academy)} jeunes ; {hidden}/{len(academy)*len(SKILLS)} compétences inconnues.'], 'academy')
     elif academy:
-        recommend('academy-progress', 'academy', 'low', 'Mesurer les progrès observés',
-                  'Comparer les prochains instantanés aux compétences connues et revoir les priorités ; aucun gain d’entraînement n’est prédit.',
+        recommend('academy-progress', 'academy', 'low', 'Les prochains relevés feront le point',
+                  'Toutes les compétences sont connues dans cet effectif. Comparez-les aux prochains instantanés pour mesurer les évolutions et ajuster les séances ; aucun gain d’entraînement n’est prédit.',
                   [f'{len(academy)} jeunes avec leurs dix compétences connues.'], 'academy')
     actions = {
-        'balanced': 'Revoir les affinités du XV et la répartition des remplaçants.',
-        'recovery': 'Actualiser les énergies et préparer une rotation des joueurs sous le seuil.',
-        'development': 'Comparer les jeunes seniors proposés aux titulaires habituels, puis suivre leurs progrès réels.',
+        'balanced': 'Revoyez les associations du XV et les rôles couverts par le banc.',
+        'recovery': 'Actualisez les énergies, puis préparez les relais pour les joueurs sous le seuil.',
+        'development': 'Comparez les jeunes seniors proposés à vos titulaires habituels, puis suivez leurs progrès observés.',
     }
     phases = []
     if selection:
@@ -468,8 +468,8 @@ def build_report(state, objective='balanced', energy_floor=60, season=None, *, g
                                'actions': [actions[objective],
                                            'Comparer les observations de l’académie et les cases libres du plan.' if academy else 'Importer l’académie pour préparer ses séances.',
                                            'Relire les rencontres de la bibliothèque avec leur couverture ; confirmer le calendrier dans Classic.']})
-    recommend('season-horizon', 'season', 'medium', 'Confirmer l’horizon de saison',
-              'Ces phases organisent le travail du manager ; elles ne décrivent pas les dates des rencontres ni un calendrier officiel.',
+    recommend('season-horizon', 'season', 'medium', 'Gardez le calendrier en ligne de mire',
+              'Ces étapes vous aident à organiser la préparation. Vérifiez les rendez-vous dans Classic : ce découpage ne donne ni les dates des rencontres ni un calendrier officiel.',
               [f'Saison ciblée : {season} ; {training["remaining_weeks"]} semaines dans l’horizon importé.'], 'training')
     meta = state['current_team'].get('meta', {})
     members = number(meta.get('members'))
@@ -477,8 +477,8 @@ def build_report(state, objective='balanced', energy_floor=60, season=None, *, g
     seats = {key: number(meta.get('stadium_'+key)) for key in sections}
     if not selection and members is not None and 0 <= members <= 1_000_000 and all(value is not None and value >= 0 for value in seats.values()):
         stadium = stadium_plan(members, seats, 9)
-        recommend('stadium-scenario', 'stadium', 'low', 'Comparer un scénario de capacité',
-                  'Scénario indicatif de 9 places par membre, avec les ratios de l’outil stade. Vérifier affluence, coûts et trésorerie du jeu avant toute décision ; aucune construction recommandée automatiquement.',
+        recommend('stadium-scenario', 'stadium', 'low', 'Le stade : un scénario à mettre à l’épreuve',
+                  'Cette hypothèse prévoit 9 places par membre avec les ratios de l’outil stade. Comparez-la à l’affluence, aux coûts et à la trésorerie du jeu avant de décider ; elle ne recommande pas automatiquement de construire.',
                   [f'{members:g} membres ; {sum(seats.values()):g} places observées ; cible indicative {stadium["target_total"]:g}.',
                    f'{stadium["to_add"]:g} places supplémentaires dans ce scénario.',
                    'Date des données du club : '+str(meta.get('date_maj') or 'non renseignée')], 'stadium')

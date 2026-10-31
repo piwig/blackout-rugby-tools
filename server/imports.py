@@ -23,7 +23,7 @@ class ImportLimitError(ValueError):
 def reject_constant(value):
     raise ValueError('Valeur numérique non finie interdite.')
 
-def read_csv(data):
+def read_csv(data, *, max_rows=MAX_PLAYERS):
     try:text=data.decode('utf-8-sig')
     except UnicodeDecodeError:text=data.decode('cp1252')
     try:dialect=csv.Sniffer().sniff(text[:8192],delimiters=';,\t')
@@ -32,7 +32,7 @@ def read_csv(data):
     if len(reader.fieldnames or [])>100:raise ValueError('Maximum 100 colonnes CSV.')
     rows=[]
     for row in reader:
-        if len(rows)>=MAX_PLAYERS:raise ValueError('Maximum 4 000 joueurs par fichier.')
+        if len(rows)>=max_rows:raise ValueError('Maximum 4 000 joueurs par fichier.' if max_rows==MAX_PLAYERS else 'Maximum 20 000 événements par fichier.')
         rows.append(row)
     return rows
 

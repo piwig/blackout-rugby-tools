@@ -15,7 +15,7 @@ from pydantic import BaseModel,Field,ConfigDict,field_validator
 from fastapi.exceptions import RequestValidationError
 from .storage import Store,pack,now
 from .domain import SKILLS,player_metrics,wc_projection,attack_summary,csv_export
-from .imports import parse_import,normalize_player,read_csv,reject_constant
+from .imports import parse_import,normalize_player
 from .classic import ClassicClient,ClassicError
 from .accounts import Accounts,PrivateStore,active_store
 from .manager import import_manager
@@ -36,6 +36,15 @@ from .exports import export_chunks
 from .team_identity import TEAM_PATTERN,OPTIONAL_TEAM_PATTERN,CLUB_ONLY,describe_team,is_selection,require_club_id
 from .national import register_national,sync_selection,selection_game_date
 from .match_prep import FixturesRequest,ScoutRequest,list_upcoming_fixtures,scout_opponent
+from .match_import import MAX_MATCH_BYTES,read_match_document,normalize_match_document
+
+PUBLIC_API_REQUESTS=frozenset({
+    ('GET','/api/health'),
+    ('GET','/api/security/options'),
+    ('GET','/api/registration/options'),
+    ('POST','/api/login'),
+    ('POST','/api/register'),
+})
 
 class Model(BaseModel):
     model_config=ConfigDict(extra='forbid')
@@ -89,6 +98,10 @@ class Sync(TeamRef):
 class FixtureSync(Model):
     id:str=Field(pattern=r'^\d{1,15}$')
     type:Literal[0,1,2]=0
+class MatchSourceDate(Model):
+    season:int=Field(ge=0,le=1000000)
+    round:int=Field(ge=0,le=1000000)
+    day:int=Field(ge=0,le=1000000)
 class Match(FixtureSync):
     home:str=Field(default='Domicile',max_length=150)
     away:str=Field(default='Extérieur',max_length=150)
@@ -97,6 +110,8 @@ class Match(FixtureSync):
     events:list[dict]=Field(default_factory=list,max_length=20000)
     season:int|None=None
     round:int|None=None
+    source_game_date:MatchSourceDate|None=None
+    source_observed_at:str|None=Field(default=None,max_length=80)
 
 class VacationOptions(Model):
     objective:Literal['balanced','recovery','development']='balanced'
@@ -208,7 +223,14 @@ def create_app(directory=None,password=None,secure=None):
         session=accounts.session(request.cookies.get('brt_session'))
         request.state.session=session
         token=active_store.set(accounts.store(session['user_id'])) if session else None
-        try:response=await call_next(request)
+        try:
+            try:
+                # API routes are private by default, even if a new handler omits Depends(auth).
+                if (request.url.path=='/api' or request.url.path.startswith('/api/')) and (request.method,request.url.path) not in PUBLIC_API_REQUESTS:
+                    await auth(request)
+            except HTTPException as exc:
+                response=JSONResponse({'detail':exc.detail},status_code=exc.status_code,headers=exc.headers)
+            else:response=await call_next(request)
         finally:
             if token is not None:active_store.reset(token)
         response.headers.update({'X-Content-Type-Options':'nosniff','X-Frame-Options':'DENY','Referrer-Policy':'no-referrer','Permissions-Policy':'camera=(), microphone=(), geolocation=()',
@@ -233,7 +255,7 @@ def create_app(directory=None,password=None,secure=None):
         require_club_id(tid)
 
     @app.get('/api/health')
-    def health():return {'ok':True,'version':'2.5.0'}
+    def health():return {'ok':True,'version':'2.6.0'}
 
     @app.post('/api/login')
     def login(body:Login,request:Request,response:Response):
@@ -465,26 +487,32 @@ def create_app(directory=None,password=None,secure=None):
     def save_match(doc):
         with store.db() as db:db.execute('INSERT OR REPLACE INTO matches VALUES(?,?,?,?)',(doc['id'],doc['type'],pack(doc),now()))
 
+    def import_match_document(raw,filename,*,id=None,type=None,home=None,away=None,preview=False):
+        if len(raw)>MAX_MATCH_BYTES:raise HTTPException(413,'Fichier limité à 8 Mo.')
+        try:
+            parsed=normalize_match_document(read_match_document(raw,filename),match_id=id,match_type=type,home=home,away=away)
+        except (ValueError,TypeError,UnicodeError) as exc:raise HTTPException(422,str(exc)) from None
+        try:doc=Match.model_validate(parsed).model_dump()
+        except (ValueError,TypeError):raise HTTPException(422,'Import invalide : vérifiez les noms, les scores et les métadonnées du match.') from None
+        summary=attack_summary(doc['events'])
+        if preview:
+            return {'ok':True,'id':doc['id'],'type':doc['type'],'match':{**{key:value for key,value in doc.items() if key!='events'},'event_count':len(doc['events']),'summary':summary}}
+        save_match(doc)
+        return {'ok':True,'id':doc['id'],'type':doc['type'],'summary':summary}
+
     @app.post('/api/matches/import',dependencies=[Depends(auth)])
-    def import_match(body:Match):
-        doc=body.model_dump();doc['events']=[{k:str(v)[:2000] for k,v in e.items() if k in ['att','field','possession','text','commentary','comment','time','minute','att_origin','possession_reported','gametime','half','rule_version']} for e in doc['events']]
-        save_match(doc);return {'ok':True,'summary':attack_summary(doc['events'])}
+    async def import_match(request:Request,id:str|None=Query(None),type:int|None=Query(None),home:str|None=Query(None),away:str|None=Query(None),preview:bool=Query(False)):
+        chunks=[];size=0
+        async for chunk in request.stream():
+            size+=len(chunk)
+            if size>MAX_MATCH_BYTES:raise HTTPException(413,'Fichier limité à 8 Mo.')
+            chunks.append(chunk)
+        return await run_in_threadpool(import_match_document,b''.join(chunks),'match.json',id=id,type=type,home=home,away=away,preview=preview)
 
     @app.post('/api/matches/file',dependencies=[Depends(auth)])
-    async def match_file(file:UploadFile=File(...),id:str=Form(...),type:int=Form(0),home:str=Form('Domicile'),away:str=Form('Extérieur')):
-        raw=await file.read(8_000_001)
-        if len(raw)>8_000_000:raise HTTPException(413,'Fichier limité à 8 Mo.')
-        try:
-            name=(file.filename or '').lower()
-            if name.endswith('.csv'):
-                rows=read_csv(raw)
-                if not rows or not {'field','possession'}.issubset(rows[0]):raise ValueError('CSV : colonnes field et possession requises ; att et text conseillées.')
-                doc={'id':id,'type':type,'home':home,'away':away,'events':rows}
-            elif name.endswith('.json'):doc=json.loads(raw.decode('utf-8-sig'),parse_constant=reject_constant)
-            else:raise ValueError('Format CSV ou JSON attendu.')
-            body=Match.model_validate(doc)
-        except (ValueError,TypeError,UnicodeError):raise HTTPException(422,'Import invalide : vérifier les colonnes, l’identifiant, le type et les événements.') from None
-        return {**import_match(body),'id':body.id,'type':body.type}
+    async def match_file(file:UploadFile=File(...),id:str|None=Form(None),type:int|None=Form(None),home:str|None=Form(None),away:str|None=Form(None),preview:bool=Query(False)):
+        raw=await file.read(MAX_MATCH_BYTES+1)
+        return await run_in_threadpool(import_match_document,raw,file.filename or '',id=id,type=type,home=home,away=away,preview=preview)
 
     @app.get('/api/matches/{kind}/{mid}',dependencies=[Depends(auth)])
     def match_detail(kind:int,mid:str):

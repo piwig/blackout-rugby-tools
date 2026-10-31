@@ -1,3 +1,4 @@
+import {tr} from './i18n';
 import {useEffect,useRef,useState} from 'react';
 import {ArrowUpRight,Save} from 'lucide-react';
 import {type State,type Player,date,fmt} from './types';
@@ -53,23 +54,23 @@ export function PlayerDetail({player,d,act,close}:{player:Player;d:State;act:Act
  return <Modal title={player.name} onClose={dismiss} wide>
   <div className="player-detail">
    <div>
-    <div className="player-facts"><Pill>{player.age||'—'} ans</Pill><Pill tone="neutral">{player.height||'—'} cm</Pill><Pill tone="neutral">{player.weight||'—'} kg</Pill>{player.wc_projection&&<Pill>Génération S{player.wc_projection}</Pill>}</div>
-    <Radar player={player}/><p className="tiny">{player.metrics.known_skills}/10 compétences dévoilées. Les valeurs masquées ne sont pas estimées.</p>
+    <div className="player-facts"><Pill>{player.age||'—'}{tr(" ans")}</Pill><Pill tone="neutral">{player.height||'—'}{tr(" cm")}</Pill><Pill tone="neutral">{player.weight||'—'}{tr(" kg")}</Pill>{player.wc_projection&&<Pill>{tr("Génération S")}{player.wc_projection}</Pill>}</div>
+    <Radar player={player}/><p className="tiny">{player.metrics.known_skills}{tr("/10 compétences dévoilées. Les valeurs masquées ne sont pas estimées.")}</p>
     <div className="role-list">{player.metrics.roles.slice(0,3).map(r=><div key={r.name}><span>{r.name}</span><strong>{r.score}/21</strong></div>)}</div>
-    <p className="tiny">Affinités indicatives, pondérations propres à cet outil.</p>
-    <a className="text-button" href={'https://www.blackoutrugby.com/game/club.squad.php#player='+player.id} target="_blank" rel="noreferrer">Ouvrir Classic<ArrowUpRight size={14}/></a>
+    <p className="tiny">{tr("Affinités indicatives, pondérations propres à cet outil.")}</p>
+    <a className="text-button" href={'https://www.blackoutrugby.com/game/club.squad.php#player='+player.id} target="_blank" rel="noreferrer">{tr("Ouvrir Classic")}<ArrowUpRight size={14}/></a>
    </div>
    <div><SkillList player={player}/><div className="note-box" aria-busy={pending}>
-    <h3>Votre note de recruteur</h3>
-    <textarea aria-label="Note sur le joueur" rows={3} maxLength={3000} disabled={pending} value={note} onChange={e=>{setNote(e.target.value);setMessage('')}} placeholder="Potentiel, poste envisagé, prochain objectif…"/>
-    <label className="check"><input type="checkbox" disabled={pending} checked={watch} onChange={e=>{setWatch(e.target.checked);setMessage('')}}/>Garder ce joueur à l’œil</label>
-    {error&&<p className="text-error" role="alert">{error}</p>}
-    {conflict&&<button type="button" className="button secondary" disabled={pending} onClick={()=>void reloadNote()}>Relire la note enregistrée</button>}
-    <button type="button" className="button primary" disabled={pending||!dirty} onClick={()=>void save()}><Save size={15}/>{pending?'Enregistrement en cours…':dirty?'Enregistrer la note':'Note enregistrée'}</button>
-    <p className="tiny" role="status">{pending?'Veuillez patienter avant de fermer cette fiche.':message|| (dirty?'Modifications non enregistrées.':'Cette note reste privée dans votre espace.')}</p>
+    <h3>{tr("Votre note de recruteur")}</h3>
+    <textarea aria-label={tr("Note sur le joueur")} rows={3} maxLength={3000} disabled={pending} value={note} onChange={e=>{setNote(e.target.value);setMessage('')}} placeholder={tr("Potentiel, poste envisagé, prochain objectif…")}/>
+    <label className="check"><input type="checkbox" disabled={pending} checked={watch} onChange={e=>{setWatch(e.target.checked);setMessage('')}}/>{tr("Garder ce joueur à l’œil")}</label>
+    {error&&<p className="text-error" role="alert">{tr(error)}</p>}
+    {conflict&&<button type="button" className="button secondary" disabled={pending} onClick={()=>void reloadNote()}>{tr("Relire la note enregistrée")}</button>}
+    <button type="button" className="button primary" disabled={pending||!dirty} onClick={()=>void save()}><Save size={15}/>{pending?tr("Enregistrement en cours…"):dirty?tr("Enregistrer la note"):tr("Note enregistrée")}</button>
+    <p className="tiny" role="status">{pending?tr("Veuillez patienter avant de fermer cette fiche."):message|| (dirty?tr("Modifications non enregistrées."):tr("Cette note reste privée dans votre espace."))}</p>
    </div></div>
   </div>
-  <div className="history-section"><h3>Historique des observations</h3>{historyError?<p className="text-error" role="alert">{historyError}</p>:<div className="history-list">{history.map((h,i)=><div key={i}><strong>{date(h.observed_at)}</strong><span>{h.source}</span><span>Attaque {fmt(h.player.attack)} · Défense {fmt(h.player.defense)} · Force {fmt(h.player.strength)}</span></div>)}</div>}</div>
+  <div className="history-section"><h3>{tr("Historique des observations")}</h3>{historyError?<p className="text-error" role="alert">{historyError}</p>:<div className="history-list">{history.map((h,i)=><div key={i}><strong>{date(h.observed_at)}</strong><span>{h.source}</span><span>{tr("Attaque ")}{fmt(h.player.attack)}{tr(" · Défense ")}{fmt(h.player.defense)}{tr(" · Force ")}{fmt(h.player.strength)}</span></div>)}</div>}</div>
  </Modal>
 }
 

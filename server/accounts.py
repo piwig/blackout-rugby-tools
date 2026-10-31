@@ -65,13 +65,13 @@ class Accounts:
         p=json.loads(user['password']) if user else self.primary.get('password')
         valid=secrets.compare_digest(p['hash'],password_hash(password,bytes.fromhex(p['salt'])))
         return bool(user and valid)
-    def create(self,username,password,*,email=None,avatar_style=None):
+    def create(self,username,password,*,email=None,avatar_style=None,language=None):
         from .profile import PROFILE_KEY,ProfilePreferences
         username=username.strip().lower()
         if not re.fullmatch(r'[a-z0-9][a-z0-9_.-]{2,39}',username):raise ValueError('Identifiant : 3 à 40 lettres, chiffres, tirets ou points.')
         if not 12<=len(password)<=128:raise ValueError('Mot de passe : 12 à 128 caractères.')
         email=normalize_email(email) if email is not None else None
-        profile=ProfilePreferences(avatar_style=avatar_style).model_dump() if avatar_style is not None else None
+        profile=ProfilePreferences(avatar_style=avatar_style or 'jersey',language=language or 'fr').model_dump() if avatar_style is not None or language is not None else None
         ident=uuid.uuid4().hex;salt=secrets.token_bytes(16)
         directory=self.root/'users'/ident;owned=False
         try:

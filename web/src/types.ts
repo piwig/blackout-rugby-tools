@@ -1,4 +1,5 @@
 import type {ProfileDocument} from './profile';
+import {localeTag,tr} from './i18n/runtime.ts';
 export const skills=['stamina','handling','attack','defense','technique','strength','jumping','speed','agility','kicking'] as const;
 export const labels:Record<string,string>={stamina:'Endurance',handling:'Dextérité',attack:'Attaque',defense:'Défense',technique:'Technique',strength:'Force',jumping:'Saut',speed:'Vitesse',agility:'Agilité',kicking:'Jeu au pied'};
 export const short=['END','DEX','ATT','DEF','TEC','FOR','SAU','VIT','AGI','JAP'];
@@ -8,5 +9,5 @@ export interface Match {id:string;type:number;home:string;away:string;home_score
 export type TeamKind='club'|'u20'|'nt';
 export interface TeamSummary {id:string;name:string;country:string;kind?:TeamKind;classic_id?:string}
 export interface State {profile?:ProfileDocument;workbench_identity?:{palette:"forest"|"ocean"|"burgundy"|"gold";initials:string;symbol:"ball"|"shield"|"star"|"leaf"};user:{username:string;admin:boolean};setup_required?:boolean;classic_account?:{id:string;username:string;team_ids:string[];selection_ids?:string[];selection_revision?:number;selections_imported_at?:string;imported_at:string}|null;teams:TeamSummary[];current_team:TeamSummary&{meta:Record<string,any>};academy:Player[];squad:Player[];academy_source:Source|null;squad_source:Source|null;snapshots:Source[];notes:Record<string,{text:string;watch:boolean}>;plans:Record<string,string[][]>;lineup:Record<string,string>;training:string[];matches:Match[];game_date:{season:number;round:number;day:number}|null;settings:{developer_ready:boolean;manager_ready:boolean};csrf:string}
-export const fmt=(n:unknown)=>typeof n==='number'?new Intl.NumberFormat('fr-FR',{maximumFractionDigits:1}).format(n):n===undefined||n===null||n===''?'—':String(n);
-export const date=(s?:string|null)=>s?new Date(s.includes('T')?s:s.replace(' ','T')).toLocaleDateString('fr-FR',{day:'numeric',month:'short',year:'numeric'}):'date non renseignée';
+export const fmt=(n:unknown)=>typeof n==='number'?new Intl.NumberFormat(localeTag(),{maximumFractionDigits:1}).format(n):n===undefined||n===null||n===''?'—':String(n);
+export const date=(s?:string|null)=>s?new Date(s.includes('T')?s:s.replace(' ','T')).toLocaleDateString(localeTag(),{day:'numeric',month:'short',year:'numeric'}):tr('date non renseignée');

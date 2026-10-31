@@ -161,14 +161,7 @@ def register_contact(app, accounts, auth, secure):
         CREATE INDEX IF NOT EXISTS contact_attempts_time ON contact_attempts(attempted_at);
         ''')
 
-    async def sender(request: Request):
-        session = getattr(request.state, 'session', None)
-        if session:
-            # The route is public too: a valid cookie must still trigger the same CSRF guard.
-            session = await auth(request)
-        elif 'x-csrf-token' in request.headers:
-            # A manager's expired session cannot become an anonymous submission.
-            raise HTTPException(401, 'Votre session a expiré. Reconnectez-vous avant d’envoyer ce message.')
+    async def sender(request: Request, session=Depends(auth)):
         address = request.client.host if request.client else 'unknown'
         _consume_attempt(accounts, address)
         return session
@@ -186,7 +179,7 @@ def register_contact(app, accounts, auth, secure):
             db.execute('''INSERT INTO contact_tickets
                 (id,user_id,kind,subject,message,email,status,revision,created_at,updated_at)
                 VALUES(?,?,?,?,?,?,'new',1,?,?)''',
-                (ticket_id, session['user_id'] if session else None, body.kind,
+                (ticket_id, session['user_id'], body.kind,
                  body.subject, body.message, body.email, stamp, stamp))
             ticket = _public_ticket(db.execute('SELECT * FROM contact_tickets WHERE id=?', (ticket_id,)).fetchone())
         notification = _notify(ticket_id, secure)

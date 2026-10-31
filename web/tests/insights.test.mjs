@@ -10,7 +10,9 @@ const compiled = ts.transpileModule(readFileSync(new URL('../src/insights.tsx', 
 const artifact = {exports: {}};
 const {createRequire} = await import('node:module');
 const require = createRequire(import.meta.url);
-const load = id => id === './App' || id === './types' || id === './navigation-guard' || id.endsWith('.css') ? {} : require(id);
+const i18n = require('../src/i18n/runtime.ts');
+i18n.installCatalogs({fr:JSON.parse(readFileSync(new URL('../src/i18n/locales/fr.json',import.meta.url),'utf8'))});
+const load = id => id === './i18n' ? i18n : id === './App' || id === './types' || id === './navigation-guard' || id.endsWith('.css') ? {} : require(id);
 vm.runInNewContext(compiled, {module: artifact, exports: artifact.exports, require: load, structuredClone});
 const api = artifact.exports;
 

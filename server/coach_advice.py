@@ -73,22 +73,22 @@ def group_advice(players, source, notes, academy=False):
                      'verify' if injury is None or energy is None or form is None else 'review')
         signals = []
         if injury is True:
-            signals.append('Blessure signalée à la date de la source : vérifier la disponibilité avant toute séance ou sélection.')
+            signals.append('Une blessure était signalée lors de cette observation. Confirmez sa disponibilité avant de prévoir une séance ou de le retenir dans le XV.')
         elif injury is None:
-            signals.append('Disponibilité médicale non confirmée.')
+            signals.append('Sa disponibilité médicale reste à confirmer avant de compter sur lui.')
         if low_energy:
-            signals.append(f'Énergie observée de {energy:g} % : examiner la récupération et la charge avant de renforcer l’entraînement.')
+            signals.append(f'Avec {energy:g} % d’énergie observée, la récupération mérite votre attention. Vérifiez sa charge avant de renforcer l’entraînement.')
         elif energy is None:
-            signals.append('Énergie inconnue ou échelle ambiguë : vérifier dans Classic.')
+            signals.append('Son énergie est inconnue ou son échelle reste ambiguë. Vérifiez la valeur et son format dans Classic.')
         if form is None:
-            signals.append('Forme non renseignée : vérifier avant de choisir les priorités de la semaine.')
+            signals.append('Il manque sa forme du moment. Vérifiez-la avant de choisir les priorités de la semaine.')
         focus = None
         if profile:
             skill = min(ROLE_SKILLS[profile['name']], key=lambda key: clean[key])
             focus = {'skill': skill, 'label': SKILL_LABELS[skill], 'value': clean[skill]}
-        age_context = ('À partir de 29 ans, suivre les évolutions observées : une baisse du CSR est possible, '
+        age_context = ('À partir de 29 ans, gardez un œil sur ses évolutions individuelles : une baisse du CSR est possible, '
                        'sans âge de bascule fixe ; une progression peut encore être observée à 33 ans. '
-                       'L’âge seul ne retire pas ce joueur des pistes d’entraînement.' if age is not None and age >= 29 else None)
+                       'Son âge seul ne suffit donc pas à l’écarter des pistes d’entraînement.' if age is not None and age >= 29 else None)
         item = {'id': str(player['id']), 'name': str(player.get('name') or 'Joueur sans nom'),
                 'age': age, 'stars': stars, 'wc_projection': generation, 'known_skills': metrics['known_skills'],
                 'profile': profile, 'focus': focus, 'energy': energy, 'form': form,
@@ -114,10 +114,11 @@ def group_advice(players, source, notes, academy=False):
             'skills': skills, 'strengths': strengths, 'weaknesses': weaknesses,
             'priorities': priorities, 'observe': observe, 'availability': availability,
             'source': {'observed_at': source.get('observed_at'), 'name': source.get('source')},
-            'comparison_note': ('Lecture indicative des compétences les mieux couvertes, à l’intérieur de cet effectif. '
-                                'Elle ne mesure ni l’efficacité en match ni le niveau des adversaires.' if strengths or weaknesses else
-                                'Pas de contraste suffisamment documenté : au moins 3 observations et 60 % de couverture '
-                                'par compétence sont nécessaires ; des moyennes identiques ne révèlent pas de faiblesse.')}
+            'comparison_note': ('Ces écarts dessinent des points d’appui et des pistes de travail au sein de votre effectif, '
+                                'à partir des compétences les mieux couvertes. Ils ne mesurent ni l’efficacité en match '
+                                'ni le niveau des adversaires.' if strengths or weaknesses else
+                                'Difficile de dégager un contraste fiable pour le moment. Il faut au moins 3 observations '
+                                'et 60 % de couverture par compétence ; des moyennes identiques ne révèlent pas de faiblesse.')}
 
 
 def build_coach_advice(state: dict) -> dict:

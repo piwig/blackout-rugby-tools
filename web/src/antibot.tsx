@@ -1,3 +1,4 @@
+import {tr,useLocale,type Locale} from './i18n';
 import {useEffect, useId, useRef, useState} from 'react';
 import {RefreshCw, ShieldCheck} from 'lucide-react';
 import './antibot.css';
@@ -5,7 +6,7 @@ import './antibot.css';
 type Action = 'register'|'login'|'contact';
 type Options = {enabled:boolean;site_key:string};
 type WidgetOptions = {
-  sitekey:string;action:Action;theme:'light';language:'fr';size:'flexible'|'compact';
+  sitekey:string;action:Action;theme:'light';language:Locale;size:'flexible'|'compact';
   'response-field':false;'refresh-expired':'manual';retry:'never';
   callback:(token:string)=>void;'expired-callback':()=>void;
   'error-callback':()=>void;'timeout-callback':()=>void;
@@ -41,6 +42,7 @@ function loadProvider():Promise<Turnstile> {
 
 /** null blocks submission; '' means the server explicitly disabled CAPTCHA. */
 export function AntiBot({action,onToken,resetKey=0}:{action:Action;onToken:(token:string|null)=>void;resetKey?:number|string}) {
+  const {locale}=useLocale();
   const id=useId(),container=useRef<HTMLDivElement>(null),callback=useRef(onToken);callback.current=onToken;
   const [options,setOptions]=useState<Options|null>(null),[error,setError]=useState(''),[status,setStatus]=useState('Chargement de la vérification…'),[retry,setRetry]=useState(0);
   useEffect(()=>{
@@ -84,7 +86,7 @@ export function AntiBot({action,onToken,resetKey=0}:{action:Action;onToken:(toke
         renderedHost=host;
         try {
           widget=api.render(host,{
-            sitekey:settings.site_key,action,theme:'light',language:'fr',size:host.clientWidth<300?'compact':'flexible',
+            sitekey:settings.site_key,action,theme:'light',language:locale,size:host.clientWidth<300?'compact':'flexible',
             'response-field':false,'refresh-expired':'manual',retry:'never',
             callback:token=>{
               if(!active||failed)return;
@@ -113,12 +115,12 @@ export function AntiBot({action,onToken,resetKey=0}:{action:Action;onToken:(toke
     return()=>{
       active=false;controller.abort();clearTimeout(timer);clearWatchdog();removeWidget();
     };
-  },[action,resetKey,retry]);
+  },[action,resetKey,retry,locale]);
   if(options?.enabled===false)return null;
   return <div className="anti-bot" role="group" aria-labelledby={id}>
-    <div className="anti-bot-label" id={id}><ShieldCheck size={16} aria-hidden="true"/>Vérification de sécurité</div>
+    <div className="anti-bot-label" id={id}><ShieldCheck size={16} aria-hidden="true"/>{tr("Vérification de sécurité")}</div>
     <div className="anti-bot-widget" ref={container}/>
-    {status&&<p className="anti-bot-status" role="status" aria-live="polite">{status}</p>}
-    {error&&<><p className="anti-bot-error" role="alert">{error}</p><button type="button" className="anti-bot-retry" onClick={()=>{callback.current(null);setRetry(value=>value+1)}}><RefreshCw size={14} aria-hidden="true"/>Recommencer la vérification</button></>}
+    {status&&<p className="anti-bot-status" role="status" aria-live="polite">{tr(status)}</p>}
+    {error&&<><p className="anti-bot-error" role="alert">{tr(error)}</p><button type="button" className="anti-bot-retry" onClick={()=>{callback.current(null);setRetry(value=>value+1)}}><RefreshCw size={14} aria-hidden="true"/>{tr("Recommencer la vérification")}</button></>}
   </div>;
 }
