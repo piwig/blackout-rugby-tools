@@ -2,15 +2,13 @@
 
 **Application : [brt.bordebat.fr](https://brt.bordebat.fr)** · [Dépôt GitHub](https://github.com/piwig/blackout-rugby-tools)
 
-**Compte BRT obligatoire.** Créez votre compte, puis connectez-vous pour accéder aux outils et au formulaire Contact & idées. Chaque manager dispose de son espace privé.
+Le code source est public. **Compte BRT obligatoire pour utiliser l’application.** Créez votre compte, puis connectez-vous pour accéder aux outils et au formulaire Contact & idées. Chaque manager dispose de son espace privé.
 
 Atelier pour Blackout Rugby **Classic**, organisé en espaces privés par manager, réalisé à partir du mail de Franck du 30 octobre 2026 et de ses six pièces jointes.
 
 ## Utiliser
 
 Interface en français, anglais, espagnol et italien : tableau de bord, académie et suivi des jeunes, compétences et comparaisons, composition du XV, historique, plans d'entraînement 16 semaines × 4 créneaux, calculateur de stade, analyses par zone, import ODS/CSV/JSON et exports.
-
-Les données importées de `Moeskroen.ods` concernent Moeskroen (72450) et LaTouff (72444). Le classeur est daté du 27 octobre 2026. Le nom actuel du club 72450 est Waterschei RFC.
 
 Depuis la connexion, **Créer mon compte** ouvre l’inscription publique lorsqu’elle est activée. Le formulaire demande un identifiant unique de 3 à 40 caractères, un mot de passe BRT de 12 à 128 caractères et une adresse e-mail. Un avatar est facultatif : maillot, blason, trophée ou rugby BRT ; le maillot est proposé par défaut. L’adresse est contrôlée syntaxiquement, sans vérification de sa propriété ni réinitialisation automatique du mot de passe par e-mail.
 
@@ -121,28 +119,7 @@ Tests : `.\.venv\Scripts\python.exe -m pytest -q`. Les tests utilisent des bases
 
 La connexion, l’inscription et le contact utilisent Cloudflare Turnstile lorsqu’il est activé. Le serveur vérifie le jeton, le domaine et l’action attendue après les limites de requêtes, avant le traitement du formulaire. Un jeton consommé, expiré ou refusé doit être renouvelé. Une configuration activée mais incomplète bloque l’opération ; les clés de démonstration sont refusées lorsque `BRT_SECURE=1`. Les erreurs du fournisseur ne sont pas renvoyées avec les jetons ou secrets. Sans activation, le navigateur confirme le mode désactivé auprès du serveur ; il ne décide pas seul de contourner la vérification.
 
-Ne conserver aucune valeur secrète dans le dépôt. Le raccordement des formulaires ne prouve pas l’activation de Turnstile ou du SMTP sur le VPS : leur état et les contrôles de publication sont consignés dans [le suivi du déploiement](docs/deployment.md). Le [rapport du lot parcours](docs/experience-2026-10-30.md) distingue les contrôles locaux réalisés et ceux restant à terminer.
-
-## Exploitation VPS
-
-- `/opt/brt/releases/<date>` : versions déployées ; `/opt/brt/current` : lien vers la version active.
-- `/opt/brt/venv` : environnement Python.
-- `/var/lib/brt/accounts.sqlite` : registre des accès, sessions, adresses d’inscription, messages de contact et compteurs d’abus.
-- `/var/lib/brt/brt.sqlite` : espace principal ; `/var/lib/brt/users/<id>/brt.sqlite` : espace de chaque manager. Chaque base possède son fichier `encryption.key`, indispensable à la restauration ; les valeurs ne sont pas nécessairement distinctes après la migration historique.
-- `brt.service` : compte système dédié, écoute `127.0.0.1:3042`, limite mémoire 512 Mo.
-- Domaine : `brt.bordebat.fr`, proxy Cloudflare ; l'état réel figure dans `docs/deployment.md`.
-- `brt-backup.timer` : chaque jour à 02 h 35 Europe/Paris ; 30 archives locales avec registre, toutes les bases référencées et leurs clés.
-- Copie chiffrée distante : dépôt restic/R2 déjà configuré sur le VPS, tag `brt` ; données et archive du code. Aucune clé R2 n'est recopiée dans le projet.
-
-Pré-requis Ubuntu : `python3.12-venv`. Une fois le DNS configuré dans Cloudflare, lancer `bash /opt/brt/current/deploy/activate_domain.sh` pour obtenir le certificat et activer HTTPS. Le vhost HTTP ne sert jamais le formulaire de connexion en clair.
-
-Vérifier : `systemctl status brt`, `journalctl -u brt -n 50`, `curl http://127.0.0.1:3042/api/health`.
-Revenir au code précédent : modifier le lien `/opt/brt/current` vers la version conservée puis `systemctl restart brt`. Sauvegarder la base avant toute migration.
-Restaurer les données : arrêter le service, extraire une archive contrôlée dans un répertoire temporaire, vérifier `PRAGMA integrity_check`, restaurer ensemble le registre, les bases et leurs clés dans `/var/lib/brt`, remettre propriétaire `brt:brt` et droits 0600, redémarrer. Ne pas exposer les archives par nginx.
-
-`private-source/`, `data/` et `review/` sont exclus de Git. Les pièces jointes contenant les anciens secrets ne sont pas déployées.
-
-La migration initiale vers les espaces privés utilise `python -m deploy.migrate_managers --data /var/lib/brt`, service arrêté et sauvegarde préalable. Elle transfère les sources historiques vers leurs espaces privés respectifs. Ne jamais revenir au code v1 après cette migration sans restaurer la sauvegarde v1 complète. Les secrets transitent uniquement par l’entrée standard.
+Ne conserver aucune valeur secrète dans le dépôt. Voir le [guide de déploiement](docs/deployment.md) pour les paramètres, les sauvegardes et les vérifications à effectuer sur votre installation. Les journaux d’exploitation et informations personnelles ne font pas partie du dépôt public.
 
 Photos, créations BRT, auteurs et licences : [visuels](docs/visual-assets.md) et [marques des clubs](docs/rugby-club-assets.md), également accessibles dans les crédits de l’interface.
 
