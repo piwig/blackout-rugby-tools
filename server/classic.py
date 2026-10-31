@@ -275,16 +275,27 @@ class ClassicClient:
         if set(params) & {'r','d','dk','m','mk','iv','er','json','update','delete','default','saved'}:
             raise ClassicError('Paramètre Classic non autorisé.')
         query={**{k:v for k,v in self.credentials.items() if k != 'iv'},'r':resource,'json':'1',**params}
-        if resource=='me':query.pop('json')
         if self.credentials.get('iv'):
             encrypted = self._encrypt({k:v for k,v in query.items() if k not in ('d','dk')})
             query = {'d':self.credentials['d'],'er':encrypted}
         data = await self._send('GET', query)
         if resource=='me':
+            if not data.lstrip().startswith(b'<'):
+                doc=self._json(data)
+                if not isinstance(doc.get('events'),(dict,list)):
+                    raise ClassicError('Le commentaire Classic ne contient pas de collection d’événements.')
+                return doc
             try:
                 root=ET.fromstring(data)
                 if any(e.tag.lower().endswith('error') for e in root.iter()):raise ClassicError('Classic refuse cette requête : vérifiez les clés et les droits du manager.')
-                return {'events':parse_commentary(root)}
+                metadata={}
+                for key in ('status','fixtureid','u20','nat','brt'):
+                    values=[value.strip() for name,value in root.attrib.items() if name.rsplit('}',1)[-1]==key]
+                    values.extend((child.text or '').strip() for child in root if child.tag.rsplit('}',1)[-1]==key and not list(child))
+                    if len(set(values))>1:raise ClassicError('Identité ou état du commentaire XML Classic incohérent.')
+                    if values:metadata[key]=values[0]
+                if metadata.get('status') not in (None,'Ok'):raise ClassicError(_REFUSED)
+                return {**metadata,'events':parse_commentary(root)}
             except ClassicError:raise
             except Exception:raise ClassicError('Commentaire XML Classic non reconnu.') from None
         return self._json(data)
@@ -366,7 +377,7 @@ def parse_commentary(root):
                 if attack:
                     event['att']=attack;event['att_origin']='commentary-rule';event['rule_version']='1'
                     # Engine possession is post-action: use prior possession on a turnover.
-                    if previous in ['0','1'] and previous!=event.get('possession'):
+                    if previous in ['0','1'] and event.get('possession') in ['0','1'] and previous!=event.get('possession'):
                         event['possession_reported']=event.get('possession');event['possession']=previous
             previous=fields.get('possession',previous)
             events.append(event)
@@ -375,4 +386,6 @@ def parse_commentary(root):
         for element in root.iter():
             if element.tag.rsplit('}',1)[-1].lower() in ['comment','commentary','event','text'] and element.text and len(element.text.strip())>5:
                 events.append({'text':element.text.strip()[:2000]})
-    return events[:20000]
+    if len(events)>20000:
+        raise ClassicError('Le commentaire Classic dépasse la limite de 20 000 événements. Aucune rencontre enregistrée.')
+    return events

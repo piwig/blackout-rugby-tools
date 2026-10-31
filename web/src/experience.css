@@ -27,3 +27,5 @@
 @media(max-width:700px){.sidebar-close{display:flex;position:absolute;top:8px;right:8px;color:#f7f2e7}.sidebar .brand{margin-top:16px}}
 
 .login-signup{border-top:1px solid #deded7;margin-top:22px;padding-top:18px}.login-signup p{font-size:13px;margin:0 0 12px}.login-contact-link{margin:22px 0;gap:8px}.login-contact .login-form>div{max-width:650px}.login-contact .login-form{padding-block:36px}.login-contact .contact-kinds>div{grid-template-columns:1fr}.login-contact .contact-kinds label{display:grid;grid-template-columns:24px 1fr;gap:3px 10px}.login-contact .contact-kinds label small{grid-column:2}.login-contact .contact-kinds label svg{grid-row:1/3}.login-form>div{min-width:0}
+
+.classic-connect-steps{display:grid;gap:18px;padding-left:24px;margin:20px 0}.classic-connect-steps li::marker{font-weight:800;color:var(--green,#145b40)}.classic-connect-steps p{margin:8px 0}.classic-connect-steps .button{width:fit-content}

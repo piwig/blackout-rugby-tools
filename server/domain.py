@@ -48,22 +48,39 @@ def player_metrics(player):
       'estimated_csr':round(.42*sum(v**4 for v in known)) if len(known)==10 else None,
       'roles':scores}
 
-def attack_summary(events):
+def attack_label(value):
     aliases={'percu':'Percussion','percussion':'Percussion','driving':'Percussion','drive':'Percussion',
       'png':'Pick and go','pick and go':'Pick and go','pick&go':'Pick and go','pickngo':'Pick and go',
       'large':'Large','expansive':'Large','wide':'Large','crea':'Créatif','créatif':'Créatif','creative':'Créatif',
       'kick':'Jeu au pied','kicking':'Jeu au pied','jeu au pied':'Jeu au pied'}
+    return aliases.get(str(value).strip().lower())
+
+def attack_summary(events):
     result={side:{'total':0,'zones':{z:{a:0 for a in ATTACKS} for z in ZONES},'attacks':{a:0 for a in ATTACKS}} for side in ['home','away']}
-    unknown=0
+    unknown=non_attack=missing_context=0
+    provenance={'source':0,'commentary_rule':0,'manual':0}
     for event in events:
-        attack=aliases.get(str(event.get('att','')).strip().lower())
-        try: possession=int(event.get('possession')); field=int(event.get('field'))
-        except (ValueError,TypeError): unknown+=1; continue
-        if attack is None or possession not in (0,1) or field not in range(6): unknown+=1; continue
+        if event.get('classification')=='non_attack':
+            non_attack+=1
+            continue
+        attack=attack_label(event.get('att',''))
+        try:
+            possession=int(event.get('possession')); field=int(event.get('field'))
+            valid_context=(str(event.get('possession')).strip() in ('0','1') and str(event.get('field')).strip() in tuple(map(str,range(6))))
+        except (ValueError,TypeError): valid_context=False
+        if attack is None or not valid_context:
+            unknown+=1
+            missing_context+=int(attack is not None)
+            continue
         zone=(['22','22','40','40A','22A','22A'] if possession==0 else ['22A','22A','40A','40','22','22'])[field]
         side=result['home' if possession==0 else 'away']
         side['total']+=1;side['zones'][zone][attack]+=1;side['attacks'][attack]+=1
-    return {**result,'unclassified':unknown,'classified':len(events)-unknown,'total_events':len(events),'inferred':sum(e.get('att_origin')=='commentary-rule' for e in events)}
+        origin='manual' if event.get('classification')=='attack' and event.get('att_origin')=='manual' else 'commentary_rule' if event.get('att_origin')=='commentary-rule' else 'source'
+        provenance[origin]+=1
+    return {**result,'unclassified':unknown,'classified':len(events)-unknown-non_attack,'total_events':len(events),
+            'inferred':provenance['commentary_rule'],'inferred_events':sum(e.get('att_origin')=='commentary-rule' for e in events),
+            'manual':provenance['manual'],'non_attack':non_attack,'attack_missing_context':missing_context,
+            'suggested':sum(bool(e.get('suggestion')) for e in events),'provenance':provenance}
 
 def stadium_plan(members,seats,multiplier=9):
     members=number(members); multiplier=number(multiplier)

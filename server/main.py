@@ -37,6 +37,9 @@ from .team_identity import TEAM_PATTERN,OPTIONAL_TEAM_PATTERN,CLUB_ONLY,describe
 from .national import register_national,sync_selection,selection_game_date
 from .match_prep import FixturesRequest,ScoutRequest,list_upcoming_fixtures,scout_opponent
 from .match_import import MAX_MATCH_BYTES,read_match_document,normalize_match_document
+from .match_review import effective_match,register_match_review
+from .match_routes import register_match_direct
+from .match_history import register_match_history
 
 PUBLIC_API_REQUESTS=frozenset({
     ('GET','/api/health'),
@@ -255,7 +258,7 @@ def create_app(directory=None,password=None,secure=None):
         require_club_id(tid)
 
     @app.get('/api/health')
-    def health():return {'ok':True,'version':'2.6.0'}
+    def health():return {'ok':True,'version':'2.7.0'}
 
     @app.post('/api/login')
     def login(body:Login,request:Request,response:Response):
@@ -296,6 +299,13 @@ def create_app(directory=None,password=None,secure=None):
         own=store.secrets(tid)
         if any(own.get(k) and own[k]!=shared.get(k) for k in ['d','dk']):shared.pop('iv',None)
         return {**shared,**own}
+
+    def match_credentials(tid=''):
+        values=credentials(tid)
+        manager=store.get('api_manager')
+        if manager:
+            values.update(json.loads(store.cipher.decrypt(manager.encode())))
+        return values
 
     @app.post('/api/classic/import',dependencies=[Depends(auth)])
     async def classic_import(body:ManagerImport):
@@ -373,8 +383,8 @@ def create_app(directory=None,password=None,secure=None):
             snapshots=[dict(r) for r in db.execute('SELECT id,youth,substr(source,1,500) AS source,substr(observed_at,1,80) AS observed_at,substr(imported_at,1,80) AS imported_at FROM snapshots WHERE team_id=? ORDER BY id DESC LIMIT 40',(team_id,))]
             matches=[]
             for row in db.execute('SELECT * FROM matches ORDER BY updated_at DESC LIMIT 100'):
-                match=json.loads(row['payload']);events=match.pop('events')
-                match.update(updated_at=row['updated_at'],summary=attack_summary(events),event_count=len(events))
+                match=effective_match(store,json.loads(row['payload']));events=match.pop('events')
+                match.update(updated_at=row['updated_at'],event_count=len(events))
                 matches.append(match)
         creds=credentials(team_id)
         account=store.get('classic_account')
@@ -494,11 +504,11 @@ def create_app(directory=None,password=None,secure=None):
         except (ValueError,TypeError,UnicodeError) as exc:raise HTTPException(422,str(exc)) from None
         try:doc=Match.model_validate(parsed).model_dump()
         except (ValueError,TypeError):raise HTTPException(422,'Import invalide : vérifiez les noms, les scores et les métadonnées du match.') from None
-        summary=attack_summary(doc['events'])
+        summary=effective_match(store,doc)['summary']
         if preview:
             return {'ok':True,'id':doc['id'],'type':doc['type'],'match':{**{key:value for key,value in doc.items() if key!='events'},'event_count':len(doc['events']),'summary':summary}}
         save_match(doc)
-        return {'ok':True,'id':doc['id'],'type':doc['type'],'summary':summary}
+        return {'ok':True,'id':doc['id'],'type':doc['type'],'summary':effective_match(store,doc)['summary']}
 
     @app.post('/api/matches/import',dependencies=[Depends(auth)])
     async def import_match(request:Request,id:str|None=Query(None),type:int|None=Query(None),home:str|None=Query(None),away:str|None=Query(None),preview:bool=Query(False)):
@@ -514,11 +524,13 @@ def create_app(directory=None,password=None,secure=None):
         raw=await file.read(MAX_MATCH_BYTES+1)
         return await run_in_threadpool(import_match_document,raw,file.filename or '',id=id,type=type,home=home,away=away,preview=preview)
 
+    register_match_history(app,store,auth)
+
     @app.get('/api/matches/{kind}/{mid}',dependencies=[Depends(auth)])
     def match_detail(kind:int,mid:str):
         with store.db() as db:r=db.execute('SELECT payload FROM matches WHERE id=? AND type=?',(mid,kind)).fetchone()
         if not r:raise HTTPException(404,'Match introuvable.')
-        doc=json.loads(r['payload']);return {**doc,'summary':attack_summary(doc['events'])}
+        doc=json.loads(r['payload']);return effective_match(store,doc,include_review=True)
 
     @app.get('/api/history/{team_id}/{player_id}',dependencies=[Depends(auth)])
     def history(team_id:str,player_id:str):
@@ -574,21 +586,8 @@ def create_app(directory=None,password=None,secure=None):
             return {'ok':True,'fixtures':[{k:v for k,v in f.items() if k in ['id','season','round','hometeamid','guestteamid','competition','weather']} for f in fixtures.values() if isinstance(f,dict)]}
         except ValueError as e:raise HTTPException(422,str(e)) from None
 
-    @app.post('/api/matches/sync',dependencies=[Depends(auth)])
-    async def sync_match(body:FixtureSync):
-        throttle('match:'+str(body.type)+body.id);client=ClassicClient(credentials());flags={1:{'u20':'1'},2:{'nat':'1'}}.get(body.type,{})
-        try:
-            doc=await client.request('f',fixtureid=body.id,**flags);fixture=doc.get('fixtures',{}).get(body.id)
-            if not isinstance(fixture,dict):raise ClassicError('Rencontre introuvable pour ce type de match.')
-            names=[]
-            for key in ['hometeamid','guestteamid']:
-                tid=str(fixture.get(key,''));tdoc=await client.request('t',teamid=tid,**flags);names.append(tdoc.get('teams',{}).get(tid,{}).get('name',tid))
-            commentary=await client.request('me',fixtureid=body.id,**flags)
-            score=await client.request('ls',fixtureid=body.id,**flags)
-            match=Match(id=body.id,type=body.type,home=names[0],away=names[1],home_score=score.get('homescore'),away_score=score.get('guestscore'),season=fixture.get('season'),round=fixture.get('round'),events=commentary['events'])
-            save_match(match.model_dump());return {'ok':True,'summary':attack_summary(match.events)}
-        except ValueError as e:raise HTTPException(422,str(e)[:300]) from None
-
+    register_match_direct(app,store,auth,match_credentials,throttle,require_team,Match)
+    register_match_review(app,store,auth)
     register_national(app,store,auth,credentials,throttle,require_team)
     register_lineup_lab(app,store,auth,require_team,state)
     register_insights(app,store,auth,require_team,state)

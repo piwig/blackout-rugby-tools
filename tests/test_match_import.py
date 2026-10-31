@@ -79,8 +79,10 @@ def test_json_classification_matches_existing_xml_rules_without_double_correctio
     assert imported['events'][1]['possession_reported'] == '0'
     assert client.post('/api/matches/import', json=imported | {'summary': None}).status_code == 422
     imported.pop('summary')
+    imported.pop('review')
+    imported['events'] = [event['source_event'] for event in imported['events']]
     assert client.post('/api/matches/import', json=imported).status_code == 200
-    assert client.get('/api/matches/1/123').json()['events'] == imported['events']
+    assert [event['source_event'] for event in client.get('/api/matches/1/123').json()['events']] == imported['events']
 
 
 @pytest.mark.parametrize('method', ['paste', 'file'])

@@ -9,7 +9,8 @@ from typing import Annotated, Literal
 from fastapi import Depends, HTTPException, Path, Query
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from .domain import ATTACKS, SKILLS, ZONES, attack_summary, number
+from .domain import ATTACKS, SKILLS, ZONES, number
+from .match_review import effective_match
 from .storage import now, pack
 from .progression import _epoch, _stamp
 from .team_identity import TEAM_PATTERN,is_selection,require_club_id
@@ -288,6 +289,8 @@ def opponent_report(store, document, opponent=None, season=None, match_type=None
                 and (season is None or m['season'] == season) and (match_type is None or m['match_type'] == match_type)
                 and (club_side is None or m['club_side'] == club_side)]
     result = {'match_count': 0, 'total_events': 0, 'classified': 0, 'inferred': 0, 'opponent_actions': 0,
+              'manual': 0, 'non_attack': 0, 'unclassified': 0, 'attack_missing_context': 0,
+              'provenance': {'source': 0, 'commentary_rule': 0, 'manual': 0},
               'attacks': dict.fromkeys(ATTACKS, 0), 'zones': dict.fromkeys(ZONES, 0),
               'zone_attacks': {zone: dict.fromkeys(ATTACKS, 0) for zone in ZONES}, 'matches': [], 'missing_matches': 0}
     with store.db() as db:
@@ -298,12 +301,14 @@ def opponent_report(store, document, opponent=None, season=None, match_type=None
             if not row:
                 result['missing_matches'] += 1
                 continue
-            match = json.loads(row['payload'])
-            summary = attack_summary(match.get('events', []))
+            match = effective_match(store, json.loads(row['payload']))
+            summary = match['summary']
             side = summary['away' if link['club_side'] == 'home' else 'home']
             result['match_count'] += 1
-            for key in ('total_events', 'classified', 'inferred'):
+            for key in ('total_events', 'classified', 'inferred', 'manual', 'non_attack', 'unclassified', 'attack_missing_context'):
                 result[key] += summary[key]
+            for key in result['provenance']:
+                result['provenance'][key] += summary['provenance'][key]
             result['opponent_actions'] += side['total']
             for attack in ATTACKS:
                 result['attacks'][attack] += side['attacks'][attack]

@@ -20,7 +20,11 @@ La connexion à l'outil est distincte du jeu. Les clés développeur Classic et 
 
 Le sélecteur de langue est disponible dès la connexion et dans l’atelier. Le choix est conservé dans le profil ; les noms, notes et commentaires source restent dans leur langue d’origine.
 
-Dans **Analyse des matchs → Importer des événements**, collez le JSON brut de Classic ou choisissez un JSON/CSV (8 Mo, 20 000 événements maximum). Indiquez le type Club/U20/Nationale et vérifiez l’aperçu avant de confirmer. Les 677 événements du fichier de régression sont conservés ; seules les actions reconnues contribuent aux répartitions. Un score, un nom d’équipe ou une saison absent reste inconnu.
+Dans **Analyse des matchs**, choisissez une rencontre récente ou collez son identifiant/lien officiel Classic, vérifiez l’aperçu puis confirmez l’import direct. La liaison par clé ne se fait qu’une fois dans **Connexion & données** ; aucun mot de passe du jeu n’est demandé. JSON/CSV restent disponibles dans les options avancées (8 Mo, 20 000 événements).
+
+L’atelier de classement permet de corriger attaque, type, côté et zone, de distinguer un événement hors attaque et de rétablir la source. Les corrections sont privées, séparées du commentaire original et protégées contre les modifications concurrentes. Des exemples volontairement mémorisés peuvent suggérer une catégorie pour un commentaire similaire ; aucune suggestion n’est appliquée automatiquement.
+
+L’historique paginé donne accès à tous les matchs enregistrés. Ses statistiques portent sur tous les matchs filtrés : type, saison, nom d’équipe, résultats connus, points, attaques, zones et couverture par saison. Les scores inconnus sont exclus des moyennes. Les corrections des événements identiques survivent à un réimport ; celles qui ne correspondent plus restent signalées. Voir la [méthodologie de relecture et d’import](docs/match-review-methodology.md).
 
 ## Tutoriel intégré
 
