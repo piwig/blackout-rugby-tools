@@ -6,6 +6,7 @@ from fastapi import Depends, HTTPException, Request
 from pydantic import Field, field_validator
 
 from .workbench import Revision, StrictDocument, TeamId, read_document, replace_document
+from .team_identity import require_club_id
 
 
 StarterStage = Literal['mentor', 'treasury', 'transfers', 'staff', 'stadium', 'economy', 'lineup']
@@ -32,6 +33,7 @@ def register_starter(app, store, auth, require_team):
         if not secrets.compare_digest(supplied, session['csrf'].encode('utf-8')):
             raise HTTPException(403, 'Session à actualiser (protection CSRF).')
         require_team(team_id)
+        require_club_id(team_id)
         return read_document(store, 'starter:' + team_id, {
             'team_id': team_id, 'updated_at': None, 'completed': [], 'collapsed': False,
         })
@@ -39,6 +41,7 @@ def register_starter(app, store, auth, require_team):
     @app.post('/api/workbench/starter/{team_id}')
     def save_starter(team_id: TeamId, body: StarterSave, session=Depends(auth)):
         require_team(team_id)
+        require_club_id(team_id)
         return replace_document(store, 'starter:' + team_id, body.expected_revision, {
             'team_id': team_id, 'completed': body.completed, 'collapsed': body.collapsed,
         })

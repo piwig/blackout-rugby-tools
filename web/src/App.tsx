@@ -12,6 +12,7 @@ import {SeasonPlanner,ClubIdentity,FeedbackWidget,VacationDigest,clubTheme,ClubB
 import {Tutorial,TutorialDialog,HelpButton} from './tutorial';
 import {PhotoCredits,SectionPhoto} from './rugby';
 import {Dashboard} from './dashboard';
+import {SelectionDashboard} from './selection-dashboard';
 import {Progression} from './progression';
 import {RegistrationForm} from './registration';
 import {AntiBot} from './antibot';
@@ -68,6 +69,9 @@ export default function App(){
   if(login)return <Login onLogin={refresh}/>;
   if(!d)return <div className="boot"><p>{error||'Chargement du club…'}</p><button onClick={refresh}>Réessayer</button></div>;
   if(d.setup_required)return <Onboarding d={d} act={act} busy={busy} error={error}/>;
+  const selection=d.current_team.kind==='u20'||d.current_team.kind==='nt';
+  const clubOnly=['academy','training','stadium','vacation'];
+  const blockedPage=selection&&clubOnly.includes(page);
   const props={d,act,openPlayer:setPlayer,go,busy,selectTeam};const current=nav.find(n=>n.id===page)??nav[0];
   const savedProfile=(doc:ProfileDocument)=>setD(current=>current&&current.user.username+':'+current.csrf===d.user.username+':'+d.csrf&&(current.profile?.revision??0)<=doc.revision?{...current,profile:doc}:current);
   const displayName=profile.display_name||d.user.username;
@@ -77,22 +81,23 @@ export default function App(){
     <aside className={'sidebar '+(menu?'is-open':'')} inert={mobile&&!menu} role={mobile&&menu?'dialog':undefined} aria-modal={mobile&&menu?true:undefined} aria-label={mobile&&menu?'Menu de navigation':undefined}>
       <button className="icon-button sidebar-close" aria-label="Fermer la navigation" onClick={()=>{setMenu(false);menuButton.current?.focus()}}><X size={20}/></button>
       <a className="brand" href="#" onClick={e=>{e.preventDefault();go('home')}}><img src="/images/brt-logo-192.png" alt=""/><span>BLACKOUT<small>RUGBY TOOLS</small></span></a>
-      <div className="edition"><i/> CLASSIC EDITION <span>2.4</span></div><span className="nav-label">VOTRE CLUB-HOUSE</span>
-      <nav id="main-navigation" aria-label="Navigation principale">{nav.map(n=><button key={n.id} aria-current={page===n.id?'page':undefined} className={(page===n.id?'active ':'')+(n.id==='profile'?'nav-separator':'')} onClick={()=>go(n.id)}><n.icon size={19}/><span>{n.label}</span>{page===n.id&&<span className="nav-dot"/>}</button>)}</nav>
+      <div className="edition"><i/> CLASSIC EDITION <span>2.5</span></div><span className="nav-label">VOTRE CLUB-HOUSE</span>
+      <nav id="main-navigation" aria-label="Navigation principale">{nav.filter(n=>!selection||!clubOnly.includes(n.id)).map(n=><button key={n.id} aria-current={page===n.id?'page':undefined} className={(page===n.id?'active ':'')+(n.id==='profile'?'nav-separator':'')} onClick={()=>go(n.id)}><n.icon size={19}/><span>{n.label}</span>{page===n.id&&<span className="nav-dot"/>}</button>)}</nav>
       <div className="sidebar-bottom"><div className="club-mini"><button className="profile-nav" onClick={()=>go('profile')} aria-label="Ouvrir mon profil"><ProfileAvatar profile={profile} username={d.user.username} small/><span><strong>{displayName}</strong><small>Mon espace privé</small></span></button><button className="icon-button" aria-label="Se déconnecter" disabled={busy} onClick={()=>{if(confirmLeave())void act('/logout',{},'').catch(()=>{})}}><LogOut size={17}/></button></div></div>
     </aside>
     <div className="main-shell" inert={mobile&&menu}><header className="topbar"><div className="breadcrumbs"><button ref={menuButton} className="icon-button mobile-menu" aria-label={menu?'Fermer le menu':'Ouvrir le menu'} aria-controls="main-navigation" aria-expanded={menu} onClick={()=>setMenu(!menu)}><Menu/></button><span>Mon atelier</span><ChevronRight size={14}/><strong>{current.label}</strong></div>
-      <div className="topbar-right">{d.game_date&&<span className="season" title="Dernier repère de saison importé depuis le jeu">S{d.game_date.season}<i/>Semaine {d.game_date.round}</span>}<label className="club-select"><ClubBadge identity={d.workbench_identity} name={d.current_team.name} small/><select aria-label="Choisir un club" disabled={busy} value={team} onChange={e=>selectTeam(e.target.value,page)}>{d.teams.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select></label><button className="topbar-profile" aria-label="Personnaliser mon espace" onClick={()=>go('profile')}><ProfileAvatar profile={profile} username={d.user.username} small/></button></div>
+      <div className="topbar-right">{d.game_date&&<span className="season" title="Dernier repère de saison importé depuis le jeu">S{d.game_date.season}<i/>Semaine {d.game_date.round}</span>}<label className="club-select"><ClubBadge identity={d.workbench_identity} name={d.current_team.name} small/><select aria-label="Choisir une équipe" disabled={busy} value={team} onChange={e=>selectTeam(e.target.value,page)}>{d.teams.map(t=><option key={t.id} value={t.id}>{t.name}{t.kind==='u20'?' · U20':t.kind==='nt'?' · Nationale':''}</option>)}</select></label><button className="topbar-profile" aria-label="Personnaliser mon espace" onClick={()=>go('profile')}><ProfileAvatar profile={profile} username={d.user.username} small/></button></div>
     </header><main>
       <div className={'page-title '+(!['home','guide','profile'].includes(page)?'page-masthead':'')}><SectionPhoto page={page}/><div><div className="eyebrow">{page==='home'?'BONJOUR '+displayName.toUpperCase():d.current_team.name.toUpperCase()}</div><h1 id="page-heading" tabIndex={-1}>{current.label}</h1><p>{descriptions[page]}</p></div><div className="page-actions"><HelpButton onClick={()=>setHelp(true)}/>{!['settings','guide','profile','contact'].includes(page)&&<button className="button secondary" onClick={()=>go('settings')}><Upload size={16}/><span>Actualiser mes données</span></button>}</div></div>
       {error&&<div className="notice error" role="alert"><span>{error}</span><button className="icon-button" aria-label="Fermer l’erreur" onClick={()=>setError('')}><X size={17}/></button></div>}
       <div className="page-content" key={d.user.username+':'+d.csrf+':'+page}>{routeNotes[page]&&<div className="page-route-note"><Info size={17}/><span>{routeNotes[page]}</span></div>}
+        {blockedPage&&<section className="card prose"><h2>Cette rubrique concerne les clubs.</h2><p>Pour cette sélection, retrouvez l’effectif, les compositions, les matchs et la progression.</p><button className="button primary" onClick={()=>go('home')}>Ouvrir le tableau de bord de la sélection</button></section>}
         {page==='contact'&&<ContactPage {...props}/>}
-        {page==='home'&&<Dashboard {...props} profile={profile}/>}{page==='progression'&&<Progression key={team} {...props}/>}
+        {page==='home'&&(selection?<SelectionDashboard {...props}/>:<Dashboard {...props} profile={profile}/>)}{page==='progression'&&<Progression key={team} {...props}/>}
         {page==='profile'&&<><ProfileSettings key={d.user.username} {...props} onSaved={savedProfile}/><ClubIdentity key={'identity-'+team} {...props}/></>}
         {page==='season'&&<SeasonPlanner key={team} {...props}/>}{page==='optimization'&&<Optimization key={team} {...props}/>}
-        {page==='vacation'&&<><VacationDigest key={'digest-'+team} {...props}/><Vacation key={team} {...props}/></>}
-        {(page==='academy'||page==='squad')&&<Players key={team+page} {...props} youth={page==='academy'}/>}{page==='training'&&<Training key={team} {...props}/>}{page==='stadium'&&<Stadium key={team} {...props}/>}{page==='matches'&&<Matches key={team} {...props}/>}{page==='settings'&&<Settings key={team} {...props}/>}{page==='guide'&&<Tutorial key={d.user.username} username={d.user.username} go={go}/>}
+        {page==='vacation'&&!selection&&<><VacationDigest key={'digest-'+team} {...props}/><Vacation key={team} {...props}/></>}
+        {(page==='squad'||(page==='academy'&&!selection))&&<Players key={team+page} {...props} youth={page==='academy'}/>}{page==='training'&&!selection&&<Training key={team} {...props}/>}{page==='stadium'&&!selection&&<Stadium key={team} {...props}/>}{page==='matches'&&<Matches key={team} {...props}/>}{page==='settings'&&<Settings key={team} {...props}/>}{page==='guide'&&<Tutorial key={d.user.username} username={d.user.username} go={go}/>}
       </div>
       <FeedbackWidget key={team} {...props} page={page}/><footer className="footer"><span>BLACKOUT RUGBY TOOLS <i/> L’atelier du manager</span><span>Outil indépendant · Votre espace privé</span><PhotoCredits/></footer>
     </main></div>

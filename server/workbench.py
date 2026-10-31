@@ -14,8 +14,8 @@ from fastapi import Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from .storage import now, pack
+from .team_identity import TeamId,OPTIONAL_TEAM_PATTERN,is_selection
 
-TeamId = Annotated[str, Field(pattern=r'^[1-9][0-9]{0,14}$')]
 PlayerId = Annotated[str, Field(pattern=r'^[1-9][0-9]{0,14}$')]
 Revision = Annotated[int, Field(strict=True, ge=0, le=2147483647)]
 FeedbackStatus = Literal['new', 'reviewing', 'planned', 'resolved']
@@ -202,7 +202,8 @@ def build_daily(states, calendars, preferences, vacation, generated_at=None):
         tid, name = data['current_team']['id'], data['current_team']['name']
         fatigue = fatigue_summary(data['squad'], preferences)
         sources = []
-        for kind, field in [('squad', 'squad_source'), ('academy', 'academy_source')]:
+        observed_groups = [('squad', 'squad_source')] if is_selection(tid) else [('squad', 'squad_source'), ('academy', 'academy_source')]
+        for kind, field in observed_groups:
             source = data.get(field)
             date = parse_date(source.get('observed_at')) if source else None
             # Legacy imports sometimes have date-only observations: keep them unknown.
@@ -345,7 +346,7 @@ def register_workbench(app, store, auth, require_team, state, accounts, vacation
         return replace_document(store, 'identity:' + body.team_id, body.expected_revision, {'identity': body.identity.model_dump()})
 
     @app.get('/api/workbench/vacation-digest')
-    def get_digest(team_id: str = Query(default='', pattern=r'^(\d{1,15})?$'),
+    def get_digest(team_id: str = Query(default='', pattern=OPTIONAL_TEAM_PATTERN),
                    days: int = Query(default=7, ge=1, le=90), session=Depends(auth)):
         if team_id:
             require_team(team_id)

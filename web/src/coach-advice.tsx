@@ -1,0 +1,99 @@
+import {useEffect, useId, useState} from 'react';
+import {Activity, ArrowDownRight, ArrowUpRight, BookOpen, CircleAlert, Eye, GraduationCap, HeartPulse, RefreshCw, ShieldCheck, Sparkles, Star, Target, Users} from 'lucide-react';
+import {request} from './App';
+import {date, fmt, type State} from './types';
+import './coach-advice.css';
+
+type SkillAdvice = {skill: string; label: string; average: number | null; known: number; total: number; coverage: number | null; comparable: boolean};
+type PlayerAdvice = {
+  id: string; name: string; age: number | null; stars: number | null; wc_projection: number | null; known_skills: number;
+  profile: {name: string; score: number} | null; focus: {skill: string; label: string; value: number} | null;
+  energy: number | null; form: number | null; injured: boolean | null;
+  readiness: 'review' | 'verify' | 'recovery'; signals: string[]; age_context: string | null;
+  watch: boolean; note: string | null;
+};
+type GroupAdvice = {
+  count: number; known_skills: number; total_skills: number; coverage: number | null;
+  skills: SkillAdvice[]; strengths: SkillAdvice[]; weaknesses: SkillAdvice[];
+  priorities: PlayerAdvice[]; observe: PlayerAdvice[]; comparison_note: string;
+  availability: {energy_scale: 'percent' | 'ambiguous'; injured: number; low_energy: number; unknown_injury: number; unknown_energy: number; unknown_form: number};
+  source: {observed_at: string | null; name: string | null};
+};
+type CoachReport = {team: {id: string; name: string}; squad: GroupAdvice; academy: GroupAdvice; warnings: string[]; methodology: string[]};
+
+function SkillHighlights({items, weakness}: {items: SkillAdvice[]; weakness?: boolean}) {
+  const Icon = weakness ? ArrowDownRight : ArrowUpRight;
+  return <div className={'coach-highlight ' + (weakness ? 'coach-highlight-work' : '')}>
+    <h4><Icon size={17} aria-hidden="true"/>{weakness ? 'Axes de travail relatifs' : 'Points d’appui relatifs'}</h4>
+    {items.length ? items.map(item => <div className="coach-skill" key={item.skill}>
+      <strong>{item.label}<b>{fmt(item.average)}</b></strong>
+      <span>{item.known}/{item.total} joueurs observés · {fmt(item.coverage)} % de couverture</span>
+    </div>) : <p>Pas de contraste assez documenté.</p>}
+  </div>;
+}
+
+function PlayerCard({player, academy}: {player: PlayerAdvice; academy: boolean}) {
+  const Icon = player.readiness === 'recovery' ? HeartPulse : player.readiness === 'verify' ? CircleAlert : Target;
+  return <article className={'coach-player coach-player-' + player.readiness}>
+    <header><div><strong>{player.name}</strong><span>{player.age === null ? 'Âge inconnu' : fmt(player.age) + ' ans'}{academy && <><i>·</i><Star size={12} aria-hidden="true"/>{player.stars === null ? 'Étoiles inconnues' : fmt(player.stars) + ' étoiles'}</>}</span></div>{player.watch && <span className="coach-watch" title="Joueur marqué à suivre par le manager"><Eye size={14} aria-hidden="true"/>Suivi</span>}</header>
+    <div className="coach-player-profile"><span>{player.profile?.name || 'Profil à documenter'}</span><small>{player.known_skills}/10 compétences connues</small></div>
+    {academy && <p className="coach-generation"><GraduationCap size={14} aria-hidden="true"/>{player.wc_projection === null ? 'Génération non déterminée' : 'Génération indicative · S' + fmt(player.wc_projection)}</p>}
+    <p className="coach-player-action"><Icon size={17} aria-hidden="true"/>{player.readiness === 'recovery' ? 'Vérifier la récupération avant de planifier' : player.readiness === 'verify' ? 'Confirmer la disponibilité avant de prioriser' : 'Piste d’entraînement à examiner'}</p>
+    {player.focus && <div className="coach-focus"><span>{player.readiness === 'recovery' ? 'À reconsidérer après récupération' : 'Compétence à travailler dans ce profil'}</span><strong>{player.focus.label}<b>{fmt(player.focus.value)}</b></strong></div>}
+    <dl className="coach-player-condition"><div><dt>Énergie</dt><dd>{player.energy === null ? 'À confirmer' : fmt(player.energy) + ' %'}</dd></div><div><dt>Forme observée</dt><dd>{fmt(player.form)}</dd></div><div><dt>Blessure signalée</dt><dd>{player.injured === null ? 'Inconnue' : player.injured ? 'Oui' : 'Non'}</dd></div></dl>
+    {(player.signals.length > 0 || player.age_context || player.note) && <details className="coach-player-details"><summary>Contexte et précautions</summary>{player.signals.map(signal => <p key={signal}>{signal}</p>)}{player.age_context && <p>{player.age_context}</p>}{player.note && <blockquote><span>Note du manager</span>{player.note}</blockquote>}</details>}
+  </article>;
+}
+
+function AdviceGroup({group, academy}: {group: GroupAdvice; academy?: boolean}) {
+  const [expanded, setExpanded] = useState(false);
+  const Icon = academy ? GraduationCap : Users;
+  const availability = group.availability;
+  const visiblePlayers = expanded ? group.priorities : group.priorities.slice(0, 4);
+  return <section className="coach-group">
+    <header className="coach-group-heading"><span className="coach-group-icon"><Icon size={22} aria-hidden="true"/></span><div><h3>{academy ? 'Centre de formation' : 'Effectif senior'}</h3><p>{group.count} {academy ? 'jeunes' : 'joueurs'} · {group.known_skills}/{group.total_skills} compétences connues</p></div>{group.coverage !== null && <span className="coach-coverage">{fmt(group.coverage)} %<small>de couverture</small></span>}</header>
+    {!group.count ? <div className="coach-empty"><BookOpen size={22} aria-hidden="true"/><p>{academy ? 'Importez l’académie pour examiner ses profils et préparer les prochaines séances.' : 'Importez l’effectif senior pour obtenir une lecture de ses compétences et de ses besoins.'}</p></div> : <>
+      <div className="coach-source">{group.source.name || 'Source non renseignée'} · Observation : {date(group.source.observed_at)}</div>
+      <div className="coach-highlights"><SkillHighlights items={group.strengths}/><SkillHighlights items={group.weaknesses} weakness/></div>
+      <p className="coach-comparison-note">{group.comparison_note}</p>
+      <details className="coach-skill-details"><summary>Voir les 10 moyennes et leur couverture</summary><div className="coach-skill-grid">{group.skills.map(skill => <div key={skill.skill}><span>{skill.label}</span><strong>{fmt(skill.average)}</strong><small>{skill.known}/{skill.total} connus</small><meter min={0} max={100} value={skill.coverage || 0} aria-label={'Couverture ' + skill.label + ' : ' + fmt(skill.coverage) + ' %'}/></div>)}</div></details>
+      <div className="coach-readiness"><h4><Activity size={17} aria-hidden="true"/>Avant les prochaines séances</h4><div className="coach-condition-tags"><span className={availability.injured ? 'attention' : ''}>{availability.injured} blessure{availability.injured > 1 ? 's' : ''} signalée{availability.injured > 1 ? 's' : ''}</span><span className={availability.low_energy ? 'attention' : ''}>{availability.low_energy} énergie{availability.low_energy > 1 ? 's' : ''} sous 60 %</span><span>{availability.unknown_form} forme{availability.unknown_form > 1 ? 's' : ''} inconnue{availability.unknown_form > 1 ? 's' : ''}</span></div><p>{availability.unknown_injury} disponibilités médicales et {availability.unknown_energy} énergies à confirmer. {availability.energy_scale === 'ambiguous' ? 'Échelle d’énergie indéterminée : aucune alerte de fatigue calculée.' : 'Énergie supposée en pourcentage ; confirmer le format dans Classic.'} La forme est affichée dans son échelle d’origine.</p></div>
+      <div className="coach-priority-heading"><h4><Target size={17} aria-hidden="true"/>{academy ? 'Profils à accompagner' : 'Profils à prioriser à l’entraînement'}</h4><p>{academy ? 'Après vérification du profil et de la disponibilité : étoiles cumulées, génération indicative la plus proche, puis affinité. Ce repère de cohorte ne garantit aucune sélection U20.' : 'Disponibilité, compétences du profil et développement des jeunes seniors guident cette lecture.'}</p></div>
+      {visiblePlayers.length ? <div className="coach-players">{visiblePlayers.map(player => <PlayerCard key={player.id} player={player} academy={!!academy}/>)}</div> : <p className="coach-no-profile">Aucun profil complet n’est calculable. Complétez les compétences observées avant de désigner une priorité.</p>}
+      {group.priorities.length > 4 && <button type="button" className="text-button coach-more" onClick={() => setExpanded(!expanded)} aria-expanded={expanded}>{expanded ? 'Réduire la liste' : 'Voir les ' + group.priorities.length + ' profils calculables'}</button>}
+      {group.observe.length > 0 && <details className="coach-observe"><summary><Eye size={16} aria-hidden="true"/>{group.observe.length} profil{group.observe.length > 1 ? 's' : ''} à documenter</summary><p>Les compétences masquées restent inconnues. {academy ? 'Un jeune étoilé ne devient pas automatiquement une priorité sans profil suffisamment observé.' : 'Aucune priorité de poste n’est attribuée sans les compétences nécessaires.'}</p><ul>{group.observe.map(player => <li key={player.id}><strong>{player.name}</strong><span>{player.known_skills}/10 compétences connues{academy && player.stars !== null ? ' · ' + fmt(player.stars) + ' étoiles' : ''}</span></li>)}</ul></details>}
+    </>}
+  </section>;
+}
+
+function ScopedCoachAdvice({d}: {d: State}) {
+  const headingId = useId();
+  const [revision, setRevision] = useState(0);
+  const [result, setResult] = useState<{snapshot: State; revision: number; report: CoachReport | null; error: string} | null>(null);
+  useEffect(() => {
+    let active = true;
+    request('/coach-advice?team_id=' + encodeURIComponent(d.current_team.id), undefined, d.csrf).then((report: CoachReport) => {
+      if (report.team?.id !== d.current_team.id || !Array.isArray(report.squad?.priorities) || !Array.isArray(report.academy?.priorities) || !Array.isArray(report.methodology)) throw new Error('Les conseils reçus sont incomplets. Relancez leur lecture.');
+      if (active) setResult({snapshot: d, revision, report, error: ''});
+    }).catch((error: unknown) => {
+      if (active) setResult({snapshot: d, revision, report: null, error: error instanceof Error ? error.message : 'Les conseils sont indisponibles.'});
+    });
+    return () => {active = false;};
+  }, [d, revision]);
+  const fresh = result?.snapshot === d && result.revision === revision;
+  const report = fresh ? result.report : null;
+  const error = fresh ? result.error : '';
+  const loading = !fresh;
+  return <section className="coach-advice" aria-labelledby={headingId} aria-busy={loading}>
+    <header className="coach-heading"><div className="coach-title"><span className="coach-symbol"><Sparkles size={23} aria-hidden="true"/></span><div><span className="eyebrow">LE REGARD DU COACH</span><h2 id={headingId}>Construire la suite de l’équipe</h2><p>Points d’appui, axes de travail et profils à accompagner, des seniors au centre de formation.</p></div></div><button type="button" className="button secondary" disabled={loading} onClick={() => setRevision(value => value + 1)}><RefreshCw size={15} aria-hidden="true"/>Relire les données</button></header>
+    {loading && <p className="coach-loading" role="status">Lecture des observations du club…</p>}
+    {error && <div className="coach-error" role="alert"><CircleAlert size={20} aria-hidden="true"/><p>{error}</p><button type="button" className="button secondary" onClick={() => setRevision(value => value + 1)}>Réessayer</button></div>}
+    {report && <><div className="coach-intro"><ShieldCheck size={18} aria-hidden="true"/><p>Lecture indicative de vos observations importées. La forme, l’énergie et les blessures sont à confirmer avant de décider ; ces conseils ne lancent aucune action dans Classic.</p></div>{report.warnings.length > 0 && <div className="coach-warnings">{report.warnings.map(warning => <p key={warning}><CircleAlert size={15} aria-hidden="true"/>{warning}</p>)}</div>}<AdviceGroup group={report.squad}/>{!d.current_team.id.includes(':')&&<AdviceGroup group={report.academy} academy/>}<div className="coach-age-note"><HeartPulse size={19} aria-hidden="true"/><p><strong>L’âge donne un contexte, pas une date de fin.</strong> Le CSR peut baisser dès 29 ans sans règle d’âge fixe ; une progression reste possible à 33 ans. Suivez les compétences et les évolutions individuelles avant d’arbitrer l’entraînement.</p></div><details className="coach-methodology"><summary><BookOpen size={17} aria-hidden="true"/>Comment lire ces conseils</summary><ul>{report.methodology.map(item => <li key={item}>{item}</li>)}</ul></details></>}
+  </section>;
+}
+
+export function CoachAdvice({d}: {d: State}) {
+  // A club/session change unmounts pending requests; snapshot identity also hides
+  // old observations immediately while a refresh for the same club is pending.
+  return <ScopedCoachAdvice key={JSON.stringify([d.user.username, d.csrf, d.current_team.id])} d={d}/>;
+}

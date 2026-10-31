@@ -271,7 +271,7 @@ class ClassicClient:
 
     async def request(self,resource,**params):
         self._check_credentials()
-        if resource not in ['p','t','f','ls','me','m','lu']:raise ClassicError('Ressource non autorisée.')
+        if resource not in ['p','t','f','fs','ls','me','m','lu']:raise ClassicError('Ressource non autorisée.')
         if set(params) & {'r','d','dk','m','mk','iv','er','json','update','delete','default','saved'}:
             raise ClassicError('Paramètre Classic non autorisé.')
         query={**{k:v for k,v in self.credentials.items() if k != 'iv'},'r':resource,'json':'1',**params}

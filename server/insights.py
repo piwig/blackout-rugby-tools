@@ -12,6 +12,7 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validato
 from .domain import ATTACKS, SKILLS, ZONES, attack_summary, number
 from .storage import now, pack
 from .progression import _epoch, _stamp
+from .team_identity import TEAM_PATTERN,is_selection,require_club_id
 
 Identifier = Annotated[str, Field(pattern=r'^[0-9]{1,15}$')]
 LocalId = Annotated[str, Field(pattern=r'^[a-zA-Z0-9_-]{1,64}$')]
@@ -354,11 +355,11 @@ def register_insights(app, store, auth, require_team, state):
                 'stadium': [stadium_report(s) for s in document['stadium_scenarios']]}
 
     @app.get('/api/insights/{team_id}')
-    def get_insights(team_id: str = Path(pattern=r'^[0-9]{1,15}$'), session=Depends(auth)):
+    def get_insights(team_id: str = Path(pattern=TEAM_PATTERN), session=Depends(auth)):
         return bundle(team_id, session)
 
     @app.get('/api/insights/{team_id}/opponents')
-    def get_opponents(team_id: str = Path(pattern=r'^[0-9]{1,15}$'),
+    def get_opponents(team_id: str = Path(pattern=TEAM_PATTERN),
                       opponent: str | None = Query(default=None, max_length=150),
                       season: int | None = Query(default=None, ge=1, le=999),
                       match_type: int | None = Query(default=None, ge=0, le=2),
@@ -367,8 +368,10 @@ def register_insights(app, store, auth, require_team, state):
         return opponent_report(store, read_document(store, team_id), opponent, season, match_type, club_side)
 
     @app.post('/api/insights/{team_id}')
-    def save_insights(body: Save, team_id: str = Path(pattern=r'^[0-9]{1,15}$'), session=Depends(auth)):
+    def save_insights(body: Save, team_id: str = Path(pattern=TEAM_PATTERN), session=Depends(auth)):
         require_team(team_id)
+        if is_selection(team_id) and (body.document.goals or body.document.sessions or body.document.stadium_scenarios):
+            require_club_id(team_id)
         current_state = state(team_id, session)
         document = body.document.model_dump(mode='json')
         with store.db() as db:

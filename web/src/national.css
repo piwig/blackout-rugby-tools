@@ -1,0 +1,9 @@
+.national-panel{margin-top:1.75rem;padding-top:1.5rem;border-top:1px solid var(--border,#dce3dd)}
+.national-heading{display:flex;align-items:flex-start;gap:.7rem}.national-heading>svg{margin-top:.2rem;flex-shrink:0;color:var(--green,#245b47)}
+.national-heading h3{margin:0 0 .45rem}.national-heading p{margin:0}
+.national-list{list-style:none;padding:0;margin:1rem 0}.national-list li{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.8rem 0;border-bottom:1px solid var(--border,#dce3dd)}
+.national-list strong,.national-list small{display:block}.national-list small{margin-top:.3rem;color:var(--muted,#69756e)}
+.national-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:.5rem 1rem}.national-actions .text-button{font-size:.8rem}
+.national-form{margin-top:1rem}.national-form fieldset{border:0;padding:0;margin:0;display:grid;grid-template-columns:minmax(150px,1fr) minmax(120px,.7fr) auto;align-items:end;gap:.75rem;min-width:0}
+.national-form label{min-width:0}.national-form input,.national-form select{width:100%}.national-form .button{white-space:nowrap}
+@media(max-width:700px){.national-form fieldset{grid-template-columns:1fr 1fr}.national-form .button{grid-column:1/-1}.national-list li{align-items:flex-start;flex-direction:column}.national-list .text-button{flex-shrink:0}.national-actions{justify-content:flex-start}}

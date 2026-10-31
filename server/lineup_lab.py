@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from .domain import number
 from .optimization import make_lineup, unique_players
 from .storage import now, pack
+from .team_identity import TeamId
 
 
 Identifier = Annotated[str, Field(strict=True, pattern=r'^\d{1,15}$')]
@@ -40,7 +41,7 @@ class Options(Model):
 
 
 class Preview(Model):
-    team_id: Identifier
+    team_id: TeamId
     options: Options = Field(default_factory=Options)
 
 
@@ -60,7 +61,7 @@ class ScenarioSave(Preview):
 
 
 class ScenarioDelete(Model):
-    team_id: Identifier
+    team_id: TeamId
     id: ScenarioId
     expected_revision: Revision
 
@@ -156,7 +157,7 @@ def register_lineup_lab(app, store, auth, require_team, state):
         return doc
 
     @app.get('/api/lineup-lab/scenarios')
-    def scenarios(team_id: Identifier = Query(), session=Depends(auth)):
+    def scenarios(team_id: TeamId = Query(), session=Depends(auth)):
         require_team(team_id)
         return document(team_id)
 
@@ -220,7 +221,7 @@ def register_lineup_lab(app, store, auth, require_team, state):
         return write(body, operation)
 
     @app.get('/api/lineup-lab/compare')
-    def compare(team_id: Identifier = Query(), left_id: ScenarioId = Query(),
+    def compare(team_id: TeamId = Query(), left_id: ScenarioId = Query(),
                 right_id: ScenarioId = Query(), session=Depends(auth)):
         require_team(team_id)
         doc = document(team_id)

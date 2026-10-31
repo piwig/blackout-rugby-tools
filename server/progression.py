@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from itertools import groupby
 
 from fastapi import Depends, Query
+from .team_identity import TEAM_PATTERN
 
 from .domain import SKILLS, number
 
@@ -224,7 +225,7 @@ def progression_series(store, team_id, youth):
 
 def register_progression(app, store, auth, require_team):
     @app.get('/api/progression')
-    def get_progression(team_id: str = Query(pattern=r'^[0-9]{1,15}$'), session=Depends(auth)):
+    def get_progression(team_id: str = Query(pattern=TEAM_PATTERN), session=Depends(auth)):
         require_team(team_id)
         return {'team_id': team_id, 'metrics': METRICS,
                 'seniors': progression_series(store, team_id, False),

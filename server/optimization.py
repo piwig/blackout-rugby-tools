@@ -6,6 +6,7 @@ Unknown observations never become skill, energy or age measurements.
 from datetime import datetime, timezone
 
 from .domain import SKILLS, SKILL_LABELS, number, player_metrics, stadium_plan
+from .team_identity import is_selection,team_identity
 
 
 ROLES = ['Pilier', 'Talonneur', 'Pilier', 'Deuxième ligne', 'Deuxième ligne',
@@ -365,7 +366,9 @@ def build_report(state, objective='balanced', energy_floor=60, season=None, *, g
         season = int(observed_season) if observed_season is not None and observed_season.is_integer() and 1 <= observed_season <= 999 else 1
     if isinstance(season, bool) or not isinstance(season, int) or not 1 <= season <= 999:
         raise ValueError('Saison attendue entre 1 et 999.')
-    squad, academy = unique_players(state.get('squad', [])), unique_players(state.get('academy', []))
+    selection = is_selection(state['current_team']['id'])
+    squad = unique_players(state.get('squad', []))
+    academy = [] if selection else unique_players(state.get('academy', []))
     actual_scale = energy_scale
     if energy_scale == 'auto':
         actual_scale = 'percent' if any(value is not None and 11 < value <= 110
@@ -373,14 +376,19 @@ def build_report(state, objective='balanced', energy_floor=60, season=None, *, g
     lineup, summary, unknown_injury = make_lineup(squad, state.get('lineup', {}), objective, energy_floor, actual_scale, generated_at)
     summary['academy'] = len(academy)
     start, period = calendar_position(date, season)
-    training = training_plan(academy, state.get('plans', {}).get(str(season)), start)
+    training = ({'applicable': False, 'priorities': [], 'grid': [], 'added': 0, 'preserved': 0,
+                 'remaining_weeks': 0, 'start_week': 17} if selection else
+                {'applicable': True, **training_plan(academy, state.get('plans', {}).get(str(season)), start)})
     warnings, recommendations, sources = [], [], {}
 
     def recommend(identifier, category, priority, title, detail, evidence, page):
+        if selection and (category in ('academy', 'training', 'stadium') or page in ('academy', 'training', 'stadium')):
+            return
         recommendations.append({'id': identifier, 'category': category, 'priority': priority,
                                 'title': title, 'detail': detail, 'evidence': evidence, 'page': page})
 
-    for group, label in [('squad', 'Effectif senior'), ('academy', 'Académie')]:
+    groups = [('squad', 'Effectif de la sélection')] if selection else [('squad', 'Effectif senior'), ('academy', 'Académie')]
+    for group, label in groups:
         source = state.get(group+'_source') or {}
         timestamp = source.get('observed_at')
         sources[group] = f'{source.get("source", "Source importée")} · {timestamp}' if timestamp else None
@@ -392,7 +400,7 @@ def build_report(state, objective='balanced', energy_floor=60, season=None, *, g
             warnings.append(detail)
             recommend('freshness-'+group, 'data', 'high', 'Actualiser '+label.lower(), detail,
                       [sources[group] or 'Aucun instantané daté disponible.'], 'settings')
-    if len(squad) != len(state.get('squad', [])) or len(academy) != len(state.get('academy', [])):
+    if len(squad) != len(state.get('squad', [])) or (not selection and len(academy) != len(state.get('academy', []))):
         warnings.append('Identifiants de joueurs répétés : seule la première observation de chaque identifiant est utilisée.')
     if summary['unknown_energy']:
         warnings.append(f'{summary["unknown_energy"]} seniors ont une énergie inconnue, hors limites ou ambiguë ; éligibles sous réserve, sans filtre ni bonus énergie.')
@@ -407,9 +415,9 @@ def build_report(state, objective='balanced', energy_floor=60, season=None, *, g
     if unknown_injury:
         warnings.append(f'Disponibilité médicale non confirmée pour {unknown_injury} seniors ; vérifier avant de retenir le XV.')
     warnings.append('Banc : jusqu’à 8 réserves distinctes, choisies pour compléter les rôles couverts puis selon leur meilleure affinité ; qualifications de première ligne et remplacements simultanés à vérifier.')
-    if period == 'unknown':
+    if not selection and period == 'unknown':
         warnings.append('Date de jeu absente ou invalide : aucun créneau ajouté ; sélectionner une saison ne confirme pas le calendrier actuel.')
-    else:
+    elif not selection:
         warnings.append(f'Horizon fondé sur la dernière date de jeu importée : saison {int(observed_season)}, semaine {int(number(date.get("round")))}. Le calendrier réel actuel reste à vérifier.')
     if lineup['unfilled']:
         recommend('lineup-incomplete', 'squad', 'high', 'Compléter les postes calculables',
@@ -446,7 +454,9 @@ def build_report(state, objective='balanced', energy_floor=60, season=None, *, g
         'development': 'Comparer les jeunes seniors proposés aux titulaires habituels, puis suivre leurs progrès réels.',
     }
     phases = []
-    if period in ('past', 'unknown'):
+    if selection:
+        pass
+    elif period in ('past', 'unknown'):
         phases.append({'phase': 'Bilan archivé' if period == 'past' else 'Calendrier à confirmer',
                        'weeks': f'Saison {season}',
                        'actions': ['Conserver les séances enregistrées ; aucun ajout automatique.',
@@ -465,7 +475,7 @@ def build_report(state, objective='balanced', energy_floor=60, season=None, *, g
     members = number(meta.get('members'))
     sections = ['standing', 'uncovered', 'covered', 'members', 'corporate']
     seats = {key: number(meta.get('stadium_'+key)) for key in sections}
-    if members is not None and 0 <= members <= 1_000_000 and all(value is not None and value >= 0 for value in seats.values()):
+    if not selection and members is not None and 0 <= members <= 1_000_000 and all(value is not None and value >= 0 for value in seats.values()):
         stadium = stadium_plan(members, seats, 9)
         recommend('stadium-scenario', 'stadium', 'low', 'Comparer un scénario de capacité',
                   'Scénario indicatif de 9 places par membre, avec les ratios de l’outil stade. Vérifier affluence, coûts et trésorerie du jeu avant toute décision ; aucune construction recommandée automatiquement.',
@@ -485,7 +495,9 @@ def build_report(state, objective='balanced', energy_floor=60, season=None, *, g
         'Matchs de la bibliothèque privée du manager, sans rattachement automatique au club : couverture = événements classés / tous événements. Tendance descriptive seulement à partir de 60 % de couverture et 20 actions classées du côté étudié ; dominante si au moins 50 % de ces actions. Les inférences de commentaires sont comptées, aucune causalité avec le résultat.',
         'Fraîcheur : avertissement après 7 jours ou date absente/incohérente ; la date d’import ne prouve pas que les mesures sont actuelles. Saison et semaine sont les dernières observations importées, pas une horloge du jeu.',
     ]
-    return {'team': {k: state['current_team'][k] for k in ('id', 'name', 'country')},
+    if selection:
+        methodology = [line for line in methodology if not line.startswith('Académie uniquement')]
+    return {'team': {**{k: state['current_team'][k] for k in ('id', 'name', 'country')}, **team_identity(state['current_team']['id'])},
             'objective': objective, 'season': season, 'generated_at': generated_at,
             'sources': sources, 'warnings': warnings, 'summary': summary, 'lineup': lineup,
             'recommendations': recommendations, 'training': training, 'season_plan': phases,

@@ -137,3 +137,13 @@ Restaurer les données : arrêter le service, extraire une archive contrôlée d
 La migration initiale vers les espaces privés utilise `python -m deploy.migrate_managers --data /var/lib/brt`, service arrêté et sauvegarde préalable. Elle transfère les sources historiques vers leurs espaces privés respectifs. Ne jamais revenir au code v1 après cette migration sans restaurer la sauvegarde v1 complète. Les secrets transitent uniquement par l’entrée standard.
 
 Photos, créations BRT, auteurs et licences : [visuels](docs/visual-assets.md) et [marques des clubs](docs/rugby-club-assets.md), également accessibles dans les crédits de l’interface.
+
+
+## Retour de Franck du 31 octobre — version 2.5
+
+- Conseils d’effectif : couverture des compétences, forces et faiblesses relatives, profils et besoins individuels, forme/énergie/blessures explicites. Étoiles cumulées et génération indicative pour les jeunes ; aucun seuil d’exclusion automatique à 29 ans.
+- Académie : projection sur une à quatre saisons, cibles par compétence, hypothèse +0,20 et plafond 13,99, valeurs14 et inconnues préservées ; ni IGT ni maintien réel en académie prédits.
+- Sélections privées U20/NT : rattachement avec vérification du sélectionneur, identifiants distincts des clubs, observations, XV local et progression. Suspension réversible du suivi avec conservation de l’historique.
+- Préparation du prochain match : calendrier Classic et jusqu’à cinq rencontres documentées de l’adversaire, parmi les vingt dernières retournées. Côtés, dates, couverture et dénominateurs conservés. Le drapeau officiel botmatch (deux bots) est exclu ; aucun résultat ni tactique n’est inventé.
+- Tutoriel enrichi pour chaque parcours.
+

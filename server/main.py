@@ -20,6 +20,7 @@ from .classic import ClassicClient,ClassicError
 from .accounts import Accounts,PrivateStore,active_store
 from .manager import import_manager
 from .optimization import build_report
+from .coach_advice import build_coach_advice
 from .vacation import VacationService,VacationRule,VacationError
 from .lineup_lab import register_lineup_lab
 from .insights import register_insights
@@ -32,6 +33,9 @@ from .contact import register_contact,contact_history
 from .auth_security import init_login_security,consume_login
 from .antibot import register_antibot,verify as verify_antibot
 from .exports import export_chunks
+from .team_identity import TEAM_PATTERN,OPTIONAL_TEAM_PATTERN,CLUB_ONLY,describe_team,is_selection,require_club_id
+from .national import register_national,sync_selection,selection_game_date
+from .match_prep import FixturesRequest,ScoutRequest,list_upcoming_fixtures,scout_opponent
 
 class Model(BaseModel):
     model_config=ConfigDict(extra='forbid')
@@ -50,7 +54,7 @@ class ManagerImport(Model):
     developer_id:str=Field(default='',max_length=30)
     developer_key:str=Field(default='',max_length=200)
 class TeamRef(Model):
-    team_id:str=Field(pattern=r'^\d{1,15}$')
+    team_id:str=Field(pattern=TEAM_PATTERN)
 class Team(TeamRef):
     name:str=Field(min_length=1,max_length=100)
     country:str=Field(default='BE',pattern=r'^[A-Z]{2}$')
@@ -108,6 +112,7 @@ class VacationOptions(Model):
         return list(dict.fromkeys(value))
 
 class VacationPreview(TeamRef):
+    team_id:str=Field(pattern=r'^\d{1,15}$')
     fixture_id:str=Field(default='0',pattern=r'^\d{1,15}$')
     source:Literal['optimized','saved']='optimized'
     options:VacationOptions=Field(default_factory=VacationOptions)
@@ -185,6 +190,8 @@ def create_app(directory=None,password=None,secure=None):
     @app.exception_handler(RequestValidationError)
     async def validation_error(request,exc):
         # Pydantic's default response echoes submitted values, including secret fields.
+        if request.url.path.startswith('/api/vacation/') and any('team_id' in e['loc'] and is_selection(e.get('input')) for e in exc.errors()):
+            return JSONResponse({'detail':CLUB_ONLY},status_code=422)
         return JSONResponse({'detail':'Vérifiez les champs du formulaire.','fields':[{'loc':e['loc'],'type':e['type']} for e in exc.errors()]},status_code=422)
 
     @app.middleware('http')
@@ -212,6 +219,7 @@ def create_app(directory=None,password=None,secure=None):
     async def auth(request:Request):
         session=request.state.session
         if not session:raise HTTPException(401,'Connexion requise.')
+        if request.method in ['GET','HEAD'] and request.headers.get('x-csrf-token') and not secrets.compare_digest(request.headers['x-csrf-token'],session['csrf']):raise HTTPException(403,'Session à actualiser.')
         if request.method not in ['GET','HEAD'] and not secrets.compare_digest(request.headers.get('x-csrf-token',''),session['csrf']):raise HTTPException(403,'Session à actualiser (protection CSRF).')
         return session
 
@@ -220,8 +228,12 @@ def create_app(directory=None,password=None,secure=None):
         if not r:raise HTTPException(404,'Club introuvable.')
         return dict(r)
 
+    def require_club(tid):
+        require_team(tid)
+        require_club_id(tid)
+
     @app.get('/api/health')
-    def health():return {'ok':True,'version':'2.4.0'}
+    def health():return {'ok':True,'version':'2.5.0'}
 
     @app.post('/api/login')
     def login(body:Login,request:Request,response:Response):
@@ -318,7 +330,7 @@ def create_app(directory=None,password=None,secure=None):
         with store.db() as db:rows=db.execute('SELECT id,team_id,youth,substr(source,1,500) AS source,substr(observed_at,1,80) AS observed_at,substr(imported_at,1,80) AS imported_at,digest,payload,game_date FROM snapshots WHERE team_id=? AND youth=? ORDER BY id DESC LIMIT 2',(tid,int(youth))).fetchall()
         if not rows:return [],None
         latest=dict(rows[0]);players=json.loads(latest.pop('payload'));previous={p['id']:p for p in json.loads(rows[1]['payload'])} if len(rows)>1 else {}
-        game_date=json.loads(latest['game_date']) if latest['game_date'] else store.get('game_date',{})
+        game_date=json.loads(latest['game_date']) if latest['game_date'] else ({} if is_selection(tid) else store.get('game_date',{}))
         for p in players:
             p['metrics']=player_metrics(p);p['wc_projection']=wc_projection(p,game_date)
             old=previous.get(p['id'],{});p['changes']={k:{'before':old[k],'after':p[k]} for k in SKILLS if k in old and k in p and old[k]!=p[k]}
@@ -328,12 +340,12 @@ def create_app(directory=None,password=None,secure=None):
     def state(team_id:str='',session=Depends(auth)):
         user={'username':session['username'],'admin':bool(session['admin'])}
         with store.db() as db:
-            available=[dict(r) for r in db.execute('SELECT id,name,country FROM teams ORDER BY name')]
+            available=[describe_team(dict(r)) for r in db.execute('SELECT id,name,country FROM teams ORDER BY name')]
         if not available:return {'setup_required':True,'teams':[],'user':user,'profile':get_profile(store),'csrf':session['csrf'],'classic_account':store.get('classic_account'),'settings':{'developer_ready':bool(credentials().get('dk')),'manager_ready':False}}
         if team_id not in [t['id'] for t in available]:team_id='72450' if any(t['id']=='72450' for t in available) else available[0]['id']
         current=require_team(team_id);academy,asnap=snapshot_data(team_id,True);squad,ssnap=snapshot_data(team_id,False)
         with store.db() as db:
-            teams=[dict(r) for r in db.execute('SELECT id,name,country FROM teams ORDER BY name')]
+            teams=[describe_team(dict(r)) for r in db.execute('SELECT id,name,country FROM teams ORDER BY name')]
             notes={r['player_id']:{'text':r['text'],'watch':bool(r['watch'])} for r in db.execute('SELECT * FROM notes WHERE team_id=?',(team_id,))}
             plans={str(r['season']):json.loads(r['grid']) for r in db.execute('SELECT * FROM plans WHERE team_id=?',(team_id,))}
             snapshots=[dict(r) for r in db.execute('SELECT id,youth,substr(source,1,500) AS source,substr(observed_at,1,80) AS observed_at,substr(imported_at,1,80) AS imported_at FROM snapshots WHERE team_id=? ORDER BY id DESC LIMIT 40',(team_id,))]
@@ -343,11 +355,36 @@ def create_app(directory=None,password=None,secure=None):
                 match.update(updated_at=row['updated_at'],summary=attack_summary(events),event_count=len(events))
                 matches.append(match)
         creds=credentials(team_id)
-        return {'user':user,'profile':get_profile(store),'setup_required':False,'classic_account':store.get('classic_account'),'workbench_identity':identity_for(store,team_id),'teams':teams,'current_team':{**current,'meta':json.loads(current['meta'])},'academy':academy,'squad':squad,'academy_source':asnap,'squad_source':ssnap,'snapshots':snapshots,'notes':notes,'plans':plans,'matches':matches,'game_date':store.get('game_date'),
-          'lineup':store.get('lineup:'+team_id,{}),'training':store.get('training:'+team_id,[]),'settings':{'developer_ready':bool(creds.get('d') and creds.get('dk')),'manager_ready':bool(creds.get('m') and creds.get('mk'))},'csrf':session['csrf']}
+        account=store.get('classic_account')
+        manager_ready=bool(store.get('api_manager') and account and team_id in account.get('selection_ids',[])) if is_selection(team_id) else bool(creds.get('m') and creds.get('mk'))
+        current_meta=json.loads(current['meta'])
+        game_date=selection_game_date(current_meta.get('game_date')) if is_selection(team_id) else store.get('game_date')
+        return {'user':user,'profile':get_profile(store),'setup_required':False,'classic_account':account,'workbench_identity':identity_for(store,team_id),'teams':teams,'current_team':describe_team({**current,'meta':current_meta}),'academy':academy,'squad':squad,'academy_source':asnap,'squad_source':ssnap,'snapshots':snapshots,'notes':notes,'plans':plans,'matches':matches,'game_date':game_date,
+          'lineup':store.get('lineup:'+team_id,{}),'training':store.get('training:'+team_id,[]),'settings':{'developer_ready':bool(creds.get('d') and creds.get('dk')),'manager_ready':manager_ready},'csrf':session['csrf']}
+
+    @app.get('/api/coach-advice')
+    def coach_advice(request:Request,team_id:str=Query(pattern=TEAM_PATTERN),session=Depends(auth)):
+        if not secrets.compare_digest(request.headers.get('x-csrf-token',''),session['csrf']):
+            raise HTTPException(403,'Session à actualiser.')
+        require_team(team_id)
+        return build_coach_advice(state(team_id,session))
+
+    @app.post('/api/match-preparation/fixtures',dependencies=[Depends(auth)])
+    async def match_preparation_fixtures(body:FixturesRequest):
+        require_club(body.team_id)
+        throttle('match-preparation:'+body.team_id)
+        try:return await asyncio.wait_for(list_upcoming_fixtures(ClassicClient(credentials(body.team_id)),body.team_id),90)
+        except asyncio.TimeoutError:raise HTTPException(504,'Classic tarde à répondre. Relancez la lecture du calendrier.') from None
+
+    @app.post('/api/match-preparation/scout',dependencies=[Depends(auth)])
+    async def match_preparation_scout(body:ScoutRequest):
+        require_club(body.team_id)
+        throttle('match-scout:'+body.team_id)
+        try:return await asyncio.wait_for(scout_opponent(ClassicClient(credentials(body.team_id)),body.team_id,body.fixture_id),90)
+        except asyncio.TimeoutError:raise HTTPException(504,'Classic tarde à répondre. Relancez l’étude de l’adversaire.') from None
 
     @app.get('/api/optimization')
-    def optimization(team_id:str=Query(default='',pattern=r'^(\d{1,15})?$'),
+    def optimization(team_id:str=Query(default='',pattern=OPTIONAL_TEAM_PATTERN),
                      objective:Literal['balanced','recovery','development']='balanced',
                      energy_floor:float=Query(default=60,ge=0,le=110),
                      energy_scale:Literal['auto','percent','level']='auto',
@@ -365,18 +402,19 @@ def create_app(directory=None,password=None,secure=None):
 
     @app.post('/api/teams',dependencies=[Depends(auth)])
     def add_team(body:Team):
+        require_club_id(body.team_id)
         with store.db() as db:db.execute('INSERT INTO teams(id,name,country) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,country=excluded.country',(body.team_id,body.name,body.country))
         return {'ok':True}
 
     @app.post('/api/settings',dependencies=[Depends(auth)])
     def settings(body:Settings):
-        require_team(body.team_id)
+        require_club(body.team_id)
         store.save_secrets(body.team_id,{'d':body.developer_id,'dk':body.developer_key,'iv':body.developer_iv,'m':body.manager_id,'mk':body.manager_key})
         return {'ok':True}
 
     @app.post('/api/import',dependencies=[Depends(auth)])
     async def upload(file:UploadFile=File(...),team_id:str=Form('72450'),youth:bool=Form(True)):
-        require_team(team_id);data=await file.read(8_000_001)
+        require_club(team_id);data=await file.read(8_000_001)
         try:
             result=await run_in_threadpool(parse_import,data,file.filename or '')
             count=await run_in_threadpool(store.import_result,result,team_id,youth,Path(file.filename or 'import').name)
@@ -397,7 +435,7 @@ def create_app(directory=None,password=None,secure=None):
 
     @app.post('/api/plans',dependencies=[Depends(auth)])
     def plans(body:Plan):
-        require_team(body.team_id)
+        require_club(body.team_id)
         if len(body.grid)!=4 or any(len(row)!=16 or any(s not in SKILLS+[''] for s in row) for row in body.grid):raise HTTPException(422,'Planning attendu : 4 créneaux × 16 semaines.')
         with store.db() as db:
             # Reserve the write lock before reading so a competing preview cannot
@@ -481,6 +519,11 @@ def create_app(directory=None,password=None,secure=None):
 
     @app.post('/api/sync',dependencies=[Depends(auth)])
     async def sync(body:Sync):
+        if is_selection(body.team_id):
+            require_team(body.team_id)
+            if body.kind not in ('squad','team'):raise HTTPException(422,CLUB_ONLY)
+            throttle('selection-sync:'+body.team_id)
+            return await sync_selection(store,credentials(),body.team_id)
         require_team(body.team_id);throttle(body.team_id+body.kind);client=ClassicClient(credentials(body.team_id))
         try:
             if body.kind in ['academy','squad']:
@@ -518,6 +561,7 @@ def create_app(directory=None,password=None,secure=None):
             save_match(match.model_dump());return {'ok':True,'summary':attack_summary(match.events)}
         except ValueError as e:raise HTTPException(422,str(e)[:300]) from None
 
+    register_national(app,store,auth,credentials,throttle,require_team)
     register_lineup_lab(app,store,auth,require_team,state)
     register_insights(app,store,auth,require_team,state)
     register_workbench(app,store,auth,require_team,state,accounts,vacation_service)

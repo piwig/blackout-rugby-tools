@@ -4,6 +4,7 @@ import type {Actions} from './App';
 import {fmt, labels, short, skills, type State} from './types';
 import type {OptimizationCategory, OptimizationObjective, OptimizationPriority, OptimizationReport} from './optimization-types';
 import {LineupLab} from './lineup-lab';
+import {CoachAdvice} from './coach-advice';
 
 const goals = [
   {id: 'balanced', label: 'Performance', detail: 'Favoriser les affinités aux postes.', Icon: Target},
@@ -60,6 +61,7 @@ export function Optimization({d, act, go, busy, openPlayer}: Actions) {
   const currentError = loadError?.key === key && loadError.state === d ? loadError.message : '';
   const loading = validOptions && !saveConflict && !fresh && !currentError;
   const locked = busy || saving || saveConflict;
+  const reportSelection = !!report?.team.id.includes(':');
   const canSave = !!report && report.team.id === d.current_team.id && !locked && fresh;
   const ownedIds = d.classic_account?.team_ids || [];
 
@@ -146,7 +148,7 @@ export function Optimization({d, act, go, busy, openPlayer}: Actions) {
         <label className="opt-energy">Seuil d’énergie normalisé <span className="opt-range"><input type="range" min="0" max="110" disabled={locked} value={Number(energy) || 0} aria-label="Seuil d’énergie normalisé, curseur de 0 à 110 pour cent" onChange={e => setEnergy(e.target.value)}/><input type="number" min="0" max="110" step="1" aria-label="Seuil d’énergie normalisé, de 0 à 110 pour cent" value={energy} disabled={locked} onChange={e => setEnergy(e.target.value)}/><span>%</span></span></label>
         <label>Format des énergies<select value={energyScale} disabled={locked} onChange={e => setEnergyScale(e.target.value as 'auto' | 'percent' | 'level')}><option value="auto">Auto (détection)</option><option value="percent">Pourcentage (0–110)</option><option value="level">Niveau (1–11)</option></select></label>
         <label>Saison à préparer<input type="number" min="1" max="999" step="1" value={season} disabled={locked} onChange={e => setSeason(e.target.value)}/></label>
-        <label>Périmètre<select value={scope} disabled={locked} onChange={e => setScope(e.target.value as 'current' | 'all')}><option value="current">Le club courant</option><option value="all">Tous les clubs de cet espace</option></select></label>
+        <label>Périmètre<select value={scope} disabled={locked} onChange={e => setScope(e.target.value as 'current' | 'all')}><option value="current">L’équipe courante</option><option value="all">Toutes les équipes de cet espace</option></select></label>
       </div>
       <p className="opt-helper"><Info size={15} aria-hidden="true"/>Le seuil écarte les joueurs sous cette énergie connue. {energyScale === 'auto' ? 'Si toutes les valeurs sont ≤ 11, le format est ambigu : choisissez leur échelle pour activer le seuil et le bonus d’énergie.' : energyScale === 'level' ? 'Les niveaux de 1 à 11 sont convertis en pourcentages approximatifs (niveau × 10).' : 'Les pourcentages Classic peuvent atteindre 110 %.'} Une énergie inconnue reste signalée.</p>
       {!validOptions && <p className="opt-inline-error" role="alert">Choisissez une énergie entière entre 0 et 110 et une saison entière entre 1 et 999.</p>}
@@ -163,11 +165,12 @@ export function Optimization({d, act, go, busy, openPlayer}: Actions) {
         <div className="opt-tabs" role="tablist" aria-label="Contenu du bilan" onKeyDown={tabKeys}>{tabs.map(({id, label, Icon}) => <button key={id} id={'opt-tab-' + id} role="tab" aria-selected={tab === id} aria-controls={'opt-panel-' + id} tabIndex={tab === id ? 0 : -1} onClick={() => setTab(id)}><Icon size={17} aria-hidden="true"/>{label}</button>)}</div>
         <div id={'opt-panel-' + tab} role="tabpanel" aria-labelledby={'opt-tab-' + tab} tabIndex={0} className="opt-panel">
           {tab === 'summary' && <>
+            {report.team.id===d.current_team.id&&<CoachAdvice d={d}/>}
             <div className="opt-stats">
               <article><Users size={20}/><span>Seniors éligibles</span><strong>{report.summary.eligible}<small> / {report.summary.seniors}</small></strong><p>Selon les critères connus</p></article>
               <article><Target size={20}/><span>Places proposées</span><strong>{report.lineup.players.filter(p => p.slot <= 15).length}<small> / 15</small></strong><p>{report.lineup.players.filter(p => p.slot > 15).length} remplaçant(s) proposés</p></article>
               <article><Battery size={20}/><span>Sous le seuil d’énergie</span><strong>{report.summary.low_energy}</strong><p>{report.summary.unknown_energy} énergie(s) inconnue(s)</p></article>
-              <article><Sprout size={20}/><span>Jeunes à développer</span><strong>{report.summary.academy}</strong><p>Dans l’académie importée</p></article>
+              {!reportSelection&&<article><Sprout size={20}/><span>Jeunes à développer</span><strong>{report.summary.academy}</strong><p>Dans l’académie importée</p></article>}
             </div>
             {report.warnings.length > 0 && <div className="opt-warning"><CircleAlert size={21}/><div><h3>Les points de vigilance</h3><ul>{report.warnings.map((warning, i) => <li key={i}>{warning}</li>)}</ul></div></div>}
             <div className="opt-recommendation-heading"><div><span className="eyebrow">VOS PROCHAINES DÉCISIONS</span><h2>Le carnet de préparation</h2></div><div className="opt-filters"><label><span className="opt-sr-only">Catégorie des conseils</span><select value={category} onChange={e => setCategory(e.target.value)}><option value="all">Tous les sujets</option>{Object.entries(categories).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label><label><span className="opt-sr-only">Priorité des conseils</span><select value={priority} onChange={e => setPriority(e.target.value)}><option value="all">Toutes les priorités</option>{Object.entries(priorities).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label></div></div>
@@ -175,7 +178,7 @@ export function Optimization({d, act, go, busy, openPlayer}: Actions) {
             <div className="opt-sources"><span><ShieldCheck size={17}/>Les données derrière ce bilan</span><p>Effectif : {sourceDate(report.sources.squad)}<br/>Académie : {sourceDate(report.sources.academy)}</p><button className="text-button" onClick={() => go('settings')}>Actualiser mes sources<ArrowUpRight size={15}/></button></div>
           </>}
           {tab === 'lineup' && <details className="opt-excluded"><summary>Voir la proposition générale du bilan</summary><LineupPreview report={report} canSave={canSave} onSave={() => setConfirmation({kind: 'lineup', report})} go={go}/></details>}
-          {tab === 'season' && <SeasonPreview report={report} d={d} canSave={canSave} onSave={() => setConfirmation({kind: 'training', report})} go={go}/>}
+          {tab === 'season' && (reportSelection ? <div className="notice">La formation des joueurs d’une sélection reste gérée par leurs clubs.</div> : <SeasonPreview report={report} d={d} canSave={canSave} onSave={() => setConfirmation({kind: 'training', report})} go={go}/>)}
           {tab === 'matches' && <MatchPreview reports={reports} go={go}/>}
         </div>
         <details className="opt-methodology"><summary><span><Info size={18}/>Comprendre les calculs et leurs limites</span><ChevronDown size={18}/></summary><div><p>Une aide à la préparation fondée sur les données importées. Ces indices et recommandations ne sont pas une simulation officielle de Blackout Rugby et ne prédisent pas le résultat d’un match.</p><ul>{report.methodology.map((method, i) => <li key={i}>{method}</li>)}</ul><p>Les sauvegardes concernent uniquement cet outil. Les choix définitifs restent à reporter dans le jeu.</p></div></details>

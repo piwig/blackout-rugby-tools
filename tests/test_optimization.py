@@ -236,6 +236,31 @@ def test_stadium_only_gets_numeric_advice_with_complete_capacity_data():
     assert any(r['category'] == 'stadium' for r in full['recommendations'])
 
 
+@pytest.mark.parametrize('kind', ['u20', 'nt'])
+def test_selection_report_keeps_xv_and_matches_without_club_academy_or_stadium_advice(kind):
+    events = [{'field': 1, 'possession': 0, 'att': 'percu'}] * 20
+    match = {'id': '9', 'type': 1 if kind == 'u20' else 2, 'home': 'Belgium', 'away': 'Other', 'summary': attack_summary(events)}
+    data = state([player(i) for i in range(1, 24)], academy=[player(100)],
+                 academy_source=None, matches=[match], plans={'62': [['strength'] * 16 for _ in range(4)]})
+    data['current_team'] = {'id': kind + ':9', 'name': 'Belgium', 'country': 'BE',
+                            'meta': {'members': 1000, **{'stadium_'+key: 0 for key in ['standing', 'uncovered', 'covered', 'members', 'corporate']}}}
+    original = deepcopy(data)
+    result = report(data)
+    assert result['summary']['selected'] == 15
+    assert result['matches'][0]['sides'][0]['dominant'] == 'Percussion'
+    assert not any(item['category'] in ('academy', 'training', 'stadium') or item['page'] in ('academy', 'training', 'stadium') for item in result['recommendations'])
+    assert not any('académie' in warning.lower() for warning in result['warnings'])
+    assert result['training']['applicable'] is False
+    assert result['training']['grid'] == []
+    assert result['training']['priorities'] == []
+    assert result['training']['added'] == 0
+    assert result['season_plan'] == []
+    assert set(result['sources']) == {'squad'}
+    assert result['team']['kind'] == kind
+    assert result['team']['classic_id'] == '9'
+    assert data == original
+
+
 def sign_in(client, username='piwig', password='Testing-password-1234'):
     response = client.post('/api/login', json={'username': username, 'password': password})
     assert response.status_code == 200

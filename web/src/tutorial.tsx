@@ -3,6 +3,21 @@ import {ArrowLeft,ArrowRight,BookOpen,Check,CheckCircle2,ChevronRight,Compass,He
 
 type Lesson={id:string;title:string;duration:string;intro:string;steps:[string,string][];result:string;tip:string;page:string;action:string};
 const lessons:Lesson[]=[
+  {id:'academy-horizon',title:'Projeter l’académie sur plusieurs saisons',duration:'3 min',intro:'Dans Entraînement, comparez les jeunes et leurs cibles sur un horizon de une à quatre saisons.',steps:[
+    ['Choisir le jeune et son horizon','Filtrez par génération indicative et comparez les étoiles cumulées. Vérifiez la saison et la semaine de départ ; la semaine courante est exclue par défaut, car son entraînement peut déjà être compris dans l’observation.'],
+    ['Préparer les séances','Le programme de chaque saison alimente la projection. Le gain par défaut est de 0,20 par compétence et séance, plafonné à 13,99. Un 14 déjà observé reste conservé ; les gains en match et les promotions ne sont pas simulés.'],
+    ['Comparer les cibles','Renseignez vos cibles par compétence. Les objectifs enregistrés sont rappelés ; les cibles saisies ici servent à la comparaison et restent locales à cette vue. Enregistrez les modifications du programme avant de quitter la page.']
+  ],result:'Vous voyez les séances manquantes et les compétences projetées saison par saison.',tip:'Les compétences masquées restent inconnues. La projection suppose que le jeune reste à l’académie sur l’horizon choisi ; la génération affichée ne garantit pas une sélection U20.',page:'training',action:'Projeter ma formation'},
+  {id:'national',title:'Suivre une sélection U20 ou nationale',duration:'2 min',intro:'Une sélection dispose de son propre espace, séparé des clubs, des notes et de leur historique.',steps:[
+    ['Rattacher la sélection','Dans Connexion & données, importez votre compte Classic, puis choisissez le pays et le type de sélection. Classic doit confirmer que ce compte est le sélectionneur actuel.'],
+    ['Préparer et comparer','Choisissez la sélection en haut de page pour consulter l’effectif, préparer un XV local, analyser les matchs et suivre les observations. Les clubs gardent la gestion des entraînements et de leurs finances.'],
+    ['Actualiser ou suspendre','Actualisez l’effectif régulièrement. Si votre mandat se termine, suspendez sa synchronisation depuis Connexion & données ; vos observations et notes restent conservées.']
+  ],result:'Votre sélection apparaît parmi vos équipes sans mélanger ses données avec celles d’un club.',tip:'Cette connexion lit les données et prépare votre travail dans BRT. Elle ne publie pas de composition nationale dans Classic.',page:'settings',action:'Gérer mes sélections'},
+  {id:'coach',title:'Lire les conseils du coach',duration:'2 min',intro:'Optimisation et Mode vacances donnent une lecture des points forts, des besoins et des profils observés.',steps:[
+    ['Vérifier la couverture','Une compétence inconnue ne compte jamais comme zéro. Les comparaisons collectives demandent suffisamment de joueurs et de compétences observés.'],
+    ['Lire le profil individuel','Le conseil indique une affinité de poste et une compétence à travailler. Confirmez la forme, l’énergie et les blessures avant de décider ; l’âge et le CSR ne suffisent pas à conclure.'],
+    ['Planifier la prochaine observation','Selon le retour de Franck, l’entraînement senior a lieu le mardi à 12 h et celui des jeunes le jeudi à 12 h, heure locale du jeu. Confirmez l’horaire dans Classic et actualisez après la séance pour mesurer l’évolution.']
+  ],result:'Vous préparez des priorités fondées sur les compétences réellement connues.',tip:'Ces conseils sont indicatifs. Un joueur peut encore progresser après 29 ans ; suivez les évolutions individuelles plutôt qu’un seuil d’âge automatique.',page:'optimization',action:'Lire les conseils'},
   {id:'registration',title:'Créer son compte BRT',duration:'1 min',intro:'Chaque manager crée son espace privé depuis la page de connexion.',steps:[
     ['Créer mon compte','Choisissez un identifiant, une adresse e-mail et un mot de passe de 12 caractères minimum. L’avatar est facultatif : maillot, bouclier, trophée ou ballon.'],
     ['Retrouver ses clubs','Après l’inscription, importez votre compte Classic avec sa clé manager. Vous pouvez aussi ajouter votre club par son identifiant puis importer un fichier de joueurs.'],
