@@ -41,6 +41,7 @@ from .match_review import effective_match,register_match_review
 from .match_routes import register_match_direct
 from .match_history import register_match_history
 from .coaching import register_coaching
+from .market import register_market
 
 PUBLIC_API_REQUESTS=frozenset({
     ('GET','/api/health'),
@@ -264,7 +265,7 @@ def create_app(directory=None,password=None,secure=None):
         require_club_id(tid)
 
     @app.get('/api/health')
-    def health():return {'ok':True,'version':'2.8.1'}
+    def health():return {'ok':True,'version':'2.9.0'}
 
     @app.post('/api/login')
     def login(body:Login,request:Request,response:Response):
@@ -599,6 +600,7 @@ def create_app(directory=None,password=None,secure=None):
     register_lineup_lab(app,store,auth,require_team,state)
     register_insights(app,store,auth,require_team,state)
     register_workbench(app,store,auth,require_team,state,accounts,vacation_service)
+    register_market(app,store,auth,require_team)
     register_starter(app,store,auth,require_team)
     register_profile(app,store,auth)
     register_progression(app,store,auth,require_team)

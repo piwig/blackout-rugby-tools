@@ -8,6 +8,7 @@ export const navigationItems = [
   {id:'training',label:'Entraînement',clubOnly:true},
   {id:'progression',label:'Progression'},
   {id:'stadium',label:'Stade & finances',clubOnly:true},
+  {id:'market',label:'Mercato & budget',clubOnly:true},
   {id:'vacation',label:'Mode vacances',clubOnly:true},
   {id:'profile',label:'Profil & affichage'},
   {id:'settings',label:'Connexion & données'},
@@ -19,7 +20,7 @@ export type NavigationId = typeof navigationItems[number]['id'];
 export const navigationGroups = [
   {id:'match',label:'Préparer le match',items:['squad','optimization','matches','season']},
   {id:'development',label:'Faire progresser',items:['academy','training','progression']},
-  {id:'club',label:'Piloter le club',items:['stadium','vacation']},
+  {id:'club',label:'Piloter le club',items:['stadium','market','vacation']},
   {id:'account',label:'Mon espace',items:['profile','settings','contact','guide']},
 ] as const;
 export type NavigationGroupId = typeof navigationGroups[number]['id'];

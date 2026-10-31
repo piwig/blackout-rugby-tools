@@ -14,6 +14,7 @@ const sectionPhotos:Record<string,{src:string;alt:string;position:string}>={
   matches:{src:'/images/antoine-dupont-2023.jpg',alt:'Antoine Dupont en action',position:'65% 42%'},
   training:{src:'/images/dan-carter-2015.jpg',alt:'Dan Carter lors de la Coupe du monde 2015',position:'66% 45%'},
   stadium:{src:'/images/rugby-matchday-v2.jpg',alt:'Illustration originale d’un stade de rugby avant le match',position:'65% 50%'},
+  market:{src:'/images/rugby-locker-v2.jpg',alt:'Ballon et équipement de rugby dans un vestiaire',position:'70% 55%'},
   settings:{src:'/images/rugby-locker-v2.jpg',alt:'Ballon, maillots et crampons dans un vestiaire',position:'70% 60%'}
 };
 

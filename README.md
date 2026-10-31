@@ -80,6 +80,10 @@ Les recommandations couvrent effectif, académie, entraînement, saison, stade e
 
 Les propositions et leur méthode sont consultables avant sauvegarde. Seul le club sélectionné dans l’application peut recevoir un XV ou un programme, après confirmation explicite. Ces écritures concernent uniquement l’outil. Le bilan peut être exporté sans clé API. Les paramètres d’énergie distinguent pourcentage premium jusqu’à 110 et niveau 1–11 ; un format ambigu est signalé avant d’appliquer un filtre. Voir `docs/optimization-methodology.md`.
 
+## Mercato & budget
+
+Dans **Mercato & budget**, préparez une liste privée de candidats et des projets de staff ou d’infrastructure. Le carnet rapproche les compétences d’un candidat de l’effectif et compare son prix, ses frais et son salaire supplémentaire à un budget daté. La projection porte sur quatre semaines et protège à la fois la trésorerie immédiate et la réserve future. Chaque scénario est étudié séparément ; les montants inconnus restent inconnus et empêchent de conclure à un achat compatible. L’enregistrement ne transmet aucun transfert, aucune enchère ni commande au jeu. Voir la [méthodologie du mercato](docs/market-methodology.md).
+
 ## Mode vacances
 
 La rubrique réunit les compositions de match à préparer à l’avance, la composition par défaut et le suivi daté par club. Deux modes : préparer des propositions à relire ou les envoyer automatiquement pendant la période autorisée. Tout démarre désactivé ; chaque manager choisit ses dates, son objectif, le format et le seuil d’énergie, les exclusions et les rôles de capitaine/buteur. Les clubs simplement suivis ne peuvent pas recevoir d’ordres.
