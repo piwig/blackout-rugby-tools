@@ -22,4 +22,10 @@ Un fichier réellement sans date garde le comportement compatible de l’ancien 
 
 ## Publication
 
-Les contrôles de production seront consignés après publication de l’archive issue de ces sources et du build vérifié.
+La version **2.12.1** a été publiée le 1er novembre 2026 depuis le commit `67767e33a3fb5250d5603191ae49aeac5a27b1cd`. L’archive déployée a pour SHA-256 `e675a9eb11bed7667be186f8847add0e283a3e18c1e75154bcebe3cb9d8de676`. Une revue indépendante a rapproché 283 fichiers sources avec le manifeste testé, en tenant compte de la normalisation des fins de ligne du packaging, et les 30 fichiers statiques octet pour octet.
+
+Après publication : service actif, santé/version attendues, intégrité et schémas SQLite vérifiés en lecture seule, volumes observés inchangés. Les 30 fichiers statiques servis correspondent à l’archive ; 48 accès à des routes privées sans session renvoient 401. Redirection HTTPS, en-têtes de sécurité et CAPTCHA actif contrôlés ; une connexion sans jeton CAPTCHA reçoit 403. Ces contrôles ne constituent pas un nouvel essai de connexion utilisateur avec résolution du CAPTCHA.
+
+Les sauvegardes avant et après publication ont réussi. L’archive créée par le nouveau producteur a ensuite passé un contrôle isolé des données et des sources, sans démarrer l’application restaurée ni déchiffrer les identifiants. Cet examen complète l’exercice Restic réel décrit plus haut.
+
+Une première installation a échoué parce que le script privé de transfert transmettait un masque de permissions trop restrictif à l’extraction. L’ancienne version a été retrouvée active et saine au contrôle. Le masque a été corrigé, puis la même archive a été installée dans un nouveau répertoire de version avant les vérifications finales ci-dessus. Les journaux intermédiaires sont conservés dans les preuves privées.

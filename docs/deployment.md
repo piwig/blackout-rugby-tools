@@ -8,6 +8,8 @@ Créer un environnement Python, installer `requirements.txt`, puis exécuter `np
 
 Avant publication, exécuter les tests Python, les tests Node et `node web/scripts/check-i18n.mjs`. `deploy/package_release.py` prépare une archive à partir des sources commises et du build, en excluant les dossiers privés.
 
+À l’extraction, vérifier que le compte du service peut lire les sources et traverser leurs répertoires. Avec `tar --no-same-permissions`, un masque hérité `077` rendrait ces fichiers publics illisibles pour ce compte : utiliser un masque adapté, par exemple `022`, uniquement pour l’installation du code. Conserver des permissions privées distinctes pour données, clés, configurations et archives de sauvegarde.
+
 ## Configurer le service
 
 Exécuter avec un compte système dédié et un seul processus Uvicorn :
