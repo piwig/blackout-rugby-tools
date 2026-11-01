@@ -29,7 +29,7 @@ class ProfilePreferences(StrictProfile):
     density: Literal['comfortable', 'compact'] = 'comfortable'
     text_size: Literal['normal', 'large'] = 'normal'
     motion: Literal['system', 'reduced'] = 'system'
-    start_page: Literal['home', 'progression', 'academy', 'squad', 'season'] = 'home'
+    start_page: Literal['home', 'progression', 'academy', 'squad', 'coaching', 'season'] = 'home'
     banner: Literal['matchday', 'clubhouse'] = 'matchday'
     dashboard_sections: list[DashboardSection] = Field(
         default_factory=lambda: list(DASHBOARD_SECTIONS), max_length=6)

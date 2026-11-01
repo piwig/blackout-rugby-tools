@@ -59,6 +59,8 @@ async def import_manager(store,shared,access_key,developer_id='',developer_key='
         for tid,team,datasets in prepared:
             name=str(team.get('name',tid))[:100];country=str(team.get('country_iso','??'))[:2]
             meta={k:team[k] for k in META_FIELDS if k in team};meta['date_maj']=observed
+            if any('stadium_'+key in meta for key in ('standing','uncovered','covered','members','corporate')):
+                meta.update(stadium_source='API Classic',stadium_observed_on=observed[:10])
             db.execute('INSERT INTO teams(id,name,country,meta) VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,country=excluded.country,meta=excluded.meta',(tid,name,country,pack(meta)))
             counts={}
             for youth,players in datasets:

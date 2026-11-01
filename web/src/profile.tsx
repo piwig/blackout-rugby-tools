@@ -14,7 +14,7 @@ export type ProfilePreferences = {
   language:Locale;
   display_name:string;initials:string;jersey_number:number;favorite_club:FavoriteClub;avatar_style:AvatarStyle;
   density:'comfortable'|'compact';text_size:'normal'|'large';motion:'system'|'reduced';
-  start_page:'home'|'progression'|'academy'|'squad'|'season';banner:'matchday'|'clubhouse';
+  start_page:'home'|'progression'|'academy'|'squad'|'coaching'|'season';banner:'matchday'|'clubhouse';
   dashboard_sections:DashboardSection[];
 };
 export type ProfileDocument = {revision:number;profile:ProfilePreferences;updated_at:string|null};
@@ -25,7 +25,7 @@ export const defaultProfile:ProfilePreferences = {
   dashboard_sections:[...dashboardSections],
 };
 const sectionNames:Record<DashboardSection,string> = {priorities:'Priorités du jour',metrics:'Repères du club',progress:'Progression dans le temps',talents:'Talents à suivre',actions:'Prochaines étapes',gallery:'Inspirations rugby'};
-const pageNames:Record<ProfilePreferences['start_page'],string> = {home:'Tableau de bord',progression:'Progression',academy:'Académie',squad:'Effectif & XV',season:'Saison & calendrier'};
+const pageNames:Record<ProfilePreferences['start_page'],string> = {home:'Tableau de bord',progression:'Progression',academy:'Académie',squad:'Effectif & XV',coaching:'Staff & tactique',season:'Saison & calendrier'};
 const fieldNames:Record<keyof ProfilePreferences,string> = {language:'Langue',display_name:'Nom affiché',initials:'Initiales',jersey_number:'Numéro de maillot',favorite_club:'Club favori',avatar_style:'Avatar',density:'Densité',text_size:'Taille du texte',motion:'Mouvements',start_page:'Page de départ',banner:'Bannière',dashboard_sections:'Rubriques d’accueil'};
 const errorText = (error:unknown) => error instanceof Error ? error.message : 'Le profil n’a pas pu être chargé. Réessayez.';
 const profileEqual = (left:ProfilePreferences,right:ProfilePreferences) => JSON.stringify(left)===JSON.stringify(right);

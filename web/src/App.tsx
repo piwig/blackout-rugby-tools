@@ -18,6 +18,10 @@ import {Dashboard} from './dashboard';
 import {SelectionDashboard} from './selection-dashboard';
 import {PlayerPool} from './player-pool';
 import {PlayerPerformance} from './player-performance';
+import {CoachLab} from './coach-lab';
+import {StadiumEconomy} from './stadium-economy';
+import {TransferLedger} from './transfer-ledger';
+import {ManagerWorkspace} from './manager-workspace';
 import {Progression} from './progression';
 import {RegistrationForm} from './registration';
 import {AntiBot} from './antibot';
@@ -27,6 +31,7 @@ import {ContactPage} from './contact';
 import {ProfileSettings,ProfileAvatar,defaultProfile,type ProfileDocument} from './profile';
 
 const nav=navigationItems;
+const coachDescription='Du choix du XV au plan de jeu : confrontez les compétences aux faits du terrain.';
 const descriptions:Record<string,string>={pool:'Vos joueurs dans un même vestiaire de travail, avec toutes leurs observations.',performance:'Les faits du terrain, poste par poste : comparez les notes, les minutes connues et leur contexte.',market:'Comparez les renforts et les investissements sans perdre votre marge de manœuvre.',contact:'Un bug à signaler, une idée à partager : échangez avec Pierig et suivez vos demandes.',home:'Vos repères, vos priorités et les progrès de votre club.',season:'Retrouvez vos prochaines échéances et préparez les rotations.',vacation:'Préparez le relais pendant votre absence et contrôlez les envois dans le jeu.',optimization:'Choisissez un objectif, comparez les propositions, puis enregistrez votre préparation.',academy:'Repérez les talents, fixez leurs objectifs et suivez les compétences dévoilées.',squad:'Consultez vos seniors et préparez la composition du XV.',matches:'Comparez les rencontres importées et construisez vos dossiers adversaires.',training:'Préparez les séances de l’académie sur les seize semaines de la saison.',stadium:'Comparez capacités et budgets avant de décider dans le jeu.',settings:'Connectez votre compte Classic, importez vos données et retrouvez vos accès.',guide:'Un parcours guidé, des exemples et les réponses à vos questions.',profile:'Votre profil, vos couleurs et un tableau de bord qui vous ressemble.',progression:'Ce qui a changé, quand et selon quelles observations.'};
 const routeNotes:Record<string,string>={season:'Ajoutez un rendez-vous ou importez les rencontres Classic. Votre calendrier et vos intentions de rotation restent privés.',optimization:'Les propositions et scénarios sont enregistrés dans l’outil. Aucun changement n’est transmis à Classic depuis cet écran.',training:'Ce planning prépare vos séances. Vous devez ensuite les configurer dans le jeu.',settings:'Commencez par relier votre compte pour retrouver vos clubs. Vous pouvez aussi travailler à partir d’un fichier.',vacation:'Un envoi dans Classic exige un accès API adapté et votre validation, ou une règle datée que vous avez activée.'};
 export async function request(path:string,body?:unknown,csrf?:string){const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),120000);try{const r=await fetch('/api'+path,{method:body===undefined?'GET':'POST',headers:{'Accept-Language':getLocale(),...(body instanceof FormData?{}:body!==undefined?{'Content-Type':'application/json'}:{}),...(csrf?{'X-CSRF-Token':csrf}:{})},body:body===undefined?undefined:body instanceof FormData?body:JSON.stringify(body),signal:controller.signal});let doc:any;try{doc=await r.json()}catch{throw new Error('Réponse du serveur indisponible. Réessayez.')}if(!r.ok){const e=new Error(typeof doc.detail==='string'?doc.detail:'Vérifiez les champs du formulaire.');Object.assign(e,{status:r.status});throw e}return doc}catch(e){if((e as Error).name==='AbortError')throw new Error('Le serveur a mis trop de temps à répondre. Les données conservées restent disponibles.');throw e}finally{clearTimeout(timer)}}
@@ -35,6 +40,7 @@ export type Actions={d:State;act:(path:string,body:unknown,message?:string)=>Pro
 export default function App(){
   const {locale,setLocale}=useLocale();
   const [languageBusy,setLanguageBusy]=useState(false);
+  const [coachCohort,setCoachCohort]=useState<'youth'|undefined>(undefined);
   const {confirmLeave}=useNavigationGuard();
   const [d,setD]=useState<State|null>(null),[login,setLogin]=useState(false),[initial,setInitial]=useState(true),[page,setPage]=useState('home'),[team,setTeam]=useState(localStorage.getItem('brt-team')||'72450'),[busy,setBusy]=useState(false),[toast,setToast]=useState(''),[error,setError]=useState(''),[menu,setMenu]=useState(false),[help,setHelp]=useState(false),[player,setPlayer]=useState<Player|null>(null);
   const [mobile,setMobile]=useState(()=>window.matchMedia('(max-width:700px)').matches);
@@ -58,7 +64,7 @@ export default function App(){
   };document.addEventListener('keydown',close);return()=>{document.removeEventListener('keydown',close);document.body.style.overflow=previousOverflow}},[menu,mobile]);
   const profile=d?.profile?.profile??defaultProfile;
   const showPage=(next:string)=>{setPage(next);setMenu(false);setError('');const reduced=profile.motion==='reduced'||window.matchMedia('(prefers-reduced-motion: reduce)').matches;window.scrollTo({top:0,behavior:reduced?'instant':'smooth'});requestAnimationFrame(()=>document.getElementById('page-heading')?.focus({preventScroll:true}))};
-  const go=(next:string)=>{if(!nav.some(n=>n.id===next)||next===page)return;if(busy){setToast('Une opération est en cours. Patientez avant de changer de rubrique.');return}if(!confirmLeave())return;showPage(next)};
+  const go=(next:string)=>{if(!nav.some(n=>n.id===next)||next===page)return;if(busy){setToast('Une opération est en cours. Patientez avant de changer de rubrique.');return}if(!confirmLeave())return;if(next==='coaching')setCoachCohort(page==='academy'?'youth':undefined);showPage(next)};
   const act=async(path:string,body:unknown,message='Enregistré')=>{
     if(!d||(!d.setup_required&&d.current_team.id!==requestedTeam.current))throw new Error('Chargement du club en cours.');
     const scope=d.user.username+':'+d.csrf;
@@ -102,19 +108,27 @@ export default function App(){
     <div className="main-shell" inert={mobile&&menu}><header className="topbar"><div className="breadcrumbs"><button ref={menuButton} className="icon-button mobile-menu" aria-label={tr(menu?'Fermer le menu':'Ouvrir le menu')} aria-controls="main-navigation" aria-expanded={menu} onClick={()=>setMenu(!menu)}><Menu/></button><span>{tr("Mon atelier")}</span><ChevronRight size={14}/><strong>{tr(current.label)}</strong></div>
       <div className="topbar-right"><LanguageSelect compact disabled={busy||languageBusy} onChange={next=>void chooseLanguage(next)}/>{d.game_date&&<span className="season" title={tr("Dernier repère de saison importé depuis le jeu")}>{tr("S")}{d.game_date.season}<i/>{tr("Semaine ")}{d.game_date.round}</span>}<label className="club-select"><ClubBadge identity={d.workbench_identity} name={d.current_team.name} small/><select aria-label={tr("Choisir une équipe")} disabled={busy} value={team} onChange={e=>selectTeam(e.target.value,page)}>{groupedTeams(d).map(group=><optgroup key={group.label} label={group.label}>{group.teams.map(t=><option key={t.id} value={t.id}>{t.name}{t.kind==='u20'?' · U20':t.kind==='nt'?tr(' · Nationale'):''}</option>)}</optgroup>)}</select></label><button className="topbar-profile" aria-label={tr("Personnaliser mon espace")} onClick={()=>go('profile')}><ProfileAvatar profile={profile} username={d.user.username} small/></button></div>
     </header><main>
-      <div className={'page-title '+(!['home','guide','profile'].includes(page)?'page-masthead':'')}><SectionPhoto page={page}/><div><div className="eyebrow">{page==='home'?tr('BONJOUR {name}',{name:displayName.toUpperCase()}):['pool','performance'].includes(page)?tr('MON RÉSEAU PRIVÉ'):d.current_team.name.toUpperCase()}</div><h1 id="page-heading" tabIndex={-1}>{tr(current.label)}</h1><p>{tr(descriptions[page])}</p></div><div className="page-actions"><HelpButton onClick={()=>setHelp(true)}/>{!['settings','guide','profile','contact'].includes(page)&&<button className="button secondary" onClick={()=>go('settings')}><Upload size={16}/><span>{tr("Actualiser mes données")}</span></button>}</div></div>
+      <div className={'page-title '+(!['home','guide','profile'].includes(page)?'page-masthead':'')}><SectionPhoto page={page}/><div><div className="eyebrow">{page==='home'?tr('BONJOUR {name}',{name:displayName.toUpperCase()}):['pool','performance'].includes(page)?tr('MON RÉSEAU PRIVÉ'):d.current_team.name.toUpperCase()}</div><h1 id="page-heading" tabIndex={-1}>{tr(current.label)}</h1><p>{tr(page==='coaching'?coachDescription:descriptions[page])}</p></div><div className="page-actions"><HelpButton onClick={()=>setHelp(true)}/>{!['settings','guide','profile','contact'].includes(page)&&<button className="button secondary" onClick={()=>go('settings')}><Upload size={16}/><span>{tr("Actualiser mes données")}</span></button>}</div></div>
       {error&&<div className="notice error" role="alert"><span>{tr(error)}</span><button className="icon-button" aria-label={tr("Fermer l’erreur")} onClick={()=>setError('')}><X size={17}/></button></div>}
       <div className="page-content" key={d.user.username+':'+d.csrf+':'+page}>{routeNotes[page]&&<div className="page-route-note"><Info size={17}/><span>{selection&&page==='season'?tr("Ajoutez les rendez-vous de votre sélection dans le calendrier manuel. Votre calendrier et vos intentions de rotation restent privés."):tr(routeNotes[page])}</span></div>}
         {blockedPage&&<section className="card prose"><h2>{tr("Cette rubrique concerne les clubs.")}</h2><p>{tr("Pour cette sélection, retrouvez l’effectif, les compositions, les matchs et la progression.")}</p><button className="button primary" onClick={()=>go('home')}>{tr("Ouvrir le tableau de bord de la sélection")}</button></section>}
         {page==='contact'&&<ContactPage {...props}/>}
         {page==='pool'&&<PlayerPool {...props}/>}
         {page==='performance'&&<PlayerPerformance {...props}/>}
+        {['performance','academy','squad'].includes(page)&&!blockedPage&&<section className="card coach-entry"><div><h2>{tr('Passer du constat à la composition')}</h2><p>{tr('Rassemblez votre XV, vos responsables et votre plan de jeu dans Staff & tactique.')}</p></div><button className="button secondary" onClick={()=>go('coaching')}>{tr(page==='academy'?'Préparer le XV junior':'Ouvrir Staff & tactique')}<ArrowRight size={16}/></button></section>}
+        {page==='coaching'&&<CoachLab key={team} {...props} initialCohort={coachCohort}/>}
         {page==='home'&&(selection?<SelectionDashboard {...props}/>:<Dashboard {...props} profile={profile}/>)}{page==='progression'&&<Progression key={team} {...props}/>}
         {page==='profile'&&<><ProfileSettings key={d.user.username} {...props} onSaved={savedProfile}/><ClubIdentity key={'identity-'+team} {...props}/></>}
         {page==='season'&&<SeasonPlanner key={team} {...props}/>}{page==='optimization'&&<Optimization key={team} {...props}/>}
         {page==='vacation'&&!selection&&<><VacationDigest key={'digest-'+team} {...props}/><Vacation key={team} {...props}/></>}
-        {page==='market'&&!selection&&<Market {...props} onRefresh={refresh}/>}
-        {(page==='squad'||(page==='academy'&&!selection))&&<Players key={team+page} {...props} youth={page==='academy'}/>}{page==='training'&&!selection&&<Training key={team} {...props}/>}{page==='stadium'&&!selection&&<Stadium key={team} {...props}/>}{page==='matches'&&<Matches key={team} {...props}/>}{page==='settings'&&<Settings key={team} {...props}/>}{page==='guide'&&<Tutorial key={d.user.username} username={d.user.username} go={go}/>}
+        {page==='market'&&!selection&&<ManagerWorkspace key={team} busy={busy} label="Gestion des transferts" tabs={[
+          {id:'recruitment',label:'Préparer un recrutement',description:'Comparez vos candidats et leur coût avant de décider dans le jeu.',content:<Market {...props} onRefresh={refresh}/>},
+          {id:'ledger',label:'Transferts réalisés',description:'Consignez les achats et les ventes conclus pour suivre leur bilan réel.',content:<TransferLedger {...props}/>}
+        ]}/>}
+        {(page==='squad'||(page==='academy'&&!selection))&&<Players key={team+page} {...props} youth={page==='academy'}/>}{page==='training'&&!selection&&<Training key={team} {...props}/>}{page==='stadium'&&!selection&&<ManagerWorkspace key={team} busy={busy} label="Gestion du stade" tabs={[
+          {id:'income',label:'Recettes & rentabilité',description:'Renseignez vos observations pour comparer les recettes nettes et les charges.',content:<StadiumEconomy {...props}/>},
+          {id:'construction',label:'Capacité & travaux',description:'Préparez vos capacités cibles et votre budget de construction.',content:<Stadium {...props}/>}
+        ]}/>}{page==='matches'&&<Matches key={team} {...props}/>}{page==='settings'&&<Settings key={team} {...props}/>}{page==='guide'&&<Tutorial key={d.user.username} username={d.user.username} go={go}/>}
       </div>
       <FeedbackWidget key={team} {...props} page={page}/><footer className="footer"><span>{tr("BLACKOUT RUGBY TOOLS ")}<i/>{tr(" L’atelier du manager")}</span><span>{tr("Outil indépendant · Votre espace privé")}</span><PhotoCredits/></footer>
     </main></div>

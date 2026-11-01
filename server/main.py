@@ -45,6 +45,9 @@ from .market import register_market
 from .import_preview import register_import_preview
 from .player_pool import register_player_pool
 from .player_performance import register_player_performance
+from .coach_lab import register_coach_lab
+from .stadium_economy import register_stadium_economy
+from .transfer_ledger import register_transfer_ledger
 
 PUBLIC_API_REQUESTS=frozenset({
     ('GET','/api/health'),
@@ -268,7 +271,7 @@ def create_app(directory=None,password=None,secure=None):
         require_club_id(tid)
 
     @app.get('/api/health')
-    def health():return {'ok':True,'version':'2.10.0'}
+    def health():return {'ok':True,'version':'2.11.0'}
 
     @app.post('/api/login')
     def login(body:Login,request:Request,response:Response):
@@ -593,6 +596,8 @@ def create_app(directory=None,password=None,secure=None):
                 # Allowlist prevents credentials or unexpected API fields leaking to the browser.
                 keys=['region','stadium','members','contentment','stadium_capacity','stadium_standing','stadium_uncovered','stadium_covered','stadium_members','stadium_corporate','bank_balance','minor_sponsors','scouting_stars','average_top15_csr','total_salary','leagueid']
                 meta={k:team[k] for k in keys if k in team};meta['date_maj']=now()
+                if any('stadium_'+key in meta for key in ('standing','uncovered','covered','members','corporate')):
+                    meta.update(stadium_source='API Classic',stadium_observed_on=meta['date_maj'][:10])
                 with store.db() as db:db.execute('UPDATE teams SET meta=? WHERE id=?',(pack(meta),body.team_id))
                 return {'ok':True}
             leagueid=team.get('leagueid')
@@ -611,6 +616,9 @@ def create_app(directory=None,password=None,secure=None):
     register_workbench(app,store,auth,require_team,state,accounts,vacation_service)
     register_player_pool(app,store,auth,require_team)
     register_player_performance(app,store,auth,require_team,match_credentials,throttle)
+    register_coach_lab(app,store,auth,require_team,state)
+    register_stadium_economy(app,store,auth,require_team)
+    register_transfer_ledger(app,store,auth,require_team)
     register_import_preview(app,store,auth,require_team,credentials,throttle)
     register_market(app,store,auth,require_team)
     register_starter(app,store,auth,require_team)

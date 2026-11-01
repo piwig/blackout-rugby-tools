@@ -4,6 +4,22 @@ import {ArrowLeft,ArrowRight,BookOpen,Check,CheckCircle2,ChevronRight,Compass,He
 
 type Lesson={id:string;title:string;duration:string;intro:string;steps:[string,string][];result:string;tip:string;page:string;action:string};
 const lessons:Lesson[]=[
+  {id:'coach-lab',title:'Préparer le XV et son plan de jeu',duration:'4 min',intro:'Staff & tactique rassemble les choix du staff, du groupe de joueurs jusqu’à la feuille enregistrée.',steps:[
+    ['Choisir le groupe','Sélectionnez les seniors ou les juniors de votre club. Pour une sélection, son effectif reste séparé. Vérifiez la date des données et les disponibilités.'],
+    ['Construire le XV','Choisissez les compétences, les performances moyennes, les meilleures notes ou leur combinaison. Réglez les critères avancés seulement si nécessaire. Les notes doivent partager une échelle et un contexte de poste.'],
+    ['Relire les choix du staff','Ajustez les titulaires et le banc, puis vérifiez capitaine, buteur et secours. Une note inconnue ou une compétence masquée reste une limite du calcul.'],
+    ['Préparer puis enregistrer','Déclarez votre objectif, les conditions et les éléments connus de l’adversaire. Comparez les propositions tactiques, relisez l’aperçu et enregistrez la feuille.']
+  ],result:'Votre feuille conserve ses critères, ses responsables et son plan de jeu.',tip:'Les réglages sont des propositions BRT expliquées, pas une formule officielle ni une garantie de victoire. L’application locale ne transmet aucun ordre à Classic.',page:'coaching',action:'Ouvrir Staff & tactique'},
+  {id:'stadium-income',title:'Évaluer les recettes nettes du stade',duration:'3 min',intro:'Dans Stade & finances, l’onglet Recettes & rentabilité distingue la billetterie, les charges et les nouveaux investissements.',steps:[
+    ['Décrire le stade actuel','Saisissez capacités, tarifs, remplissage et coûts avec une source et une date. Laissez les valeurs inconnues vides ; indiquez zéro seulement lorsque vous savez qu’un coût est nul.'],
+    ['Comparer un projet','Renseignez le projet et comparez les résultats à plusieurs niveaux de remplissage. Les frais par match et l’entretien hebdomadaire sont calculés séparément.'],
+    ['Conserver ses hypothèses','Choisissez le nombre de matchs et de semaines, puis enregistrez ou dupliquez le scénario. La récupération d’un investissement dépend du gain supplémentaire face au stade actuel.']
+  ],result:'Vous comparez des hypothèses de recettes nettes avec leurs limites visibles.',tip:'Les recettes prévues ne sont pas de la trésorerie encaissée. Un investissement déjà payé ne doit pas être saisi comme un nouveau décaissement.',page:'stadium',action:'Ouvrir les recettes du stade'},
+  {id:'transfer-ledger',title:'Tenir le registre des transferts',duration:'3 min',intro:'Dans Mercato & budget, Transferts réalisés conserve les achats et les ventes effectivement conclus.',steps:[
+    ['Consigner une opération','Choisissez l’onglet Transferts réalisés, puis indiquez le joueur, la date, la saison, le montant, les frais et la source. Le carnet de recrutement reste distinct de ce registre.'],
+    ['Importer sans doublonner','Utilisez le modèle CSV ou un export JSON, puis relisez l’aperçu avant confirmation. Un identifiant déjà connu ne crée pas une seconde opération.'],
+    ['Lire et corriger le bilan','Filtrez par saison, période ou joueur. Les corrections et annulations gardent une trace ; les opérations annulées sont exclues des totaux.']
+  ],result:'Votre bilan rapproche achats, ventes et frais réellement renseignés.',tip:'Le solde des transferts ne comprend pas les salaires. Une offre ou une mise en vente ne devient pas une opération réalisée tant qu’elle n’est pas conclue.',page:'market',action:'Ouvrir Mercato & budget'},
   {id:'player-pool',title:'Élargir son regard avec le vivier',duration:'2 min',intro:'Le vivier réunit les joueurs observés dans vos clubs, académies et sélections.',steps:[
     ['Repérer les profils','Filtrez les joueurs par âge, nationalité, poste estimé ou qualité des données. Un même joueur peut avoir plusieurs observations.'],
     ['Comparer les sources','Ouvrez le joueur et comparez les équipes, les dates et les compétences connues. Une différence entre deux relevés appelle une vérification, pas une moyenne automatique.'],
@@ -208,7 +224,7 @@ const faqs=[
   ['Pourquoi le stade ou l’analyse ne donne-t-il pas une prédiction certaine ?','Les ratios du stade et les affinités de poste sont des modèles d’aide. L’analyse des commentaires ne reconnaît qu’une partie des événements. Les limites et les sources sont affichées pour éviter de confondre observations, estimations et règles officielles.']
 ];
 
-const contextLessons:Record<string,string>={market:'market',contact:'contact',home:'daily',profile:'profile',progression:'progression',season:'season',vacation:'vacation',academy:'academy-followup',squad:'squad',matches:'opponents',training:'training',optimization:'lineup-lab',stadium:'stadium',settings:'connect',guide:'start'};
+const contextLessons:Record<string,string>={coaching:'coach-lab',pool:'player-pool',performance:'player-performance',market:'market',contact:'contact',home:'daily',profile:'profile',progression:'progression',season:'season',vacation:'vacation',academy:'academy-followup',squad:'squad',matches:'opponents',training:'training',optimization:'lineup-lab',stadium:'stadium',settings:'connect',guide:'start'};
 const storageKey=(username:string)=>'brt-tutorial-v1:'+username;
 function readProgress(username:string):string[]{try{const value=JSON.parse(localStorage.getItem(storageKey(username))||'[]');return Array.isArray(value)?[...new Set<string>(value.filter((id:unknown)=>typeof id==='string'&&lessons.some(l=>l.id===id)))]:[]}catch{return []}}
 const normalize=(value:string)=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();

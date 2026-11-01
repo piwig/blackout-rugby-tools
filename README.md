@@ -1,5 +1,13 @@
 # Blackout Rugby Tools
 
+## Préparer, comparer, décider — 2.11.0
+
+- **Staff & tactique** : feuilles seniors, juniors ou sélection séparées ; XV proposé selon les compétences ou les performances observées, coefficients par maillot, choix du capitaine et du buteur avec leurs secours, puis propositions chiffrées de plan de jeu. Les critères avancés et les limites des données restent visibles.
+- **Stade & finances** : un onglet consacré aux recettes nettes et aux charges, pour comparer le stade actuel et un projet selon le remplissage. Les travaux et la capacité gardent leur espace distinct.
+- **Mercato & budget** : un registre des transferts réalisés complète le carnet de recrutement. Saisie, import avec aperçu, corrections traçables, bilans par saison et export réimportable.
+
+Les propositions restent locales à BRT. Les références et les tactiques sont des hypothèses explicites de l’outil, sans prétendre reproduire le moteur de Classic. Aucune compétence masquée n’est inventée, aucune recette projetée n’est traitée comme encaissée. Le tutoriel accompagne chaque parcours en FR/EN/ES/IT.
+
 ## Atelier multi-équipes — 2.10.0
 
 - **Vivier de joueurs** : recherche dans les clubs, académies et sélections ; observations comparées sans fusion, divergences visibles, liste de suivi et notes privées avec protection contre les modifications concurrentes.
@@ -141,6 +149,8 @@ $env:BRT_SECURE='0'
 Le mot de passe initial n'est requis que pour créer la base. Ne pas le commettre. Construire l'interface avec `npm ci` et `npm run build` dans `web/`. Le serveur sert `web/dist`.
 
 Tests : `.\.venv\Scripts\python.exe -m pytest -q`. Les tests utilisent des bases temporaires et n'appellent pas le jeu.
+
+Tests d’interface : `node --test web/tests/*.mjs web/tests/*.ts`. Le test du registre relie les URL produites par React à une application FastAPI temporaire : définir `BRT_TEST_PYTHON` avec le chemin de l’interpréteur de l’environnement Python si `python` (Windows) ou `python3` n’est pas celui du projet.
 
 ### Configuration des formulaires
 

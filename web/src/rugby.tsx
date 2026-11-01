@@ -5,6 +5,7 @@ import {Modal} from './components';
 import {rugbyClubs} from './rugby-clubs';
 
 const sectionPhotos:Record<string,{src:string;alt:string;position:string}>={
+  coaching:{src:'/images/siya-kolisi-2022.jpg',alt:'Siya Kolisi sur un terrain de rugby',position:'64% 27%'},
   progression:{src:'/images/brt-banner-matchday.jpg',alt:'Un terrain de rugby sous les projecteurs',position:'65% 50%'},
   season:{src:'/images/rugby-matchday-v2.jpg',alt:'Stade de rugby éclairé avant la rencontre',position:'65% 50%'},
   vacation:{src:'/images/rugby-locker-v2.jpg',alt:'Ballon et équipement prêts dans un vestiaire de rugby',position:'70% 55%'},

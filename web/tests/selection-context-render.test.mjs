@@ -86,7 +86,8 @@ for(const kind of ['club','u20','nt'])test(`${kind} progression population contr
 
 test('App groups every team once by account ownership and selection state',()=>{
   const d=state('u20',true);d.teams=[...teams,teams[0]];
-  const h=harness({'App.tsx':{1:d,3:false,5:d.current_team.id}}),html=h.render('App.tsx','default',d);
+  // App now has a cohort preference before its data/loading/team state hooks.
+  const h=harness({'App.tsx':{2:d,4:false,6:d.current_team.id}}),html=h.render('App.tsx','default',d);
   const selector=html.match(/<select aria-label="Choisir une équipe"[^]*?<\/select>/)?.[0];
   assert.ok(selector);for(const label of ['Clubs du compte Classic','Clubs suivis','Sélections actives','Sélections suspendues'])assert.ok(selector.includes(`<optgroup label="${label}">`),label);
   for(const id of ['1','2','u20:1','nt:1'])assert.equal((selector.match(new RegExp(`value="${id}"`,'g'))||[]).length,1,id);

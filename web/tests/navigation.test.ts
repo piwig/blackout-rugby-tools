@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {navigationItems,navigationGroups,visibleNavigationGroups,isClubOnly,readNavigationExpansion,revealNavigationGroup,saveNavigationExpansion} from '../src/navigation.ts';
 
 test('all destinations are unique and assigned exactly once',()=>{
-  const expected=['home','optimization','season','progression','academy','squad','matches','training','stadium','market','vacation','profile','settings','contact','guide','pool','performance'].sort();
+  const expected=['home','optimization','season','progression','academy','squad','matches','training','stadium','market','vacation','profile','settings','contact','guide','pool','performance','coaching'].sort();
   assert.deepEqual(navigationItems.map(item=>item.id).sort(),expected);
   assert.deepEqual(['home',...navigationGroups.flatMap(group=>group.items)].sort(),expected);
 });
@@ -12,7 +12,7 @@ test('national selections retain every shared route and no club-only or empty gr
   const groups=visibleNavigationGroups(true),ids=['home',...groups.flatMap(group=>group.items)];
   assert.ok(groups.every(group=>group.items.length>0));
   assert.equal(groups.some(group=>group.id==='club'),false);
-  assert.deepEqual(groups.find(group=>group.id==='development')?.items,['progression']);
+  assert.deepEqual(groups.find(group=>group.id==='development')?.items,['progression','pool']);
   assert.deepEqual(ids.sort(),navigationItems.filter(item=>!isClubOnly(item.id)).map(item=>item.id).sort());
   assert.equal(visibleNavigationGroups(false).flatMap(group=>group.items).length,navigationItems.length-1);
 });
@@ -22,9 +22,10 @@ test('manager-wide tools remain reachable in club and selection contexts',()=>{
     const routes=visibleNavigationGroups(selection).flatMap(group=>group.items);
     assert.ok(routes.includes('pool'));
     assert.ok(routes.includes('performance'));
+    assert.ok(routes.includes('coaching'));
   }
   const saved={match:false,development:false,club:false,account:false};
-  assert.equal(revealNavigationGroup(saved,'pool').match,true);
+  assert.equal(revealNavigationGroup(saved,'pool').development,true);
   assert.equal(revealNavigationGroup(saved,'performance').match,true);
 });
 

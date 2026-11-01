@@ -29,7 +29,7 @@ def export_chunks(private_store,accounts,user_id):
                 yield pack(dict(row))
             yield ']'
         yield ',"manager_documents":{'
-        for index,row in enumerate(db.execute("SELECT key,value FROM kv WHERE key GLOB 'lineup_lab:*' OR key GLOB 'insights:*' OR key GLOB 'workbench:*' OR key GLOB 'match_review:*' OR key GLOB 'coaching:*' OR key GLOB 'market:*' OR key='profile:preferences' OR key GLOB 'player_pool:*' OR key='player_performance:observations' ORDER BY key")):
+        for index,row in enumerate(db.execute("SELECT key,value FROM kv WHERE key GLOB 'lineup_lab:*' OR key GLOB 'insights:*' OR key GLOB 'workbench:*' OR key GLOB 'match_review:*' OR key GLOB 'coaching:*' OR key GLOB 'market:*' OR key='profile:preferences' OR key GLOB 'player_pool:*' OR key='player_performance:observations' OR key GLOB 'coach_lab:*' OR key GLOB 'coach_lineup:*' OR key GLOB 'stadium_economy:*' OR key GLOB 'transfer_ledger:*' ORDER BY key")):
             if index:yield ','
             yield pack(row['key'])+':'+row['value']
         yield '}'
