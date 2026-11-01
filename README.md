@@ -1,5 +1,13 @@
 # Blackout Rugby Tools
 
+## Atelier multi-équipes — 2.10.0
+
+- **Vivier de joueurs** : recherche dans les clubs, académies et sélections ; observations comparées sans fusion, divergences visibles, liste de suivi et notes privées avec protection contre les modifications concurrentes.
+- **Performances par poste** : lecture d’une rencontre terminée dans Classic, aperçu puis confirmation ; notes du rapport, minutes disponibles, nombre d’observations et échelles distinctes. Les postes de départ ne décrivent pas les changements de rôle en cours de match. Les remplaçants et les données absentes restent explicitement inconnus. Un import CSV/JSON, la correction et l’export complètent le parcours.
+- **Aperçu d’import d’effectifs** : destinations explicites par feuille ODS/CSV/JSON, date du relevé, données exclues visibles et confirmation atomique. Les sélections doivent avoir un mandat actif vérifié ; un ancien effectif différent ne remplace pas silencieusement le plus récent.
+
+Ces espaces sont disponibles depuis les clubs et les sélections, avec tutoriel et interface FR/EN/ES/IT. Ils n’envoient aucun ordre dans Classic. Les minutes automatiques des juniors, U20 et NT restent inconnues tant que leur format de statistiques n’est pas confirmé. [Méthode et formats](docs/manager-workbench-methodology.md).
+
 ## Fiabilité des affiliés et des sélections — 2.9.1
 
 Le choix d’équipe distingue désormais les clubs du compte Classic, les clubs suivis, les sélections actives et les sélections suspendues. Le tableau de bord d’une sélection donne aussi accès aux priorités de toutes les équipes. Une sélection suspendue conserve ses analyses et son historique, avec un accès clair au rattachement ; les commandes d’actualisation indisponibles ne sont plus proposées. Les sélections gardent un calendrier manuel, sans bouton d’import réservé aux clubs, et ne proposent plus d’académie de club dans la progression.

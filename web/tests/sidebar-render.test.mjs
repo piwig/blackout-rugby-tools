@@ -19,8 +19,13 @@ test('sidebar renders a distinct dashboard, four labelled disclosures and one cu
   assert.equal((html.match(/aria-current="page"/g)||[]).length,1);
   assert.match(html,/id="navigation-group-account-label"[^>]*aria-expanded="false"[^>]*aria-controls="navigation-group-account"/);
   assert.match(html,/id="navigation-group-account"[^>]*hidden=""/);
-  assert.match(html,/2\.9\.1/);
   assert.match(html,/Se déconnecter/);
+});
+
+test('the player pool and observed performances are visible in a selection',()=>{
+  const html=render({selection:true,page:'pool'});
+  assert.match(html,/<button[^>]*aria-current="page"[^]*?<span>Vivier de joueurs<\/span>/);
+  assert.match(html,/Performances par poste/);
 });
 
 test('opening a personal deep destination exposes its group and current route',()=>{

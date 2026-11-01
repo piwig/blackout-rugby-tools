@@ -306,9 +306,16 @@ class ClassicClient:
 
     async def request(self,resource,**params):
         self._check_credentials(manager=resource in ('ti', 'tr'))
-        if resource not in ['p','t','f','fs','ls','me','m','lu','ti','tr','ps']:raise ClassicError('Ressource non autorisée.')
+        if resource not in ['p','t','f','fs','ls','me','m','lu','ti','tr','ps','rs']:raise ClassicError('Ressource non autorisée.')
         if set(params) & {'r','d','dk','m','mk','iv','er','json','update','delete','default','saved'}:
             raise ClassicError('Paramètre Classic non autorisé.')
+        if resource == 'rs':
+            if set(params) - {'fixtureid', 'youth', 'u20', 'nat'} or 'fixtureid' not in params:
+                raise ClassicError('Paramètres de résumé de match Classic invalides.')
+            _integer(params['fixtureid'], 1)
+            flags = [key for key in ('youth', 'u20', 'nat') if key in params]
+            if len(flags) > 1 or any(type(params[key]) not in (str, int) or str(params[key]) != '1' for key in flags):
+                raise ClassicError('Contexte de résumé de match Classic invalide.')
         if resource in ('ti', 'tr', 'ps'):
             _coaching_read_params(resource, params)
         query={**{k:v for k,v in self.credentials.items() if k != 'iv'},'r':resource,'json':'1',**params}
@@ -336,6 +343,13 @@ class ClassicClient:
             except ClassicError:raise
             except Exception:raise ClassicError('Commentaire XML Classic non reconnu.') from None
         return self._json(data)
+
+    async def read_reporter_summary(self, fixture_id, context='club'):
+        fixture_id = _integer(fixture_id, 1)
+        if context not in ('club', 'youth', 'u20', 'nt'):
+            raise ClassicError('Contexte de résumé de match Classic invalide.')
+        flags = {'youth': {'youth': '1'}, 'u20': {'u20': '1'}, 'nt': {'nat': '1'}}.get(context, {})
+        return await self.request('rs', fixtureid=fixture_id, **flags)
 
     async def read_lineup(self, team_id, fixture_id='0'):
         self._check_credentials(manager=True)

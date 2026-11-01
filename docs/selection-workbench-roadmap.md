@@ -1,8 +1,8 @@
-# Évolutions envisagées pour les affiliés et les sélections
+# Évolutions des affiliés et des sélections
 
 La comparaison de [BRM V4](https://brm.webyzo.com/V4/) au 1 novembre 2026 met en avant ses outils de performances par poste, ses coefficients personnalisés, ses méthodes de composition et ses comparaisons adverses. Cette observation de l’interface ne valide pas ses calculs internes. BRT possède déjà des coefficients privés, des scénarios de XV, de la progression et des analyses de matchs ; le lot 2.9.1 fiabilise leurs contextes multi-équipes.
 
-Les fonctions suivantes restent des pistes de développement, pas des capacités livrées.
+Les trois fonctions ci-dessous sont implémentées dans le lot 2.10.0. Leur méthode et leurs limites sont détaillées dans [la documentation de l’atelier](manager-workbench-methodology.md). La lecture directe des notes Classic a été ajoutée après vérification de la documentation et d’une réponse réelle ; le poste au rapport et les minutes totales ne décrivent pas les changements de rôle pendant le match.
 
 ## Vivier privé au niveau du manager
 

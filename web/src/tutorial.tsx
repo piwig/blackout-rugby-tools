@@ -4,6 +4,21 @@ import {ArrowLeft,ArrowRight,BookOpen,Check,CheckCircle2,ChevronRight,Compass,He
 
 type Lesson={id:string;title:string;duration:string;intro:string;steps:[string,string][];result:string;tip:string;page:string;action:string};
 const lessons:Lesson[]=[
+  {id:'player-pool',title:'Élargir son regard avec le vivier',duration:'2 min',intro:'Le vivier réunit les joueurs observés dans vos clubs, académies et sélections.',steps:[
+    ['Repérer les profils','Filtrez les joueurs par âge, nationalité, poste estimé ou qualité des données. Un même joueur peut avoir plusieurs observations.'],
+    ['Comparer les sources','Ouvrez le joueur et comparez les équipes, les dates et les compétences connues. Une différence entre deux relevés appelle une vérification, pas une moyenne automatique.'],
+    ['Garder ses priorités','Ajoutez le joueur au suivi et enregistrez votre note de vivier. Elle reste séparée des notes propres à chaque club.']
+  ],result:'Vous constituez une liste de candidats privée sans perdre leur contexte.',tip:'L’âge et la nationalité ne suffisent pas à garantir une éligibilité U20 ou nationale. Une sélection en pause reste une archive.',page:'pool',action:'Ouvrir le vivier'},
+  {id:'player-performance',title:'Comparer les faits du terrain',duration:'3 min',intro:'Les performances par poste rapprochent des observations de match avec leur échantillon et leur source.',steps:[
+    ['Préparer les observations','Indiquez un match Classic terminé et son contexte pour lire le rapport, puis vérifiez l’aperçu avant de confirmer. Vous pouvez aussi importer un fichier. Les minutes et notes absentes restent inconnues.'],
+    ['Lire le contexte','Choisissez la période, le poste et l’échelle de notes. Comparez aussi les adversaires, les compétitions et le nombre de matchs documentés.'],
+    ['Corriger proprement','Exportez vos observations pour les conserver ou les corriger. Le remplacement explicite et la suppression contrôlée évitent les doublons silencieux.']
+  ],result:'Vous confrontez les indices de compétences aux performances renseignées, sans les confondre.',tip:'Le rapport Classic indique le poste de départ et les minutes totales du match, pas la durée à chaque poste. Les remplaçants et les petits échantillons demandent une lecture prudente.',page:'performance',action:'Comparer les performances'},
+  {id:'roster-preview',title:'Importer au bon endroit',duration:'2 min',intro:'L’aperçu d’import permet de relire les joueurs et de choisir la destination de chaque feuille.',steps:[
+    ['Lire avant de sauvegarder','Choisissez un fichier ODS, CSV ou JSON dans Connexion & données. Lisez les feuilles reconnues et celles qui seront exclues.'],
+    ['Affecter chaque effectif','Choisissez une équipe et son groupe pour chaque jeu de données, ou excluez-le explicitement. Renseignez la date réelle du relevé lorsqu’elle manque.'],
+    ['Confirmer le lot','Vérifiez toutes les destinations puis confirmez. Si les données ou les droits ont changé, préparez un nouvel aperçu : aucun demi-import ne sera enregistré.']
+  ],result:'Vos joueurs arrivent dans les équipes choisies avec leurs sources et dates.',tip:'Le nouveau parcours importe les effectifs. Les anciens plannings restent accessibles dans l’import historique avancé. Un import de sélection exige un mandat actif vérifié.',page:'settings',action:'Préparer un import'},
   {id:'navigation',title:'Se repérer dans le club-house',duration:'1 min',intro:'La navigation rassemble les outils selon votre travail de manager.',steps:[
     ['Préparer et faire progresser','Préparer le match réunit l’effectif, l’optimisation, les analyses et le calendrier. Faire progresser rassemble l’académie, les entraînements et la progression.'],
     ['Piloter et personnaliser','Piloter le club accueille le stade et le mode vacances. Mon espace rassemble le profil, la connexion Classic, les contacts et l’aide. Le tableau de bord reste en accès direct.'],

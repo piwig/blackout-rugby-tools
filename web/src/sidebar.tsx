@@ -1,14 +1,14 @@
 import {useEffect,useState} from 'react';
-import {LayoutDashboard,Sprout,Users,CalendarRange,BarChart3,Building2,Plug,BookOpen,LogOut,X,Sparkles,TrendingUp,UserRound,MessageCircle,ChevronDown,Dumbbell,Palmtree,ArrowUpRight,Wallet} from 'lucide-react';
+import {LayoutDashboard,Sprout,Users,CalendarRange,BarChart3,Building2,Plug,BookOpen,LogOut,X,Sparkles,TrendingUp,UserRound,MessageCircle,ChevronDown,Dumbbell,Palmtree,ArrowUpRight,Wallet,Network,ChartNoAxesCombined} from 'lucide-react';
 import {tr} from './i18n';
 import {ProfileAvatar,type ProfilePreferences} from './profile';
 import {visibleNavigationGroups,readNavigationExpansion,revealNavigationGroup,saveNavigationExpansion,type NavigationId,type NavigationGroupId} from './navigation';
 
-const icons={home:LayoutDashboard,squad:Users,optimization:Sparkles,matches:BarChart3,season:CalendarRange,academy:Sprout,training:Dumbbell,progression:TrendingUp,stadium:Building2,market:Wallet,vacation:Palmtree,profile:UserRound,settings:Plug,contact:MessageCircle,guide:BookOpen};
+const icons={home:LayoutDashboard,squad:Users,pool:Network,performance:ChartNoAxesCombined,optimization:Sparkles,matches:BarChart3,season:CalendarRange,academy:Sprout,training:Dumbbell,progression:TrendingUp,stadium:Building2,market:Wallet,vacation:Palmtree,profile:UserRound,settings:Plug,contact:MessageCircle,guide:BookOpen};
 
 // Literal keys keep every navigation label available to the translation extractor.
 export function navigationLabels():Record<NavigationId,string>{
-  return {home:tr('Tableau de bord'),squad:tr('Effectif & XV'),optimization:tr('Optimisation'),matches:tr('Analyse des matchs'),season:tr('Saison & calendrier'),academy:tr('Académie'),training:tr('Entraînement'),progression:tr('Progression'),stadium:tr('Stade & finances'),market:tr('Mercato & budget'),vacation:tr('Mode vacances'),profile:tr('Profil & affichage'),settings:tr('Connexion & données'),contact:tr('Contact & idées'),guide:tr('Tutoriel & aide')};
+  return {home:tr('Tableau de bord'),squad:tr('Effectif & XV'),pool:tr('Vivier de joueurs'),performance:tr('Performances par poste'),optimization:tr('Optimisation'),matches:tr('Analyse des matchs'),season:tr('Saison & calendrier'),academy:tr('Académie'),training:tr('Entraînement'),progression:tr('Progression'),stadium:tr('Stade & finances'),market:tr('Mercato & budget'),vacation:tr('Mode vacances'),profile:tr('Profil & affichage'),settings:tr('Connexion & données'),contact:tr('Contact & idées'),guide:tr('Tutoriel & aide')};
 }
 
 type SidebarProps={
@@ -32,7 +32,7 @@ export function Sidebar({page,selection,username,profile,displayName,busy,mobile
     <div className="sidebar-masthead">
       <button type="button" className="icon-button sidebar-close" aria-label={tr('Fermer la navigation')} onClick={onClose}><X size={20}/></button>
       <a className="brand" href="#" onClick={e=>{e.preventDefault();if(page==='home')onClose();else go('home')}}><img src="/images/brt-logo-192.png" alt=""/><span>{tr('BLACKOUT')}<small>{tr('RUGBY TOOLS')}</small></span></a>
-      <div className="edition"><i aria-hidden="true"/>{tr(' CLASSIC EDITION ')}<span>2.9.1</span></div>
+      <div className="edition"><i aria-hidden="true"/>{tr(' CLASSIC EDITION ')}<span>2.10.0</span></div>
     </div>
     <nav id="main-navigation" className="sidebar-navigation" aria-label={tr('Navigation principale')}>
       <div className="sidebar-home">{route('home')}</div>

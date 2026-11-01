@@ -2,8 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {navigationItems,navigationGroups,visibleNavigationGroups,isClubOnly,readNavigationExpansion,revealNavigationGroup,saveNavigationExpansion} from '../src/navigation.ts';
 
-test('all fifteen destinations are unique and assigned exactly once',()=>{
-  const expected=['home','optimization','season','progression','academy','squad','matches','training','stadium','market','vacation','profile','settings','contact','guide'].sort();
+test('all destinations are unique and assigned exactly once',()=>{
+  const expected=['home','optimization','season','progression','academy','squad','matches','training','stadium','market','vacation','profile','settings','contact','guide','pool','performance'].sort();
   assert.deepEqual(navigationItems.map(item=>item.id).sort(),expected);
   assert.deepEqual(['home',...navigationGroups.flatMap(group=>group.items)].sort(),expected);
 });
@@ -14,7 +14,18 @@ test('national selections retain every shared route and no club-only or empty gr
   assert.equal(groups.some(group=>group.id==='club'),false);
   assert.deepEqual(groups.find(group=>group.id==='development')?.items,['progression']);
   assert.deepEqual(ids.sort(),navigationItems.filter(item=>!isClubOnly(item.id)).map(item=>item.id).sort());
-  assert.equal(visibleNavigationGroups(false).flatMap(group=>group.items).length,14);
+  assert.equal(visibleNavigationGroups(false).flatMap(group=>group.items).length,navigationItems.length-1);
+});
+
+test('manager-wide tools remain reachable in club and selection contexts',()=>{
+  for(const selection of [false,true]){
+    const routes=visibleNavigationGroups(selection).flatMap(group=>group.items);
+    assert.ok(routes.includes('pool'));
+    assert.ok(routes.includes('performance'));
+  }
+  const saved={match:false,development:false,club:false,account:false};
+  assert.equal(revealNavigationGroup(saved,'pool').match,true);
+  assert.equal(revealNavigationGroup(saved,'performance').match,true);
 });
 
 test('a saved collapsed group reopens for direct navigation without resetting other choices',()=>{
