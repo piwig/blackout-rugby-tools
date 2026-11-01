@@ -29,4 +29,8 @@ Le code Python est resté inchangé pendant sa suite. Une correction de texte da
 
 Deux avertissements restent non bloquants : dépréciation de l’adaptateur HTTP du client de test Starlette et taille du bundle JavaScript principal. Ce dernier mérite encore du découpage pour réduire le téléchargement initial.
 
-Le statut de publication sera ajouté après les contrôles du VPS et du site public.
+## Publication vérifiée
+
+La version 2.12.0 a été déployée le 1er novembre 2026 depuis le commit `cf77386`, après sauvegarde, puis vérifiée sur [brt.bordebat.fr](https://brt.bordebat.fr). Les 30 fichiers statiques servis correspondent exactement aux empreintes du build testé. Les 48 requêtes de contrôle des routes privées sont refusées sans session ; la connexion sans CAPTCHA est refusée, et les protections HTTPS restent présentes.
+
+Le service et le minuteur de sauvegarde sont actifs. Les contrôles SQLite en lecture seule réussissent avant et après publication ; les compteurs observés des tables contrôlées sont inchangés. Une sauvegarde supplémentaire a réussi après la bascule. Aucune migration destructive ni écriture dans Classic n’est incluse.
