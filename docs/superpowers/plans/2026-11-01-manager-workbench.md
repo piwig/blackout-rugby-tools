@@ -14,6 +14,6 @@
 - [x] 3. Import : `server/import_preview.py`, `web/src/import-preview.tsx`, tests dédiés. Contrat `register_import_preview(app, store, auth, require_team, credentials, throttle)`, composant `ImportPreview(Actions)`. Routes `/api/import/preview` et `/api/import/confirm`. Réutiliser le parseur existant sans modifier son comportement historique ; destinations explicites, aperçu périssable privé, mandat revalidé pour sélection, transaction unique. Tester collision et échec multi-destinations sans écritures partielles.
 - [x] 4. Intégration : routes dans `server/main.py`, export des documents privés, navigation, réglages et tutoriel, traductions FR/EN/ES/IT, version 2.10.0. Tests de parcours et construction TypeScript.
 - [x] 5. Revue des trois modules et de l'intégration, résolution des défauts, contrôle visuel avec données fictives, tests complets et audit du contenu public.
-- [ ] 6. Commit et synchronisation du dépôt public, sauvegarde et déploiement du code vérifié sur le VPS, contrôle HTTPS/API/assets et note de validation.
+- [x] 6. Commit et synchronisation du dépôt public, sauvegarde et déploiement du code vérifié sur le VPS, contrôle HTTPS/API/assets et note de validation. Voir `docs/release-2.10.0-validation.md`.
 
 Les trois modules possèdent des fichiers distincts ; les fichiers partagés sont réservés au coordinateur. Les sous-agents ne commitent ni ne déploient. Le choix d'exécution autonome et de publication est déjà autorisé par l'utilisateur.
