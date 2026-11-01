@@ -1,5 +1,11 @@
 # Blackout Rugby Tools
 
+## Juniors, U20 et statistiques — 2.12.0
+
+Les rapports de matchs juniors ont leur propre catégorie dans l’import et l’historique : une rencontre junior et une rencontre senior peuvent partager le même numéro sans se remplacer. Le contexte U20 reste celui d’une sélection nationale, distinct de l’académie d’un club.
+
+Les fiches joueurs conservent les observations de la population consultée. Cent imports seniors ne masquent plus l’historique d’un junior. La progression collective arrondit désormais le gain après son calcul ; l’analyse des matchs garde visibles les contextes incomplets à relire. Les montants du registre préservent leurs centimes, et le simulateur de stade laisse les données manquantes inconnues.
+
 ## Préparer, comparer, décider — 2.11.0
 
 - **Staff & tactique** : feuilles seniors, juniors ou sélection séparées ; XV proposé selon les compétences ou les performances observées, coefficients par maillot, choix du capitaine et du buteur avec leurs secours, puis propositions chiffrées de plan de jeu. Les critères avancés et les limites des données restent visibles.

@@ -72,7 +72,7 @@ def test_zero_scores_are_known_and_incomplete_scores_do_not_pollute_averages(sto
     ]
 
 
-def test_filter_options_come_from_whole_history_and_keep_team_names_exact(store):
+def test_filter_options_keep_all_seasons_and_types_but_only_names_from_selected_type(store):
     put(store, '1', season=61, home='One')
     put(store, '2', season=62, home='one', type=1)
     put(store, '3', season=None, home='Domicile (nom non fourni)', away='Extérieur (nom non fourni)', type=2)
@@ -80,8 +80,23 @@ def test_filter_options_come_from_whole_history_and_keep_team_names_exact(store)
         result = client.get('/api/matches/history?type=0&season=61&team=One').json()
     assert result['total_stored'] == 3 and result['total_filtered'] == 1
     assert result['options']['seasons'] == [62, 61]
-    assert set(result['options']['teams']) == {'One', 'one', 'Away'}
+    assert set(result['options']['teams']) == {'One', 'Away'}
     assert result['options']['types'] == [0, 1, 2]
+
+
+def test_team_options_are_independent_of_selected_team_season_and_page_within_a_type(store):
+    for kind, name in [(0, 'Senior'), (1, 'U20'), (2, 'NT'), (3, 'Junior')]:
+        put(store, '77', type=kind, home=name, away=name+' away', season=62)
+    put(store, '78', type=3, home='Other junior', away='Junior away', season=61)
+    with client_for(store) as client:
+        result = client.get('/api/matches/history?type=3&team=Junior&season=62&offset=1&limit=1').json()
+        assert result['total_filtered'] == 1 and result['totals']['matches'] == 1 and result['matches'] == []
+        assert set(result['options']['teams']) == {'Junior', 'Junior away', 'Other junior'}
+        assert result['options']['types'] == [0, 1, 2, 3]
+        assert result['options']['seasons'] == [62, 61]
+        unfiltered = client.get('/api/matches/history?offset=3&limit=1').json()
+        assert unfiltered['total_filtered'] == 5 and len(unfiltered['matches']) == 1
+        assert set(unfiltered['options']['teams']) == {'Senior', 'Senior away', 'U20', 'U20 away', 'NT', 'NT away', 'Junior', 'Junior away', 'Other junior'}
 
 
 def test_team_record_orients_home_and_away_and_excludes_unscored_matches(store):
@@ -132,7 +147,7 @@ def test_history_requires_auth_and_isolated_managers_never_share_records(store, 
         assert 'Private team' not in outsider.get('/api/matches/history').text
 
 
-@pytest.mark.parametrize('query', ['type=3', 'type=-1', 'offset=-1', 'limit=0', 'limit=101', 'season=-1', 'team='])
+@pytest.mark.parametrize('query', ['type=4', 'type=-1', 'offset=-1', 'limit=0', 'limit=101', 'season=-1', 'team='])
 def test_bad_filters_are_rejected(store, query):
     with client_for(store) as client:
         assert client.get('/api/matches/history?' + query).status_code == 422

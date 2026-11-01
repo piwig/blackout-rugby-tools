@@ -17,7 +17,7 @@ Les filtres saison, période et joueur sont appliqués avant les statistiques, l
 - Balance nette = ventes brutes − achats bruts − tous les frais.
 - Achats/ventes moyens bruts = montant brut total du type / nombre d’opérations actives de ce type. Une moyenne sans observation est inconnue, affichée `—`.
 - Plus gros achat et plus grosse vente bruts = maximum du montant brut du type. Plus grosse vente nette = maximum de `montant de vente − frais de cette vente`. Une vente nette peut être négative si ses frais dépassent son prix. Les égalités sont départagées de façon déterministe par identifiant.
-- Le bilan par joueur regroupe les flux par identifiant, même si le nom a changé ; le dernier nom enregistré sert de libellé. Il ne prétend pas mesurer un bénéfice incluant les salaires. Plusieurs cycles achat/vente, ventes sans achat connu ou achats encore détenus ne sont jamais appariés artificiellement.
+- Le bilan par joueur regroupe les flux par identifiant, même si le nom a changé ; le nom de l’opération la plus récente dans le périmètre filtré sert de libellé (instant UTC, puis identifiant en cas d’égalité). Il ne prétend pas mesurer un bénéfice incluant les salaires. Plusieurs cycles achat/vente, ventes sans achat connu ou achats encore détenus ne sont jamais appariés artificiellement.
 
 Le résumé de l’aperçu est le bilan projeté du registre entier après dédoublonnage et application des corrections proposées. La liste de l’aperçu présente les lignes entrantes normalisées et leurs détails, y compris les lignes qui seront ignorées comme doublons.
 

@@ -14,7 +14,14 @@ type ImportPreview={preview_id:string;revision:number;expires_at:number;entries:
 type Filters={season:string;search:string;start:string;end:string};
 type Editor={entry:Entry;revision:number;action:'create'|'correct'|'cancel'|'restore';reason:string};
 const blankFilters:Filters={season:'',search:'',start:'',end:''};
-const amount=(value:string|null|undefined)=>value==null?'—':new Intl.NumberFormat(localeTag(),{minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(value));
+function amount(value:string|null|undefined){
+  if(value==null)return '—';
+  // Decimal strings may contain more cents than Number can represent exactly.
+  const [whole,fraction='00']=value.split('.'),integer=BigInt(whole);
+  const signed=integer===0n&&whole.startsWith('-')?-0:integer;
+  return new Intl.NumberFormat(localeTag(),{minimumFractionDigits:2,maximumFractionDigits:2})
+    .formatToParts(signed).map(part=>part.type==='fraction'?fraction.padEnd(2,'0'):part.value).join('');
+}
 const stamp=(value:string|null)=>value?new Date(value).toLocaleString(localeTag()):'—';
 function localDate(value:string){const date=new Date(value);return Number.isNaN(date.getTime())?'':new Date(date.getTime()-date.getTimezoneOffset()*60000).toISOString().slice(0,16)}
 function newEntry():Entry{return {id:crypto.randomUUID(),player_id:'',player_name:'',kind:'buy',occurred_at:new Date().toISOString(),season:'',amount:'',fees:'',counterparty:'',source:'',notes:'',status:'active',cancellation_reason:''}}

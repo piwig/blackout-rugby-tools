@@ -240,7 +240,7 @@ def grouped(rows, field):
     groups = {}
     for row in rows:
         groups.setdefault(row[field], []).append(row)
-    return [{field:key, **({'player_name':items[-1]['player_name']} if field == 'player_id' else {}), **summarize(items)}
+    return [{field:key, **({'player_name':max(items, key=lambda row:(row['occurred_at'], row['id']))['player_name']} if field == 'player_id' else {}), **summarize(items)}
             for key, items in sorted(groups.items())]
 
 

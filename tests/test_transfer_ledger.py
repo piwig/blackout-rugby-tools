@@ -178,6 +178,19 @@ def test_filters_use_utc_days_declared_seasons_and_player_identifiers(app):
         assert c.get('/api/transfer-ledger?team_id=72450&start=2026-02-01&end=2026-01-01').status_code==422
 
 
+def test_player_group_uses_latest_transaction_name_before_pagination(app):
+    with TestClient(app) as c:
+        h=login(c)
+        rows=[entry(id='new',player_name='New name',occurred_at='2026-02-01T00:00:00Z',amount='20.50'),
+              entry(id='old',player_name='Old name',occurred_at='2026-01-01T00:00:00Z',amount='10.25')]
+        assert confirm(c,h,preview(c,h,rows)).status_code==200
+        for query in ('&limit=1','&limit=1&offset=1','&player_id=42&limit=1'):
+            r=report(c,query)
+            assert len(r['entries'])==1 and r['total']==2
+            assert r['by_player'][0]['player_name']=='New name'
+            assert r['by_player'][0]['purchases']=='30.75'
+
+
 def test_concurrent_writers_cannot_lose_an_entry(app):
     with TestClient(app) as c:
         h=login(c)

@@ -54,11 +54,15 @@ def test_reference_extracts_only_fixture_identity(value, kind, want):
     ('https://classic-api.blackoutrugby.com/?fixtureid=100&u20=1', 0),
     ('https://classic-api.blackoutrugby.com/?fixtureid=100&u20=1&nat=1', 1),
     ('https://classic-api.blackoutrugby.com/?fixtureid=100&youth=1', 1),
+    ('https://classic-api.blackoutrugby.com/?fixtureid=100&youth=1', 0),
+    ('https://classic-api.blackoutrugby.com/?fixtureid=100&youth=1', 2),
+    ('https://classic-api.blackoutrugby.com/?fixtureid=100&youth=0', 3),
+    ('https://classic-api.blackoutrugby.com/?fixtureid=100&youth=1&u20=1', 3),
     ('https://classic-api.blackoutrugby.com:444/?fixtureid=100', 0),
     ('https://www.blackoutrugby.com/game/tools.live.scoring.php#fixture=100&nat=1&u20=1', 2),
     ('https://www.blackoutrugby.com/game/tools.live.scoring.php#fixture=100&secret=PRIVATE', 0),
     ('https://www.blackoutrugby.com/game/tools.live.scoring.php?fixtureid=101#fixture=100', 0),
-    ('0', 0), ('１２', 0), ('100', True), ('100', 3), (True, 0),
+    ('0', 0), ('１２', 0), ('100', True), ('100', 4), (True, 0),
 ])
 def test_reference_rejects_ambiguous_or_foreign_urls_without_echoing_input(value, kind):
     with pytest.raises(ClassicError) as error:

@@ -40,6 +40,16 @@ test('existing player details require matching team, cohort and exact current sn
   assert.equal(playerForCurrentContext({...observation,team_id:'42',cohort:'academy',snapshot_id:13},d),d.academy[0]);
 });
 
+test('opening a current pool observation carries its source population despite a shared player ID',()=>{
+  const {PoolObservations}=load(),calls=[];
+  const d={current_team:{id:'42'},squad_source:{id:12},academy_source:{id:13},squad:[observation.player],academy:[{...observation.player,name:'Academy'}]};
+  const observations=[{...observation,team_id:'42'},{...observation,team_id:'42',cohort:'academy',snapshot_id:13}];
+  const tree=PoolObservations({observations,conflicts:{},d,openPlayer:(...args)=>calls.push(args)});
+  nodes(tree).filter(n=>n.type==='button'&&text(n)==='Ouvrir la fiche de l’équipe sélectionnée').forEach(n=>n.props.onClick());
+  assert.equal(calls[0][0],d.squad[0]);assert.equal(calls[0][1],false);
+  assert.equal(calls[1][0],d.academy[0]);assert.equal(calls[1][1],true);
+});
+
 function harness(component,props,confirmLeave=()=>true){
   let cursor=0,effects=[];const hooks=[],requests=[];
   const react={...React,useState(initial){const i=cursor++;if(!hooks[i])hooks[i]={value:typeof initial==='function'?initial():initial};return [hooks[i].value,v=>{hooks[i].value=typeof v==='function'?v(hooks[i].value):v}]},useRef(initial){const i=cursor++;if(!hooks[i])hooks[i]={value:{current:initial}};return hooks[i].value},useEffect(effect,deps){const i=cursor++,old=hooks[i];if(!old||deps?.some((v,k)=>!Object.is(v,old.deps[k]))){hooks[i]={deps,cleanup:old?.cleanup};effects.push(()=>{hooks[i].cleanup?.();hooks[i].cleanup=effect()})}}};

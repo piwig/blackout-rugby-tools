@@ -79,6 +79,35 @@ def test_multiple_observations_are_sorted_by_date_and_keep_sources(client):
     assert report(client, 'academy')['points'] == []
 
 
+@pytest.mark.parametrize('youth', [False, True])
+@pytest.mark.parametrize('metric', ['strength', 'csr'])
+@pytest.mark.parametrize('before,after,expected', [(6, 7, 0.0667), (7, 6, -0.0667)])
+def test_collective_delta_rounds_the_raw_change_once(client, youth, metric, before, after, expected):
+    login(client)
+    # Fourteen stable values of 5 and one changing integer give an exact
+    # collective change of +/-1/15. Subtracting the rounded means 5.0667 and
+    # 5.1333 would incorrectly give +/-0.0666 instead of +/-0.0667.
+    stable = [{'id': str(i), metric: 5} for i in range(2, 16)]
+    snapshot(client, '2026-10-01', [{'id': '1', metric: before}, *stable], youth=youth)
+    snapshot(client, '2026-10-02', [{'id': '1', metric: after}, *stable], youth=youth)
+    points = report(client, 'academy' if youth else 'seniors')['points']
+    result = points[1]['metrics'][metric]
+    assert result['comparison'] == 'comparable'
+    assert result['known_count'] == 15
+    assert result['delta'] == expected
+    assert points[1]['players']['1']['deltas'][metric] == after - before
+
+
+def test_one_player_collective_delta_agrees_with_individual_precision(client):
+    login(client)
+    snapshot(client, '2026-10-01', [{'id': '1', 'strength': 10.00004}])
+    snapshot(client, '2026-10-02', [{'id': '1', 'strength': 10.00006}])
+    result = report(client)['points'][1]
+    # The raw difference is 0.00002, which rounds to zero at four decimals.
+    assert result['players']['1']['deltas']['strength'] == 0
+    assert result['metrics']['strength']['delta'] == 0
+
+
 def test_unknown_reveal_and_absence_break_numeric_comparison(client):
     login(client)
     for stamp, players in [

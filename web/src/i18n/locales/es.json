@@ -3629,5 +3629,19 @@
   "Votre bilan rapproche achats, ventes et frais réellement renseignés.": "Tu balance reúne las compras, ventas y gastos registrados.",
   "Votre feuille conserve ses critères, ses responsables et son plan de jeu.": "Tu hoja conserva sus criterios, responsables y plan de juego.",
   "Vous comparez des hypothèses de recettes nettes avec leurs limites visibles.": "Compara hipótesis de ingresos netos con sus límites visibles.",
-  "XV incomplet : certains postes restent vacants.": "XV incompleto: algunas posiciones siguen vacantes."
+  "XV incomplet : certains postes restent vacants.": "XV incompleto: algunas posiciones siguen vacantes.",
+  "CSV : les colonnes de contexte type, youth, u20 et nat ne doivent pas être dupliquées.": "CSV: las columnas de contexto type, youth, u20 y nat no deben estar duplicadas.",
+  "CSV : les colonnes type, youth, u20 et nat doivent être renseignées de façon identique sur toutes les lignes.": "CSV: las columnas type, youth, u20 y nat deben contener el mismo valor no vacío en todas las filas.",
+  "Ce nom existe dans plusieurs types de matchs. Choisissez Club, Juniors, U20 ou Sélection nationale.": "Este nombre existe en varios tipos de partidos. Elige Club, Juveniles, U20 o Selección nacional.",
+  "Cette vue rassemble plusieurs types de rencontres. Ces totaux décrivent la bibliothèque ; ils ne comparent pas les performances des seniors, des juniors et des sélections.": "Esta vista reúne varios tipos de partidos. Estos totales describen la biblioteca; no comparan el rendimiento de los séniores, los juveniles y las selecciones.",
+  "Choisissez explicitement le type du match : Club, Juniors, U20 ou Sélection nationale.": "Elige explícitamente el tipo de partido: Club, Juveniles, U20 o Selección nacional.",
+  "Choisissez le type du match : Club, Juniors, U20 ou Sélection nationale.": "Elige el tipo de partido: Club, Juveniles, U20 o Selección nacional.",
+  "Importez une rencontre depuis Classic ou un fichier JSON / CSV pour commencer votre historique.": "Importa un partido desde Classic o un archivo JSON / CSV para empezar tu historial.",
+  "Indicateur junior, U20 ou national invalide.": "Indicador juvenil, U20 o nacional no válido.",
+  "Jusqu’à 100 observations du joueur, dans cette population, par import le plus récent.": "Hasta 100 observaciones del jugador en esta población, ordenadas por la importación más reciente.",
+  "Le type choisi contredit les indicateurs junior, U20 ou national du document.": "El tipo seleccionado contradice los indicadores juvenil, U20 o nacional del documento.",
+  "Le type de rencontre ne correspond pas au club ou à la sélection choisis.": "El tipo de partido no corresponde al club o a la selección elegidos.",
+  "Population des rencontres récentes": "Población de los partidos recientes",
+  "Sans filtre de type, les totaux décrivent toute la bibliothèque, éventuellement Club, Juniors, U20 et Nationale réunis. Sélectionnez un type pour comparer une équipe.": "Sin filtro de tipo, los totales describen toda la biblioteca y pueden reunir partidos de Club, Juveniles, U20 y Selección nacional. Selecciona un tipo para comparar un equipo.",
+  "Un même identifiant peut désigner un match de club senior, junior, U20 ou national. Les noms d’équipes, le score final et la saison ne sont pas devinés à partir des commentaires. CSV : field, possession, att, text ; virgule ou point-virgule. Maximum 8 Mo et 20 000 événements.": "Un mismo identificador puede corresponder a un partido de club sénior, juvenil, U20 o nacional. Los nombres de los equipos, el resultado final y la temporada no se deducen de los comentarios. CSV: field, possession, att, text; coma o punto y coma. Máximo 8 MB y 20 000 eventos."
 }

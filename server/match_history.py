@@ -62,7 +62,8 @@ def match_history(store, *, kind=None, season=None, team=None, offset=0, limit=2
             if match_season is not None:
                 seasons.add(match_season)
             names = (source.get('home'), source.get('away'))
-            teams.update(name for name in names if _known_name(name))
+            if kind is None or match_type == kind:
+                teams.update(name for name in names if _known_name(name))
             if team is not None and team in names:
                 named_types.add(match_type)
             if ((kind is not None and match_type != kind) or (season is not None and match_season != season)
@@ -96,7 +97,7 @@ def match_history(store, *, kind=None, season=None, team=None, offset=0, limit=2
                              'summary': summary, 'event_count': summary['total_events'],
                              'updated_at': row['updated_at']})
     if team is not None and kind is None and len(named_types) > 1:
-        raise HTTPException(422, 'Ce nom existe dans plusieurs types de matchs. Choisissez Club, U20 ou Sélection nationale.')
+        raise HTTPException(422, 'Ce nom existe dans plusieurs types de matchs. Choisissez Club, Juniors, U20 ou Sélection nationale.')
     totals['coverage_pct'] = _ratio(totals['classified'], totals['events'])
     totals['points_per_match'] = (round(totals['points_total'] / totals['scored_matches'], 2)
                                   if totals['scored_matches'] else None)
@@ -127,14 +128,14 @@ def match_history(store, *, kind=None, season=None, team=None, offset=0, limit=2
                 'Les répartitions comptent les attaques classées des deux équipes, dans les zones relatives à chacune. Leur dénominateur est le nombre total d’attaques classées.',
                 'La couverture est le nombre d’attaques classées divisé par tous les événements. Les corrections manuelles sont prises en compte.',
                 'Les points et résultats utilisent uniquement les matchs dont les deux scores sont connus. Un score nul est connu ; une valeur absente ne vaut pas zéro.',
-                'Sans filtre de type, les totaux décrivent toute la bibliothèque, éventuellement Club, U20 et Nationale réunis. Sélectionnez un type pour comparer une équipe.',
+                'Sans filtre de type, les totaux décrivent toute la bibliothèque, éventuellement Club, Juniors, U20 et Nationale réunis. Sélectionnez un type pour comparer une équipe.',
                 'Les évolutions regroupent uniquement les saisons fournies. Une saison inconnue reste séparée et aucune date de match n’est déduite.',
             ]}
 
 
 def register_match_history(app, store, auth):
     @app.get('/api/matches/history', dependencies=[Depends(auth)])
-    def get_match_history(type: int | None = Query(default=None, ge=0, le=2),
+    def get_match_history(type: int | None = Query(default=None, ge=0, le=3),
                           season: int | None = Query(default=None, ge=0, le=1_000_000),
                           team: str | None = Query(default=None, min_length=1, max_length=150),
                           offset: int = Query(default=0, ge=0),

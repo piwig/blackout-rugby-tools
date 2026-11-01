@@ -3629,5 +3629,19 @@
   "Votre bilan rapproche achats, ventes et frais réellement renseignés.": "Your balance brings together recorded purchases, sales and fees.",
   "Votre feuille conserve ses critères, ses responsables et son plan de jeu.": "Your sheet retains its criteria, designated players and game plan.",
   "Vous comparez des hypothèses de recettes nettes avec leurs limites visibles.": "Compare net revenue assumptions with their limitations clearly shown.",
-  "XV incomplet : certains postes restent vacants.": "Incomplete XV: some positions remain vacant."
+  "XV incomplet : certains postes restent vacants.": "Incomplete XV: some positions remain vacant.",
+  "CSV : les colonnes de contexte type, youth, u20 et nat ne doivent pas être dupliquées.": "CSV: context columns type, youth, u20 and nat must not be duplicated.",
+  "CSV : les colonnes type, youth, u20 et nat doivent être renseignées de façon identique sur toutes les lignes.": "CSV: columns type, youth, u20 and nat must contain the same non-empty value on every row.",
+  "Ce nom existe dans plusieurs types de matchs. Choisissez Club, Juniors, U20 ou Sélection nationale.": "This name exists in several match types. Choose Club, Juniors, U20 or National team.",
+  "Cette vue rassemble plusieurs types de rencontres. Ces totaux décrivent la bibliothèque ; ils ne comparent pas les performances des seniors, des juniors et des sélections.": "This view combines several match types. These totals describe the library; they do not compare the performances of seniors, juniors and national teams.",
+  "Choisissez explicitement le type du match : Club, Juniors, U20 ou Sélection nationale.": "Explicitly choose the match type: Club, Juniors, U20 or National team.",
+  "Choisissez le type du match : Club, Juniors, U20 ou Sélection nationale.": "Choose the match type: Club, Juniors, U20 or National team.",
+  "Importez une rencontre depuis Classic ou un fichier JSON / CSV pour commencer votre historique.": "Import a match from Classic or a JSON / CSV file to start your history.",
+  "Indicateur junior, U20 ou national invalide.": "Invalid junior, U20 or national flag.",
+  "Jusqu’à 100 observations du joueur, dans cette population, par import le plus récent.": "Up to 100 player observations in this population, ordered by most recent import.",
+  "Le type choisi contredit les indicateurs junior, U20 ou national du document.": "The selected type conflicts with the document’s junior, U20 or national flags.",
+  "Le type de rencontre ne correspond pas au club ou à la sélection choisis.": "The match type does not match the selected club or national team.",
+  "Population des rencontres récentes": "Recent match population",
+  "Sans filtre de type, les totaux décrivent toute la bibliothèque, éventuellement Club, Juniors, U20 et Nationale réunis. Sélectionnez un type pour comparer une équipe.": "Without a type filter, totals describe the entire library, possibly combining Club, Juniors, U20 and National matches. Select a type to compare a team.",
+  "Un même identifiant peut désigner un match de club senior, junior, U20 ou national. Les noms d’équipes, le score final et la saison ne sont pas devinés à partir des commentaires. CSV : field, possession, att, text ; virgule ou point-virgule. Maximum 8 Mo et 20 000 événements.": "The same identifier may refer to a senior club, junior, U20 or national match. Team names, final score and season are not inferred from commentary. CSV: field, possession, att, text; comma or semicolon. Maximum 8 MB and 20,000 events."
 }

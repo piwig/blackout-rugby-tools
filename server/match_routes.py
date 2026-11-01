@@ -18,7 +18,7 @@ from .team_identity import TeamId
 class DirectPreview(BaseModel):
     model_config = ConfigDict(extra='forbid')
     reference: str = Field(min_length=1, max_length=2048)
-    type: Literal[0, 1, 2] = 0
+    type: Literal[0, 1, 2, 3] = 0
 
 
 class DirectConfirm(BaseModel):
@@ -31,12 +31,13 @@ class DirectConfirm(BaseModel):
 class RecentMatches(BaseModel):
     model_config = ConfigDict(extra='forbid')
     team_id: TeamId
+    type: Literal[0, 1, 2, 3] | None = None
 
 
 class LegacySync(BaseModel):
     model_config = ConfigDict(extra='forbid')
     id: str = Field(pattern=r'^[0-9]{1,15}$')
-    type: Literal[0, 1, 2] = 0
+    type: Literal[0, 1, 2, 3] = 0
 
 
 def _baseline(db, kind, mid):
@@ -64,7 +65,7 @@ def register_match_direct(app, store, auth, credentials, throttle, require_team,
     async def recent(body:RecentMatches):
         require_team(body.team_id)
         throttle('recent-matches:'+body.team_id)
-        result=await recent_matches(ClassicClient(credentials(body.team_id)),body.team_id)
+        result=await recent_matches(ClassicClient(credentials(body.team_id)),body.team_id,match_type=body.type)
         with store.db() as db:
             for fixture in result['fixtures']:
                 fixture['already_imported']=bool(db.execute('SELECT 1 FROM matches WHERE id=? AND type=?',

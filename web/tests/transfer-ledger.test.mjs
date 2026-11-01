@@ -80,6 +80,17 @@ test('audit snapshots remain visible and cancelled entries are labelled without 
   assert.match(html,/2 versions/);assert.match(html,/Notebook/);
 });
 
+test('large ledger totals preserve their exact cents in the rendered metrics',async()=>{
+  // 999 permitted purchases of 10^12 plus one purchase of 0.01.
+  const p=await opened({...empty,statistics:{...statistic,count:1000,buy_count:1000,
+    purchases:'999000000000000.01',balance:'-999000000000000.01'}});
+  const html=renderToStaticMarkup(p.render()).replace(/[\u202f\u00a0]/g,' ');
+  assert.match(html,/Achats bruts<\/span><strong>999 000 000 000 000,01/);
+  assert.match(html,/Balance nette<\/span><strong>-999 000 000 000 000,01/);
+  const small=await opened({...empty,statistics:{...statistic,balance:'-0.01'}});
+  assert.match(renderToStaticMarkup(small.render()),/Balance nette<\/span><strong>-0,01/);
+});
+
 test('public component remounts on team and session changes',()=>{
   const p=harness();let tree=p.component(p.props);const first=tree.key;
   p.props.d.current_team.id='456';assert.notEqual(p.component(p.props).key,first);

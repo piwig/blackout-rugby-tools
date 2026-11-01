@@ -52,3 +52,13 @@ Les ressources d’instructions et de statistiques individuelles ont déjà ét�
 Ce bilan décrit les calculs et les cas contrôlés, sans annoncer une certification exhaustive ni une validation complète en production. Les exemples publics ne contiennent aucune donnée de manager, aucun secret et aucune pièce jointe privée.
 
 Méthodes détaillées : [optimisation et progression](optimization-methodology.md), [relecture des matchs](match-review-methodology.md), [critères et rapports Classic](community-coaching-methodology.md) et [atelier](workbench-methodology.md).
+
+## Complément du 1er novembre 2026 — version 2.12.0
+
+La revue supplémentaire a confirmé et corrigé cinq défauts : l’écart de progression collective utilisait des moyennes déjà arrondies ; le filtre de relecture pouvait masquer un contexte de match invalide ; de grands montants perdaient leurs centimes à l’affichage ; un regroupement du registre utilisait un ancien nom de joueur ; des données de stade manquantes ou invalides devenaient des zéros dans l’interface. Les régressions ont été reproduites avant correction. Des exemples décimaux indépendants, des invariants et des comparaisons serveur/interface complètent les tests.
+
+L’extension junior distingue les matchs par identifiant **et** population : club senior, junior, U20 ou NT. Les contextes contradictoires des fichiers JSON et CSV sont refusés avant l’aperçu ou l’écriture. Les noms d’équipes proposés par le filtre appartiennent au type sélectionné. Les observations individuelles sont filtrées par équipe, population et présence du joueur avant la limite des 100 relevés ; des identifiants JSON booléens ne sont plus confondus avec un identifiant numérique.
+
+Les lectures Classic des rencontres et scores juniors ont été confrontées à des réponses réelles. Le commentaire du match disponible pour ce contrôle avait expiré : l’import direct complet d’un commentaire junior récent reste à confirmer. Les minutes automatiques des juniors, U20 et NT restent inconnues tant que le contrat de statistiques individuelles correspondant n’est pas établi. La relecture des données stockées vérifie leur cohérence interne, sans prouver que toute la carrière ou tous les rapports ont été importés.
+
+Les résultats de la validation intégrée de cette version sont consignés dans [le bilan 2.12.0](release-2.12.0-validation.md). Les limites et distinctions des sections précédentes restent applicables.

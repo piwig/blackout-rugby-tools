@@ -6,8 +6,11 @@ export const attackOptions=[['percu','Percussion'],['png','Pick and go'],['large
 const aliases:Record<string,string>={percu:'percu',percussion:'percu',drive:'percu',driving:'percu',png:'png','pick and go':'png','pick&go':'png',pickngo:'png',large:'large',wide:'large',expansive:'large',crea:'crea','créatif':'crea',creative:'crea',kick:'kick',kicking:'kick','jeu au pied':'kick'};
 export function attackCode(value:unknown):string{return aliases[String(value??'').trim().toLowerCase()]||''}
 function contextValue(value:unknown,max:number):string {
-  if(value===null||value===undefined||value===''||typeof value==='boolean')return '';
-  const n=Number(value);return Number.isInteger(n)&&n>=0&&n<=max?String(n):'';
+  if(typeof value!=='string'&&typeof value!=='number')return '';
+  // Match attack_summary's canonical digits and Python integer whitespace,
+  // including NEL but excluding BOM; numeric coercion would invent context.
+  const text=String(value).replace(/^\p{White_Space}+|\p{White_Space}+$/gu,'');
+  return /^[0-5]$/.test(text)&&Number(text)<=max?text:'';
 }
 export function eventSource(event:ReviewEvent):ReviewEvent{return event.source_event??event}
 export function eventText(event:ReviewEvent):string {
@@ -30,8 +33,9 @@ export function useSuggestion(draft:EventDraft,suggestion:ReviewEvent):EventDraf
 }
 export function annotationChange(eventKey:string,draft:EventDraft) {
   if(!eventKey||!['attack','non_attack','unclassified'].includes(draft.classification)||draft.classification==='attack'&&!attackOptions.some(([key])=>key===draft.att))throw new Error('Choisissez un type d’attaque.');
-  if(draft.possession!==''&&contextValue(draft.possession,1)===''||draft.field!==''&&contextValue(draft.field,5)==='')throw new Error('Vérifiez le côté et la zone.');
-  return {event_key:eventKey,classification:draft.classification,att:draft.classification==='attack'?draft.att:null,possession:draft.possession===''?null:Number(draft.possession),field:draft.field===''?null:Number(draft.field),learn:draft.classification!=='unclassified'&&draft.learn};
+  const possession=contextValue(draft.possession,1),field=contextValue(draft.field,5);
+  if(draft.possession!==''&&possession===''||draft.field!==''&&field==='')throw new Error('Vérifiez le côté et la zone.');
+  return {event_key:eventKey,classification:draft.classification,att:draft.classification==='attack'?draft.att:null,possession:possession===''?null:Number(possession),field:field===''?null:Number(field),learn:draft.classification!=='unclassified'&&draft.learn};
 }
 function normalized(text:string):string{return text.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s+/g,' ').trim()}
 export function reviewPage(events:ReviewEvent[],filter:ReviewFilter,query:string,page:number) {

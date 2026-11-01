@@ -206,9 +206,13 @@ def progression_series(store, team_id, youth):
                 comparison = 'unknown'
             else:
                 comparison = 'comparable'
+            # The same players are known at both dates. Average their raw
+            # changes, then round once; displayed means are already rounded.
+            delta = round(sum((players[pid]['values'][metric] - previous['players'][pid]['values'][metric])
+                              / len(known_ids) for pid in known_ids), 4) if comparison == 'comparable' else None
             point['metrics'][metric] = {'value': value, 'known_count': len(known_ids),
                                         'unknown_count': roster_count - len(known_ids), 'conflict_count': conflict_count,
-                                        'delta': round(value - old_metric['value'], 4) if comparison == 'comparable' else None,
+                                        'delta': delta,
                                         'comparison': comparison}
         points.append(point)
         previous = point

@@ -46,13 +46,13 @@ function PlayerCard({player, academy}: {player: PlayerAdvice; academy: boolean})
   </article>;
 }
 
-function AdviceGroup({group, academy}: {group: GroupAdvice; academy?: boolean}) {
+function AdviceGroup({group, academy, selection}: {group: GroupAdvice; academy?: boolean; selection?: boolean}) {
   const [expanded, setExpanded] = useState(false);
   const Icon = academy ? GraduationCap : Users;
   const availability = group.availability;
   const visiblePlayers = expanded ? group.priorities : group.priorities.slice(0, 4);
   return <section className="coach-group">
-    <header className="coach-group-heading"><span className="coach-group-icon"><Icon size={22} aria-hidden="true"/></span><div><h3>{academy ? tr("Centre de formation") : tr("Effectif senior")}</h3><p>{group.count} {academy ? tr("jeunes") : tr("joueurs")} · {group.known_skills}/{group.total_skills}{tr(" compétences connues")}</p></div>{group.coverage !== null && <span className="coach-coverage">{fmt(group.coverage)} %<small>{tr("de couverture")}</small></span>}</header>
+    <header className="coach-group-heading"><span className="coach-group-icon"><Icon size={22} aria-hidden="true"/></span><div><h3>{academy ? tr("Centre de formation") : selection ? tr("Effectif de la sélection") : tr("Effectif senior")}</h3><p>{group.count} {academy ? tr("jeunes") : tr("joueurs")} · {group.known_skills}/{group.total_skills}{tr(" compétences connues")}</p></div>{group.coverage !== null && <span className="coach-coverage">{fmt(group.coverage)} %<small>{tr("de couverture")}</small></span>}</header>
     {!group.count ? <div className="coach-empty"><BookOpen size={22} aria-hidden="true"/><p>{academy ? tr("La relève se lit d’abord dans ses profils. Importez l’académie pour préparer les prochaines séances.") : tr("Importez vos seniors : leurs compétences donneront les premiers repères pour préparer l’équipe.")}</p></div> : <>
       <div className="coach-source">{group.source.name || tr("Source non renseignée")}{tr(" · Observation : ")}{date(group.source.observed_at)}</div>
       <div className="coach-highlights"><SkillHighlights items={group.strengths}/><SkillHighlights items={group.weaknesses} weakness/></div>
@@ -68,6 +68,7 @@ function AdviceGroup({group, academy}: {group: GroupAdvice; academy?: boolean}) 
 }
 
 function ScopedCoachAdvice({d}: {d: State}) {
+  const selection=d.current_team.id.includes(':');
   const headingId = useId();
   const [revision, setRevision] = useState(0);
   const [result, setResult] = useState<{snapshot: State; revision: number; report: CoachReport | null; error: string} | null>(null);
@@ -86,10 +87,10 @@ function ScopedCoachAdvice({d}: {d: State}) {
   const error = fresh ? result.error : '';
   const loading = !fresh;
   return <section className="coach-advice" aria-labelledby={headingId} aria-busy={loading}>
-    <header className="coach-heading"><div className="coach-title"><span className="coach-symbol"><Sparkles size={23} aria-hidden="true"/></span><div><span className="eyebrow">{tr("LE REGARD DU COACH")}</span><h2 id={headingId}>{tr("Ce que raconte votre effectif")}</h2><p>{tr("Sur quoi vous appuyer, où porter l’effort et quels profils accompagner : le point sur vos seniors et votre relève.")}</p></div></div><button type="button" className="button secondary" disabled={loading} onClick={() => setRevision(value => value + 1)}><RefreshCw size={15} aria-hidden="true"/>{tr("Relire les données")}</button></header>
+    <header className="coach-heading"><div className="coach-title"><span className="coach-symbol"><Sparkles size={23} aria-hidden="true"/></span><div><span className="eyebrow">{tr("LE REGARD DU COACH")}</span><h2 id={headingId}>{tr("Ce que raconte votre effectif")}</h2><p>{selection ? tr("Qui associer, quels profils retenir, quelles évolutions suivre ? Comparez vos joueurs pour préparer le XV de la sélection dans cet espace privé. Les entraînements, l’académie et les finances restent gérés par leurs clubs.") : tr("Sur quoi vous appuyer, où porter l’effort et quels profils accompagner : le point sur vos seniors et votre relève.")}</p></div></div><button type="button" className="button secondary" disabled={loading} onClick={() => setRevision(value => value + 1)}><RefreshCw size={15} aria-hidden="true"/>{tr("Relire les données")}</button></header>
     {loading && <p className="coach-loading" role="status">{tr("On passe les observations du club en revue…")}</p>}
     {error && <div className="coach-error" role="alert"><CircleAlert size={20} aria-hidden="true"/><p>{tr(error)}</p><button type="button" className="button secondary" onClick={() => setRevision(value => value + 1)}>{tr("Réessayer")}</button></div>}
-    {report && <><div className="coach-intro"><ShieldCheck size={18} aria-hidden="true"/><p>{tr("Voici une première lecture des observations importées. Avant de trancher, confirmez la forme, l’énergie et les blessures dans Classic. Ces conseils ne lancent aucune action dans le jeu.")}</p></div>{report.warnings.length > 0 && <div className="coach-warnings">{report.warnings.map(warning => <p key={tr(warning)}><CircleAlert size={15} aria-hidden="true"/>{tr(warning)}</p>)}</div>}<AdviceGroup group={report.squad}/>{!d.current_team.id.includes(':')&&<AdviceGroup group={report.academy} academy/>}<div className="coach-age-note"><HeartPulse size={19} aria-hidden="true"/><p><strong>{tr("L’âge donne un contexte, pas une date de fin.")}</strong>{tr(" Le CSR peut baisser dès 29 ans sans règle d’âge fixe ; une progression reste possible à 33 ans. Suivez les compétences et les évolutions individuelles avant d’arbitrer l’entraînement.")}</p></div><details className="coach-methodology"><summary><BookOpen size={17} aria-hidden="true"/>{tr("Comment lire ces conseils")}</summary><ul>{report.methodology.map(item => <li key={item}>{tr(item)}</li>)}</ul></details></>}
+    {report && <><div className="coach-intro"><ShieldCheck size={18} aria-hidden="true"/><p>{tr("Voici une première lecture des observations importées. Avant de trancher, confirmez la forme, l’énergie et les blessures dans Classic. Ces conseils ne lancent aucune action dans le jeu.")}</p></div>{report.warnings.length > 0 && <div className="coach-warnings">{report.warnings.map(warning => <p key={tr(warning)}><CircleAlert size={15} aria-hidden="true"/>{tr(warning)}</p>)}</div>}<AdviceGroup group={report.squad} selection={selection}/>{!d.current_team.id.includes(':')&&<AdviceGroup group={report.academy} academy/>}<div className="coach-age-note"><HeartPulse size={19} aria-hidden="true"/><p><strong>{tr("L’âge donne un contexte, pas une date de fin.")}</strong>{tr(" Le CSR peut baisser dès 29 ans sans règle d’âge fixe ; une progression reste possible à 33 ans. Suivez les compétences et les évolutions individuelles avant d’arbitrer l’entraînement.")}</p></div><details className="coach-methodology"><summary><BookOpen size={17} aria-hidden="true"/>{tr("Comment lire ces conseils")}</summary><ul>{report.methodology.map(item => <li key={item}>{tr(item)}</li>)}</ul></details></>}
   </section>;
 }
 

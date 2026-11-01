@@ -186,7 +186,7 @@ def effective_match(store, doc, *, include_review=False):
 
 def register_match_review(app, store, auth):
     @app.post('/api/matches/{kind}/{mid}/annotations')
-    def annotate_match(body: AnnotationSave, kind: int = Path(ge=0, le=2),
+    def annotate_match(body: AnnotationSave, kind: int = Path(ge=0, le=3),
                        mid: str = Path(pattern=r'^\d{1,15}$'), session=Depends(auth)):
         with store.db() as db:
             db.execute('BEGIN IMMEDIATE')

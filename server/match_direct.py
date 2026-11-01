@@ -14,7 +14,7 @@ _INVALID_RESPONSE = 'Données de match Classic incohérentes ou non reconnues. A
 
 
 def _kind(value):
-    if type(value) is not int or value not in (0, 1, 2):
+    if type(value) is not int or value not in (0, 1, 2, 3):
         raise ClassicError(_INVALID_REFERENCE)
     return value
 
@@ -26,11 +26,12 @@ def _identifier(value):
 
 
 def _flags(kind):
-    return {1: {'u20': '1'}, 2: {'nat': '1'}}.get(_kind(kind), {})
+    # Type 3 is BRT's local context. Classic accepts youth=1, never type=3.
+    return {1: {'u20': '1'}, 2: {'nat': '1'}, 3: {'youth': '1'}}.get(_kind(kind), {})
 
 
 def _check_flags(values, kind):
-    for flag, expected in (('u20', kind == 1), ('nat', kind == 2), ('youth', False)):
+    for flag, expected in (('u20', kind == 1), ('nat', kind == 2), ('youth', kind == 3)):
         if flag not in values:
             continue
         value = values[flag]
@@ -61,7 +62,7 @@ def parse_fixture_reference(value, kind):
             raise ValueError
         query = parse_qs(url.query, keep_blank_values=True, max_num_fields=40)
         fragment = parse_qs(url.fragment, keep_blank_values=True, max_num_fields=4)
-        if set(fragment) - {'fixture', 'u20', 'nat'} or set(fragment) & set(query):
+        if set(fragment) - {'fixture', 'u20', 'nat', 'youth'} or set(fragment) & set(query):
             raise ValueError
         query.update(fragment)
         for key in ('id', 'fixtureid', 'fixture', 'u20', 'nat', 'youth', 'r'):
@@ -126,6 +127,8 @@ def _fixture(raw, kind, current, team_id=None):
 
 
 async def _names(client, identifiers, kind):
+    # Juniors belong to the club namespace; t does not require a youth selector.
+    kind = 0 if kind == 3 else kind
     names = {}
     identifiers = list(dict.fromkeys(identifiers))
     for offset in range(0, len(identifiers), 10):
@@ -151,7 +154,7 @@ def _with_names(fixture, names):
             'away': names.get(fixture['away_id'], 'Extérieur (nom non fourni)')}
 
 
-async def recent_matches(client, team_id, *, now=None):
+async def recent_matches(client, team_id, *, match_type=None, now=None):
     """Read at most twenty matches and names for their participating teams."""
     try:
         identity = team_identity(team_id)
@@ -159,6 +162,11 @@ async def recent_matches(client, team_id, *, now=None):
     except (ValueError, TypeError):
         raise ClassicError('Choisissez un club ou une sélection valide.') from None
     kind = {'club': 0, 'u20': 1, 'nt': 2}[identity['kind']]
+    if match_type is not None:
+        selected = _kind(match_type)
+        if selected != kind and not (kind == 0 and selected == 3):
+            raise ClassicError('Le type de rencontre ne correspond pas au club ou à la sélection choisis.')
+        kind = selected
     current = _now(now)
     rows = _rows(await _read(client, 'f', teamid=classic_id, last=str(HISTORY_LIMIT), **_flags(kind)), HISTORY_LIMIT)
     fixtures = []
@@ -196,7 +204,7 @@ async def fetch_match(client, fixture_id, kind, *, now=None):
     if finished is not None and (type(finished) not in (int, str) or str(finished) != '1'):
         raise ClassicError(_INVALID_RESPONSE)
     document = {key: value for key, value in commentary.items()
-                if key in ('events', 'status', 'fixtureid', 'brt', 'gameDate', 'game_date', 'u20', 'nat')}
+                if key in ('events', 'status', 'fixtureid', 'brt', 'gameDate', 'game_date', 'u20', 'nat', 'youth')}
     document.update(id=fixture_id, type=kind, home=fixture['home'], away=fixture['away'],
                     home_score=_optional_number(score.get('homescore'), 999) if finished is not None else None,
                     away_score=_optional_number(score.get('guestscore'), 999) if finished is not None else None,

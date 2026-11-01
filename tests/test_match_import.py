@@ -117,7 +117,7 @@ def test_dictionary_events_use_explicit_numeric_indexes_without_sorting_halftime
     ({}, ''), ({'status': 'Error'}, '?type=1'), ({'events': [None]}, '?type=1'),
     ({'events': 'not-a-collection'}, '?type=1'), ({'events': {'x': []}}, '?type=1'),
     ({'fixtureid': True}, '?type=1'), ({'fixtureid': '12/3'}, '?type=1'),
-    ({'type': True}, ''), ({'type': 3}, ''), ({'type': 0}, '?type=1'),
+    ({'type': True}, ''), ({'type': 4}, ''), ({'type': 0}, '?type=1'),
     ({'u20': 1}, '?type=0'), ({'u20': 1, 'nat': 1}, '?type=1'),
     ({}, '?type=1&id=456'), ({'id': '456'}, '?type=1'),
 ])
@@ -217,3 +217,48 @@ def test_numeric_score_strings_keep_zero_scores_known_in_history(client):
     assert result['matches'][0]['away_score'] == 12
     assert result['totals']['scored_matches'] == 1
     assert result['totals']['points_per_match'] == 12
+
+
+@pytest.mark.parametrize('context_header,context', [('youth,type', '1,3'), ('youth', '1'), ('u20,type', '1,1'), ('nat,type', '1,2')])
+def test_csv_context_conflict_is_rejected_before_preview_or_overwriting_a_senior(client, context_header, context):
+    original = {'id': '77', 'type': 0, 'home': 'Synthetic senior', 'away': 'Synthetic away',
+                'events': [{'field': 2, 'possession': 0, 'att': 'kick', 'text': 'Original senior event'}]}
+    assert client.post('/api/matches/import', json=original).status_code == 200
+    csv = f'field,possession,att,text,{context_header}\n2,0,kick,Imported event,{context}\n'.encode()
+    for query in ('?preview=true', ''):
+        response = client.post('/api/matches/file' + query, data={'id': '77', 'type': '0'}, files={'file': ('match.csv', csv)})
+        assert response.status_code == 422, response.text
+        assert client.get('/api/matches/0/77').json()['events'][0]['text'] == 'Original senior event'
+        assert client.get('/api/matches/history').json()['total_stored'] == 1
+
+
+@pytest.mark.parametrize('columns,values', [('type,youth,u20,nat', '3,1,0,0'), (' TYPE , Youth ', ' 3 , 1 '), ('youth', '1'), ('type', '3'), ('', '')])
+def test_csv_consistent_context_is_validated_at_match_level_and_normal_csv_still_accepts_juniors(client, columns, values):
+    suffix = ',' + columns if columns else ''
+    context = ',' + values if columns else ''
+    csv = (f'field,possession,att,text{suffix}\n2,0,kick,Synthetic first{context}\n3,1,large,Synthetic second{context}\n').encode()
+    for query in ('?preview=true', ''):
+        response = client.post('/api/matches/file' + query, data={'id': '77', 'type': '3'}, files={'file': ('match.csv', csv)})
+        assert response.status_code == 200, response.text
+        if query:
+            assert response.json()['match']['type'] == 3
+            assert client.get('/api/matches/3/77').status_code == 404
+    match = client.get('/api/matches/3/77').json()
+    assert match['type'] == 3 and len(match['events']) == 2
+    assert all(not {'type', 'youth', 'u20', 'nat'} & set(event['source_event']) for event in match['events'])
+
+
+@pytest.mark.parametrize('columns,first,second', [
+    ('type', '3', '0'), ('youth', '1', '0'), ('u20', '0', '1'), ('nat', '0', '1'),
+    ('type', '3', ''), ('youth', '1', ''), ('type', '', ''), ('youth', '', ''),
+    ('type', '03', '03'), ('type', '3.0', '3.0'), ('youth', 'true', 'true'),
+    ('youth,youth', '0,1', '0,1'), ('youth, Youth ', '0,1', '0,1'),
+    ('type,type', '0,3', '0,3'), ('type, TYPE ', '0,3', '0,3'),
+])
+def test_csv_missing_invalid_discordant_or_duplicate_context_columns_are_refused(client, columns, first, second):
+    csv = f'field,possession,att,text,{columns}\n2,0,kick,Synthetic first,{first}\n2,0,kick,Synthetic second,{second}\n'.encode()
+    for query in ('?preview=true', ''):
+        response = client.post('/api/matches/file' + query, data={'id': '77', 'type': '3'}, files={'file': ('match.csv', csv)})
+        assert response.status_code == 422, response.text
+        assert 'Synthetic' not in response.text
+        assert client.get('/api/matches/history').json()['total_stored'] == 0

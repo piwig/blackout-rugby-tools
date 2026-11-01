@@ -6,22 +6,29 @@ import {type Actions,request} from './App';
 import {Modal,Pill,Radar,SkillList} from './components';
 import {useUnsavedChanges} from './navigation-guard';
 
-export function PlayerDetail({player,d,act,close}:{player:Player;d:State;act:Actions['act'];close:()=>void}){
+export type PlayerHistoryCohort='club'|'youth'|'u20'|'nt';
+type PlayerObservation={snapshot_id:number;team_id:string;cohort:PlayerHistoryCohort;youth:boolean;observed_at:string;source:string;player:Player};
+const cohortLabel=(cohort:PlayerHistoryCohort)=>tr(cohort==='youth'?'Juniors':cohort==='u20'?'Sélection U20':cohort==='nt'?'Sélection nationale':'Seniors');
+
+export function PlayerDetail({player,cohort,d,act,close}:{player:Player;cohort:PlayerHistoryCohort;d:State;act:Actions['act'];close:()=>void}){
  const [baseline,setBaseline]=useState(()=>({text:d.notes[player.id]?.text||'',watch:!!d.notes[player.id]?.watch}));
  const [note,setNote]=useState(baseline.text),[watch,setWatch]=useState(baseline.watch);
- const [history,setHistory]=useState<any[]>([]),[historyError,setHistoryError]=useState('');
+ const historyScope=JSON.stringify([d.user.username,d.csrf,d.current_team.id,player.id,cohort]);
+ const [historyState,setHistoryState]=useState<{scope:string;rows:PlayerObservation[];loading:boolean;error:string}>({scope:'',rows:[],loading:true,error:''});
+ const currentHistoryScope=useRef(historyScope);currentHistoryScope.current=historyScope;
+ const history=historyState.scope===historyScope?historyState.rows:[],historyError=historyState.scope===historyScope?historyState.error:'',historyLoading=historyState.scope!==historyScope||historyState.loading;
  const [pending,setPending]=useState(false),[error,setError]=useState(''),[conflict,setConflict]=useState(false),[message,setMessage]=useState('');
  const sending=useRef(false),mounted=useRef(true);
  const dirty=note!==baseline.text||watch!==baseline.watch;
  useUnsavedChanges(dirty||pending);
  useEffect(()=>{mounted.current=true;return()=>{mounted.current=false}},[]);
  useEffect(()=>{
-  let active=true;setHistory([]);setHistoryError('');
-  request('/history/'+d.current_team.id+'/'+player.id)
-   .then(value=>{if(active)setHistory(value)})
-   .catch(e=>{if(active)setHistoryError(e.message)});
+  let active=true;setHistoryState({scope:historyScope,rows:[],loading:true,error:''});
+  request('/history/'+encodeURIComponent(d.current_team.id)+'/'+encodeURIComponent(player.id)+'?cohort='+cohort)
+   .then(value=>{if(active&&currentHistoryScope.current===historyScope)setHistoryState({scope:historyScope,rows:value,loading:false,error:''})})
+   .catch(e=>{if(active&&currentHistoryScope.current===historyScope)setHistoryState({scope:historyScope,rows:[],loading:false,error:e.message})});
   return()=>{active=false};
- },[player.id,d.current_team.id]);
+ },[historyScope]);
  const dismiss=()=>{
   if(sending.current)return;
   if(dirty&&!window.confirm('Abandonner les modifications non enregistrées de cette note ?'))return;
@@ -58,7 +65,7 @@ export function PlayerDetail({player,d,act,close}:{player:Player;d:State;act:Act
     <Radar player={player}/><p className="tiny">{player.metrics.known_skills}{tr("/10 compétences dévoilées. Les valeurs masquées ne sont pas estimées.")}</p>
     <div className="role-list">{player.metrics.roles.slice(0,3).map(r=><div key={r.name}><span>{r.name}</span><strong>{r.score}/21</strong></div>)}</div>
     <p className="tiny">{tr("Affinités indicatives, pondérations propres à cet outil.")}</p>
-    <a className="text-button" href={'https://www.blackoutrugby.com/game/club.squad.php#player='+player.id} target="_blank" rel="noreferrer">{tr("Ouvrir Classic")}<ArrowUpRight size={14}/></a>
+    <a className="text-button" href={'https://www.blackoutrugby.com/game/'+(cohort==='youth'?'club.squad.youth.php':'club.squad.php')+'#player='+player.id} target="_blank" rel="noreferrer">{tr("Ouvrir Classic")}<ArrowUpRight size={14}/></a>
    </div>
    <div><SkillList player={player}/><div className="note-box" aria-busy={pending}>
     <h3>{tr("Votre note de recruteur")}</h3>
@@ -70,7 +77,7 @@ export function PlayerDetail({player,d,act,close}:{player:Player;d:State;act:Act
     <p className="tiny" role="status">{pending?tr("Veuillez patienter avant de fermer cette fiche."):message|| (dirty?tr("Modifications non enregistrées."):tr("Cette note reste privée dans votre espace."))}</p>
    </div></div>
   </div>
-  <div className="history-section"><h3>{tr("Historique des observations")}</h3>{historyError?<p className="text-error" role="alert">{historyError}</p>:<div className="history-list">{history.map((h,i)=><div key={i}><strong>{date(h.observed_at)}</strong><span>{h.source}</span><span>{tr("Attaque ")}{fmt(h.player.attack)}{tr(" · Défense ")}{fmt(h.player.defense)}{tr(" · Force ")}{fmt(h.player.strength)}</span></div>)}</div>}</div>
+  <div className="history-section"><h3>{tr("Historique des observations")} · {cohortLabel(cohort)}</h3><p className="tiny">{tr('Jusqu’à 100 observations du joueur, dans cette population, par import le plus récent.')}</p>{historyLoading?<p role="status">{tr('Chargement…')}</p>:historyError?<p className="text-error" role="alert">{historyError}</p>:history.length?<div className="history-list">{history.map(h=><div key={h.snapshot_id}><strong><time dateTime={h.observed_at}>{date(h.observed_at)}</time></strong><span>{cohortLabel(h.cohort)}</span><span>{h.source} · {h.observed_at}</span><span>{tr("Attaque ")}{fmt(h.player.attack)}{tr(" · Défense ")}{fmt(h.player.defense)}{tr(" · Force ")}{fmt(h.player.strength)}</span></div>)}</div>:<p role="status">{tr('Aucune observation')}</p>}</div>
  </Modal>
 }
 

@@ -16,12 +16,18 @@ Le manager peut choisir de mémoriser sa correction comme exemple. Des commentai
 
 La liaison par clé manager est conservée et expliquée en étapes courtes. La documentation Classic décrit aussi une connexion par identifiant/mot de passe (`r=lgn`), mais son intégration dépend d’un chiffrement fonctionnel. Aucun mot de passe du jeu n’est demandé par BRT.
 
-L’import direct utilise les identifiants chiffrés déjà enregistrés, un endpoint Classic fixe, une liste bornée de rencontres terminées, puis un aperçu avant confirmation. Un lien officiel sert uniquement à extraire l’identifiant et les indicateurs Club/U20/Nationale ; le serveur ne visite jamais une URL saisie. Noms, scores, saison et dates absents restent inconnus.
+L’import direct utilise les identifiants chiffrés déjà enregistrés, un endpoint Classic fixe, une liste bornée de rencontres terminées, puis un aperçu avant confirmation. Un lien officiel sert uniquement à extraire l’identifiant et les indicateurs Club/Juniors/U20/Nationale ; le serveur ne visite jamais une URL saisie. Noms, scores, saison et dates absents restent inconnus.
 
-Les imports de fichiers restent disponibles. Les clés API, les pièces jointes réelles et les journaux privés ne font pas partie du dépôt public.
+Les contextes BRT sont `0` pour les clubs seniors, `1` pour les sélections U20, `2` pour les sélections nationales et `3` pour les juniors de club. Le numéro du match et son type forment ensemble son identité, y compris pour les corrections, l’historique, les dossiers adversaires et les exports. Un même numéro peut donc être conservé dans plusieurs contextes sans écrasement. Le filtre de type permet de séparer leurs statistiques.
+
+Le type `3` est interne à BRT : il n’est jamais envoyé comme paramètre `type` à Classic. Les lectures de rencontres (`f`), commentaires (`me`) et scores (`ls`) utilisent `youth=1`. Les noms des clubs (`t`) restent lus dans le contexte club. Pour les rencontres récentes d’un club, le manager choisit explicitement Seniors ou Juniors ; le choix initial reste Seniors. Les sélections U20 et nationales conservent leur contexte propre. Un match en cours ou marqué `data_removed=1` ne produit pas d’import ; une erreur de lecture ne crée aucun match local. Le support documentaire de `me&youth=1` est établi, mais sa réponse complète sur un commentaire junior récent reste à revérifier en conditions réelles. Les tests du dépôt utilisent uniquement des sources synthétiques. Cela n’étend pas les statistiques `fs` aux juniors.
+
+Les imports de fichiers restent disponibles avec aperçu avant confirmation. Un fichier junior doit indiquer `type: 3`, ou être importé avec le choix explicite Juniors. Un drapeau `youth` présent doit être vrai (`true`, `1` ou `"1"`) pour ce contexte et faux (`false`, `0` ou `"0"`) pour les autres. Un conflit avec `type`, `u20` ou `nat` est refusé. Le drapeau seul ne choisit pas silencieusement le contexte. L’export conserve cette information sous la forme canonique `type: 3`. Les clés API, les pièces jointes réelles et les journaux privés ne font pas partie du dépôt public.
 
 ## Validation
 
 Tests synthétiques des corrections, conflits, réimports, suggestions contradictoires, isolement des managers, contexte absent, liens invalides et échecs Classic. Vérifications du parcours d’import et de relecture sur écran large et mobile avant publication.
 
 Source technique : [documentation officielle de l’API Classic](https://www.blackoutrugby.com/game/help.documentation.php?category=35&question=329), sections Login, Fixtures et Match Commentary, consultée le 31 octobre 2026.
+
+Contrat junior vérifié dans la documentation officielle le 1er novembre 2026 : [Fixtures (§351)](https://www.blackoutrugby.com/game/help.documentation.php#category=35&question=351), [Match Commentary (§390)](https://www.blackoutrugby.com/game/help.documentation.php#category=35&question=390) et [Live Score (§399)](https://www.blackoutrugby.com/game/help.documentation.php#category=35&question=399).

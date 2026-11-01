@@ -3629,5 +3629,19 @@
   "Votre bilan rapproche achats, ventes et frais réellement renseignés.": "Votre bilan rapproche achats, ventes et frais réellement renseignés.",
   "Votre feuille conserve ses critères, ses responsables et son plan de jeu.": "Votre feuille conserve ses critères, ses responsables et son plan de jeu.",
   "Vous comparez des hypothèses de recettes nettes avec leurs limites visibles.": "Vous comparez des hypothèses de recettes nettes avec leurs limites visibles.",
-  "XV incomplet : certains postes restent vacants.": "XV incomplet : certains postes restent vacants."
+  "XV incomplet : certains postes restent vacants.": "XV incomplet : certains postes restent vacants.",
+  "CSV : les colonnes de contexte type, youth, u20 et nat ne doivent pas être dupliquées.": "CSV : les colonnes de contexte type, youth, u20 et nat ne doivent pas être dupliquées.",
+  "CSV : les colonnes type, youth, u20 et nat doivent être renseignées de façon identique sur toutes les lignes.": "CSV : les colonnes type, youth, u20 et nat doivent être renseignées de façon identique sur toutes les lignes.",
+  "Ce nom existe dans plusieurs types de matchs. Choisissez Club, Juniors, U20 ou Sélection nationale.": "Ce nom existe dans plusieurs types de matchs. Choisissez Club, Juniors, U20 ou Sélection nationale.",
+  "Cette vue rassemble plusieurs types de rencontres. Ces totaux décrivent la bibliothèque ; ils ne comparent pas les performances des seniors, des juniors et des sélections.": "Cette vue rassemble plusieurs types de rencontres. Ces totaux décrivent la bibliothèque ; ils ne comparent pas les performances des seniors, des juniors et des sélections.",
+  "Choisissez explicitement le type du match : Club, Juniors, U20 ou Sélection nationale.": "Choisissez explicitement le type du match : Club, Juniors, U20 ou Sélection nationale.",
+  "Choisissez le type du match : Club, Juniors, U20 ou Sélection nationale.": "Choisissez le type du match : Club, Juniors, U20 ou Sélection nationale.",
+  "Importez une rencontre depuis Classic ou un fichier JSON / CSV pour commencer votre historique.": "Importez une rencontre depuis Classic ou un fichier JSON / CSV pour commencer votre historique.",
+  "Indicateur junior, U20 ou national invalide.": "Indicateur junior, U20 ou national invalide.",
+  "Jusqu’à 100 observations du joueur, dans cette population, par import le plus récent.": "Jusqu’à 100 observations du joueur, dans cette population, par import le plus récent.",
+  "Le type choisi contredit les indicateurs junior, U20 ou national du document.": "Le type choisi contredit les indicateurs junior, U20 ou national du document.",
+  "Le type de rencontre ne correspond pas au club ou à la sélection choisis.": "Le type de rencontre ne correspond pas au club ou à la sélection choisis.",
+  "Population des rencontres récentes": "Population des rencontres récentes",
+  "Sans filtre de type, les totaux décrivent toute la bibliothèque, éventuellement Club, Juniors, U20 et Nationale réunis. Sélectionnez un type pour comparer une équipe.": "Sans filtre de type, les totaux décrivent toute la bibliothèque, éventuellement Club, Juniors, U20 et Nationale réunis. Sélectionnez un type pour comparer une équipe.",
+  "Un même identifiant peut désigner un match de club senior, junior, U20 ou national. Les noms d’équipes, le score final et la saison ne sont pas devinés à partir des commentaires. CSV : field, possession, att, text ; virgule ou point-virgule. Maximum 8 Mo et 20 000 événements.": "Un même identifiant peut désigner un match de club senior, junior, U20 ou national. Les noms d’équipes, le score final et la saison ne sont pas devinés à partir des commentaires. CSV : field, possession, att, text ; virgule ou point-virgule. Maximum 8 Mo et 20 000 événements."
 }

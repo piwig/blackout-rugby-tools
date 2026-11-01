@@ -25,7 +25,7 @@ export function Dashboard(props:Actions&{selectTeam:(id:string,page:string)=>voi
     </div></section>,
     progress:<ProgressionSummary {...props}/>,
     talents:<section className="card"><div className="card-heading"><div><span className="eyebrow">{tr("LA RELÈVE")}</span><h2>{tr("La relève à suivre de près")}</h2></div><button className="text-button" onClick={()=>go('academy')}>{tr("Toute l’académie")}<ArrowUpRight size={16}/></button></div>
-      {priorities.length?<div className="talent-list">{priorities.map(p=><button className="talent-row" onClick={()=>openPlayer(p)} key={p.id}>
+      {priorities.length?<div className="talent-list">{priorities.map(p=><button className="talent-row" onClick={()=>openPlayer(p,true)} key={p.id}>
         <span className="player-avatar">{p.name.split(' ').map(n=>n[0]).slice(0,2).join('')}</span><span className="talent-name"><strong>{p.name}</strong><small>{p.age??'—'}{tr(" ans · ")}{p.metrics.known_skills}{tr("/10 compétences connues")}</small></span>
         {p.wc_projection?<Pill>{tr("Projection S")}{p.wc_projection}</Pill>:<Pill tone="neutral">{tr("À observer")}</Pill>}<ArrowUpRight size={16}/></button>)}</div>:<Empty title={tr("Faisons connaissance avec vos jeunes")} action={<button className="button primary" onClick={()=>go('settings')}>{tr("Importer mon académie")}</button>}>{tr("Connectez Classic ou importez votre fichier : vous pourrez alors examiner les premiers profils de votre académie.")}</Empty>}
       <div className="card-foot">{d.academy_source?<>{tr("Dernière observation : ")}{date(d.academy_source.observed_at)} · {d.academy_source.source}</>:tr("Les compétences masquées restent inconnues.")}</div>

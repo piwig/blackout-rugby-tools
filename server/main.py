@@ -113,7 +113,10 @@ class MatchSourceDate(Model):
     season:int=Field(ge=0,le=1000000)
     round:int=Field(ge=0,le=1000000)
     day:int=Field(ge=0,le=1000000)
-class Match(FixtureSync):
+class Match(Model):
+    # Type 3 is a local junior archive, never a Classic fixture selector.
+    id:str=Field(pattern=r'^\d{1,15}$')
+    type:Literal[0,1,2,3]=0
     home:str=Field(default='Domicile',max_length=150)
     away:str=Field(default='Extérieur',max_length=150)
     home_score:int|None=Field(default=None,ge=0,le=999)
@@ -271,7 +274,7 @@ def create_app(directory=None,password=None,secure=None):
         require_club_id(tid)
 
     @app.get('/api/health')
-    def health():return {'ok':True,'version':'2.11.0'}
+    def health():return {'ok':True,'version':'2.12.0'}
 
     @app.post('/api/login')
     def login(body:Login,request:Request,response:Response):
@@ -552,14 +555,10 @@ def create_app(directory=None,password=None,secure=None):
         doc=json.loads(r['payload']);return effective_match(store,doc,include_review=True)
 
     @app.get('/api/history/{team_id}/{player_id}',dependencies=[Depends(auth)])
-    def history(team_id:str,player_id:str):
-        require_team(team_id);found=[]
-        with store.db() as db:
-            for row in db.execute('SELECT id,substr(observed_at,1,80) AS observed_at,substr(source,1,500) AS source,payload FROM snapshots WHERE team_id=? ORDER BY id DESC LIMIT 100',(team_id,)):
-                for p in json.loads(row['payload']):
-                    if p['id']==player_id:
-                        found.append({'observed_at':row['observed_at'],'source':row['source'],'player':p});break
-        return found
+    def history(team_id:str,player_id:str,cohort:Literal['club','youth','u20','nt']|None=Query(None)):
+        from .player_history import player_history
+        require_team(team_id)
+        return player_history(store,team_id,player_id,cohort)
 
     @app.get('/api/export',dependencies=[Depends(auth)])
     def export(team_id:str='72450',kind:str='all',session=Depends(auth)):

@@ -1,11 +1,12 @@
 """Bounded, offline match imports; never infer team identity or a final score."""
 import csv
+import io
 import json
 import math
 import re
 
 from .classic import classify_attack
-from .imports import read_csv, reject_constant
+from .imports import reject_constant
 
 
 MAX_MATCH_BYTES = 8_000_000
@@ -20,7 +21,46 @@ MATCH_FIELDS = frozenset({
     'round', 'source_game_date', 'source_observed_at',
 })
 CLASSIC_FIELDS = frozenset({'status', 'fixtureid', 'brt', 'gameDate', 'game_date',
-                           'u20', 'nat', 'homescore', 'guestscore'})
+                           'u20', 'nat', 'youth', 'homescore', 'guestscore'})
+CSV_CONTEXT_FIELDS = frozenset({'type', 'youth', 'u20', 'nat'})
+
+
+def _read_match_csv(raw):
+    try:
+        text = raw.decode('utf-8-sig')
+    except UnicodeDecodeError:
+        text = raw.decode('cp1252')
+    dialect = csv.Sniffer().sniff(text[:8192], delimiters=';,\t')
+    reader = csv.DictReader(io.StringIO(text), dialect=dialect)
+    headers = reader.fieldnames or []
+    if len(headers) > 100:
+        raise ValueError('Maximum 100 colonnes CSV.')
+    # Inspect headers before DictReader can overwrite a duplicated context column.
+    headers = [name.strip().lower() if name.strip().lower() in CSV_CONTEXT_FIELDS else name for name in headers]
+    context = [name for name in headers if name in CSV_CONTEXT_FIELDS]
+    if len(context) != len(set(context)):
+        raise ValueError('CSV : les colonnes de contexte type, youth, u20 et nat ne doivent pas être dupliquées.')
+    reader.fieldnames = headers
+    rows = []
+    for row in reader:
+        if len(rows) >= MAX_MATCH_EVENTS:
+            raise ValueError('Maximum 20 000 événements par fichier.')
+        rows.append(row)
+    if not rows or not {'field', 'possession'}.issubset(headers):
+        raise ValueError('CSV : colonnes field et possession requises ; att et text conseillées.')
+    document = {'events': rows}
+    for name in context:
+        values = {row[name].strip() if isinstance(row[name], str) else '' for row in rows}
+        if len(values) != 1 or '' in values:
+            raise ValueError('CSV : les colonnes type, youth, u20 et nat doivent être renseignées de façon identique sur toutes les lignes.')
+        value = values.pop()
+        if name == 'type':
+            if value not in ('0', '1', '2', '3'):
+                raise ValueError('Choisissez explicitement le type du match : Club, Juniors, U20 ou Sélection nationale.')
+            document[name] = int(value)
+        else:
+            document[name] = _flag(value)
+    return document
 
 
 def read_match_document(raw, filename):
@@ -34,12 +74,9 @@ def read_match_document(raw, filename):
             raise ValueError('JSON invalide. Collez le document complet ou choisissez son fichier JSON.') from None
     if name.endswith('.csv'):
         try:
-            rows = read_csv(raw, max_rows=MAX_MATCH_EVENTS)
+            return _read_match_csv(raw)
         except csv.Error:
             raise ValueError('CSV invalide : un champ dépasse la taille autorisée ou une ligne est mal formée.') from None
-        if not rows or not {'field', 'possession'}.issubset(rows[0]):
-            raise ValueError('CSV : colonnes field et possession requises ; att et text conseillées.')
-        return {'events': rows}
     raise ValueError('Format CSV ou JSON attendu.')
 
 
@@ -52,7 +89,7 @@ def _identifier(value):
 def _flag(value):
     if value in (0, 1, '0', '1', False, True) and not isinstance(value, (list, dict, float)):
         return str(value).lower() in ('1', 'true')
-    raise ValueError('Indicateur U20 ou national invalide.')
+    raise ValueError('Indicateur junior, U20 ou national invalide.')
 
 
 def _events(source):
@@ -115,14 +152,16 @@ def normalize_match_document(source, *, match_id=None, match_type=None, home=Non
     if len(set(identifiers)) != 1:
         raise ValueError('L’identifiant saisi ne correspond pas à celui du document.')
     kinds = [value for value in (source.get('type'), match_type) if value is not None]
-    if not kinds or any(type(value) is not int or value not in (0, 1, 2) for value in kinds):
-        raise ValueError('Choisissez explicitement le type du match : Club, U20 ou Sélection nationale.')
+    if not kinds or any(type(value) is not int or value not in (0, 1, 2, 3) for value in kinds):
+        raise ValueError('Choisissez explicitement le type du match : Club, Juniors, U20 ou Sélection nationale.')
     if len(set(kinds)) != 1:
         raise ValueError('Le type choisi ne correspond pas à celui du document.')
     kind = kinds[0]
-    for flag, expected_kind in (('u20', 1), ('nat', 2)):
+    # Explicit file context becomes the canonical local type, including youth=1
+    # as type 3. Never infer a junior archive from its club or fixture number.
+    for flag, expected_kind in (('u20', 1), ('nat', 2), ('youth', 3)):
         if flag in source and _flag(source[flag]) != (kind == expected_kind):
-            raise ValueError('Le type choisi contredit les indicateurs U20 ou national du document.')
+            raise ValueError('Le type choisi contredit les indicateurs junior, U20 ou national du document.')
     result = {key: value for key, value in source.items() if key in MATCH_FIELDS}
     result.update(id=identifiers[0], type=kind, events=_events(source.get('events', [])))
     for key, selected, fallback in (('home', home, 'Domicile (nom non fourni)'),

@@ -65,7 +65,7 @@ class Session(Model):
 
 class MatchLink(Model):
     match_id: Identifier
-    match_type: Literal[0, 1, 2]
+    match_type: Literal[0, 1, 2, 3]
     club_side: Literal['home', 'away']
     opponent: str = Field(min_length=1, max_length=150)
     season: int | None = Field(default=None, ge=1, le=999, strict=True)
@@ -376,7 +376,7 @@ def register_insights(app, store, auth, require_team, state):
     def get_opponents(team_id: str = Path(pattern=TEAM_PATTERN),
                       opponent: str | None = Query(default=None, max_length=150),
                       season: int | None = Query(default=None, ge=1, le=999),
-                      match_type: int | None = Query(default=None, ge=0, le=2),
+                      match_type: int | None = Query(default=None, ge=0, le=3),
                       club_side: Literal['home', 'away'] | None = None, session=Depends(auth)):
         require_team(team_id)
         return opponent_report(store, read_document(store, team_id), opponent, season, match_type, club_side)
