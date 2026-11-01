@@ -50,4 +50,4 @@ La saisie du total affiche seulement un aperçu. Le bouton « Remplacer les cinq
 
 Le simulateur fondé sur les membres applique lui aussi les plus grands restes, après un unique arrondi décimal de la capacité totale (demi-place arrondie vers le haut). Il utilise donc la même répartition que le serveur et le scénario à capacité totale identique ; les cibles des cinq tribunes ne sont plus arrondies indépendamment.
 
-Les palettes et blasons sont construits depuis des choix bornés, sans HTML/SVG utilisateur. Les retours privés restent privés. Le partage administrateur est un choix explicite ; sa vue emploie une liste blanche de champs, et seules les révisions des retours partagés peuvent y être changées.
+Les palettes et blasons sont construits depuis des choix bornés, sans HTML/SVG utilisateur. Depuis la version 2.12.2, le formulaire de retour par écran est retiré de l’interface ; le parcours **Contact & idées** reste disponible. Les anciens retours restent conservés dans les données privées et leurs API gardent les règles de confidentialité : partage administrateur explicite, liste blanche de champs et modification limitée aux retours partagés.

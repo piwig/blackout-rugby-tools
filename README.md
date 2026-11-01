@@ -1,5 +1,9 @@
 # Blackout Rugby Tools
 
+## Interface allégée — 2.12.2
+
+Le bloc de retour présent au bas de chaque écran a été retiré. Le formulaire « Contact & idées » reste accessible depuis la navigation. Les retours déjà enregistrés sont conservés.
+
 ## Imports et récupération — 2.12.1
 
 Le parcours historique d’import vérifie désormais l’ordre des observations avant toute écriture : un ancien fichier daté ne remplace plus silencieusement l’effectif courant. Les dates explicites des exports sont conservées. Les sauvegardes exigent les bases et les espaces attendus, et leur vérification refuse les restaurations incomplètes. Voir le [bilan de validation](docs/release-2.12.1-validation.md).
@@ -106,7 +110,7 @@ Les dossiers adversaires présentent une matrice de quatre zones et cinq types d
 
 Le planning, le XV, le calendrier et les notes protègent les brouillons lors des changements de rubrique ou de club et de la déconnexion. Les champs sont bloqués pendant leur sauvegarde. Un conflit entre onglets conserve le brouillon à l’écran sans écraser la version enregistrée ; le bouton de relecture la recharge explicitement après confirmation. Relevez vos choix avant ce remplacement pour les reprendre. Les brouillons ne sont pas sauvegardés automatiquement et un départ confirmé les abandonne.
 
-**Mon profil** personnalise aussi la palette, les initiales et l’emblème de chaque club sélectionné, indépendamment du profil du manager. Le formulaire de retour de chaque écran conserve des retours privés ou explicitement partagés avec l’administrateur ; **Contact & idées** fournit la boîte de contact dédiée. L’administrateur voit le contenu volontairement partagé, pas les bases des autres managers via l’interface. Les documents de travail figurent dans `manager_documents` de l’export JSON et dans les sauvegardes privées du VPS. Voir la [méthodologie de l’atelier](docs/workbench-methodology.md).
+**Mon profil** personnalise aussi la palette, les initiales et l’emblème de chaque club sélectionné, indépendamment du profil du manager. **Contact & idées** fournit la boîte de contact dédiée. Les retours de l’ancien formulaire par écran restent conservés dans les données privées. L’administrateur voit le contenu volontairement partagé, pas les bases des autres managers via l’interface. Les documents de travail figurent dans `manager_documents` de l’export JSON et dans les sauvegardes privées du VPS. Voir la [méthodologie de l’atelier](docs/workbench-methodology.md).
 
 ## Optimisation
 

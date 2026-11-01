@@ -11,7 +11,7 @@ import {Onboarding} from './account';
 import {Optimization} from './optimization';
 import {Vacation} from './vacation';
 import {Market} from './market';
-import {SeasonPlanner,ClubIdentity,FeedbackWidget,VacationDigest,clubTheme,ClubBadge} from './workbench';
+import {SeasonPlanner,ClubIdentity,VacationDigest,clubTheme,ClubBadge} from './workbench';
 import {Tutorial,TutorialDialog,HelpButton} from './tutorial';
 import {PhotoCredits,SectionPhoto} from './rugby';
 import {Dashboard} from './dashboard';
@@ -131,7 +131,7 @@ export default function App(){
           {id:'construction',label:'Capacité & travaux',description:'Préparez vos capacités cibles et votre budget de construction.',content:<Stadium {...props}/>}
         ]}/>}{page==='matches'&&<Matches key={team} {...props}/>}{page==='settings'&&<Settings key={team} {...props}/>}{page==='guide'&&<Tutorial key={d.user.username} username={d.user.username} go={go}/>}
       </div>
-      <FeedbackWidget key={team} {...props} page={page}/><footer className="footer"><span>{tr("BLACKOUT RUGBY TOOLS ")}<i/>{tr(" L’atelier du manager")}</span><span>{tr("Outil indépendant · Votre espace privé")}</span><PhotoCredits/></footer>
+      <footer className="footer"><span>{tr("BLACKOUT RUGBY TOOLS ")}<i/>{tr(" L’atelier du manager")}</span><span>{tr("Outil indépendant · Votre espace privé")}</span><PhotoCredits/></footer>
     </main></div>
     {toast&&<div role="status" className="toast"><ShieldCheck size={18}/>{tr(toast)}</div>}{busy&&<div className="busy" role="status"><RefreshCw size={16} className="spin"/>{tr(" Opération en cours…")}</div>}
     {help&&<TutorialDialog username={d.user.username} page={page} onClose={()=>setHelp(false)} go={go}/>}{player&&<PlayerDetail key={d.user.username+':'+d.csrf+':'+d.current_team.id+':'+player.value.id+':'+player.cohort} player={player.value} cohort={player.cohort} d={d} act={act} close={()=>setPlayer(null)}/>}
