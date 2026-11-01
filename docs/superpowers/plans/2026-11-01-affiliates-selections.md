@@ -23,21 +23,21 @@ Private per-manager data; no game writes; preserve club/U20/NT namespaces, draft
 
 Files: server/imports.py, storage.py, main.py and freshness consumers as necessary; tests/test_imports.py, test_api.py, test_workbench.py and focused regression tests.
 
-- [ ] Reproduce generic ODS target, empty targeted sync, unchanged observation freshness with failing tests.
-- [ ] Apply minimal fixes preserving documented historical ODS formats and actual observation history.
-- [ ] Verify malformed responses preserve data; multiple contexts remain isolated; report test results.
+- [x] Reproduce generic ODS target, empty targeted sync, unchanged observation freshness with failing tests.
+- [x] Apply minimal fixes preserving documented historical ODS formats and actual observation history.
+- [x] Verify malformed responses preserve data; multiple contexts remain isolated; report test results.
 
 ## Task 2: selection-aware interface
 
 Files: web/src/selection-dashboard.tsx, workbench.tsx, progression.tsx, pages.tsx, optimization.tsx, App.tsx, translation catalog and relevant Node tests.
 
-- [ ] Pin suspended selection controls and unsupported calendar/academy controls with failing rendered tests.
-- [ ] Show clear selection state, retain manual calendar, add DailyHub and grouped team choices, correct club/selection terminology.
-- [ ] Verify club and selection states plus translations and production build.
+- [x] Pin suspended selection controls and unsupported calendar/academy controls with failing rendered tests.
+- [x] Show clear selection state, retain manual calendar, add DailyHub and grouped team choices, correct club/selection terminology.
+- [x] Verify club and selection states plus translations and production build.
 
 ## Task 3: review and release
 
-- [ ] Review both diffs independently, resolve findings and run full Python/Node suites, translation checker and build.
-- [ ] Visually verify synthetic affiliated-club/U20/NT contexts, including suspended selection.
-- [ ] Commit, update public GitHub and deploy approved standing scope with backup and rollback; check health/auth/static assets.
-- [ ] Record BRM observations separately in private review, distinguish features inspected from data/calculations not yet verified.
+- [x] Review both diffs independently, resolve findings and run full Python/Node suites, translation checker and build.
+- [x] Visually verify synthetic affiliated-club/U20/NT contexts, including suspended selection.
+- [x] Commit, update public GitHub and deploy approved standing scope with backup and rollback; check health/auth/static assets.
+- [x] Record BRM observations separately in private review, distinguish features inspected from data/calculations not yet verified.
