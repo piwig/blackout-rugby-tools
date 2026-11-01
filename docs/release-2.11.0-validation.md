@@ -17,3 +17,7 @@ Version consacrée à l'atelier Staff & tactique, à l'économie du stade et au 
 Les propositions sportives sont des aides explicables fondées sur les données disponibles et les coefficients choisis. Les compétences inconnues ne sont pas inventées. Les feuilles enregistrées restent locales à BRT ; cette version n'ajoute aucune écriture dans Classic.
 
 Les scénarios économiques utilisent les hypothèses déclarées. Le registre couvre des opérations terminées saisies ou importées ; il ne modifie pas la trésorerie du jeu. Les tests et les captures de contrôle n'utilisent aucune donnée de compte réelle dans ce dépôt public.
+
+## État de publication
+
+Le code 2.11.0 est publié sur la branche principale. L'archive de déploiement est préparée, mais son transfert vers le VPS a expiré lors de l'établissement de la connexion SSH. Aucun basculement de version n'a été exécuté. Au dernier contrôle du 1 novembre, le domaine public répond encore en version 2.10.0. Les sauvegardes avant/après publication et les vérifications de production de 2.11.0 restent à effectuer après rétablissement de cet accès.
