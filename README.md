@@ -1,5 +1,9 @@
 # Blackout Rugby Tools
 
+## Imports et récupération — 2.12.1
+
+Le parcours historique d’import vérifie désormais l’ordre des observations avant toute écriture : un ancien fichier daté ne remplace plus silencieusement l’effectif courant. Les dates explicites des exports sont conservées. Les sauvegardes exigent les bases et les espaces attendus, et leur vérification refuse les restaurations incomplètes. Voir le [bilan de validation](docs/release-2.12.1-validation.md).
+
 ## Juniors, U20 et statistiques — 2.12.0
 
 Les rapports de matchs juniors ont leur propre catégorie dans l’import et l’historique : une rencontre junior et une rencontre senior peuvent partager le même numéro sans se remplacer. Le contexte U20 reste celui d’une sélection nationale, distinct de l’académie d’un club.

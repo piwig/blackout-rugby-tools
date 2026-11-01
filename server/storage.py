@@ -8,6 +8,7 @@ from contextlib import contextmanager
 from datetime import datetime,timezone
 from pathlib import Path
 from cryptography.fernet import Fernet
+from .observation_order import older_observation
 
 def now():return datetime.now(timezone.utc).isoformat(timespec='seconds')
 def pack(value):return json.dumps(value,ensure_ascii=False,separators=(',',':'))
@@ -122,12 +123,40 @@ class Store:
         # other according to sheet order. Reject the whole workbook instead.
         destinations=[({'moeskroen':'72450','latouff':'72444'}.get(dataset.get('team_hint'),team_id),bool(dataset['youth'])) for dataset in datasets]
         if len(set(destinations))!=len(destinations):raise ValueError('Plusieurs feuilles visent le meme effectif ; separez les destinations avant import.')
+        observed=observed_at or result.get('team',{}).get('date_maj') or now()
         count=0
         with self.db() as db:
+            # Check the whole workbook under the same write lock before any
+            # roster, club metadata, planning or training setting is changed.
+            db.execute('BEGIN IMMEDIATE')
+            for dataset,(tid,cohort) in zip(datasets,destinations):
+                current=db.execute('SELECT digest,observed_at,last_observed_at,game_date,last_game_date FROM snapshots WHERE team_id=? AND youth=? ORDER BY id DESC LIMIT 1',(tid,int(cohort))).fetchone()
+                digest=hashlib.sha256(pack(dataset['players']).encode()).hexdigest()
+                if current and current['digest']!=digest and older_observation(observed,result['game_date'],current,clock=now()):
+                    raise ValueError('Ce relevé ancien diffère de l’effectif actuel. Son remplacement est refusé pour préserver la chronologie ; conservez ce fichier comme archive.')
+            # Identical players do not make different club metadata or training
+            # instructions safe to rewind. Resolve each annex's own destination;
+            # named legacy training can target a club absent from the rosters.
+            changed_annexes=set()
+            if result.get('team'):
+                current=db.execute('SELECT meta FROM teams WHERE id=?',(team_id,)).fetchone()
+                if not current or json.loads(current['meta'])!=result['team']:changed_annexes.add(team_id)
+            for tr in result.get('training',[]):
+                tid={'moeskroen':'72450','latouff':'72444'}.get(tr.get('team_hint'),team_id)
+                current=db.execute('SELECT value FROM kv WHERE key=?',('training:'+tid,)).fetchone()
+                if not current or json.loads(current['value'])!=[tr.get('s'+str(i),'') for i in range(1,5)]:changed_annexes.add(tid)
+            for tid in changed_annexes:
+                anchors=[dict(row) for row in db.execute('SELECT observed_at,last_observed_at,game_date,last_game_date FROM snapshots WHERE id IN (SELECT MAX(id) FROM snapshots WHERE team_id=? GROUP BY youth)',(tid,))]
+                current=db.execute('SELECT meta FROM teams WHERE id=?',(tid,)).fetchone()
+                meta=json.loads(current['meta']) if current else {}
+                if meta.get('date_maj'):
+                    anchors.append({'observed_at':meta['date_maj'],'last_observed_at':None,'game_date':None,'last_game_date':None})
+                if any(older_observation(observed,result['game_date'],anchor,clock=now()) for anchor in anchors):
+                    raise ValueError('Ce relevé ancien modifierait des métadonnées ou des consignes plus récentes. Import refusé ; les données précédentes sont conservées.')
             for dataset in datasets:
                 tid={'moeskroen':'72450','latouff':'72444'}.get(dataset.get('team_hint'),team_id)
                 if dataset.get('team_hint'):db.execute('INSERT OR IGNORE INTO teams(id,name,country) VALUES(?,?,?)',(tid,'LaTouff' if tid=='72444' else 'Moeskroen','LT' if tid=='72444' else 'BE'))
-                self.save_snapshot(tid,dataset['youth'],dataset['players'],filename+(' · '+dataset['sheet'] if 'sheet' in dataset else ''),observed_at or result.get('team',{}).get('date_maj'),result['game_date'],db)
+                self.save_snapshot(tid,dataset['youth'],dataset['players'],filename+(' · '+dataset['sheet'] if 'sheet' in dataset else ''),observed,result['game_date'],db)
                 count+=len(dataset['players'])
             if result.get('team'):db.execute('UPDATE teams SET meta=? WHERE id=?',(pack(result['team']),team_id))
             for season,grid in result.get('plans',{}).items():db.execute('INSERT OR IGNORE INTO plans VALUES(?,?,?)',(team_id,int(season),pack(grid)))

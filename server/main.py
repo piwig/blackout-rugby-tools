@@ -274,7 +274,7 @@ def create_app(directory=None,password=None,secure=None):
         require_club_id(tid)
 
     @app.get('/api/health')
-    def health():return {'ok':True,'version':'2.12.0'}
+    def health():return {'ok':True,'version':'2.12.1'}
 
     @app.post('/api/login')
     def login(body:Login,request:Request,response:Response):
@@ -471,7 +471,9 @@ def create_app(directory=None,password=None,secure=None):
         require_club(team_id);data=await file.read(8_000_001)
         try:
             result=await run_in_threadpool(parse_import,data,file.filename or '')
-            count=await run_in_threadpool(store.import_result,result,team_id,youth,Path(file.filename or 'import').name)
+            from .import_preview import inventory
+            _,observed,hint=await run_in_threadpool(inventory,data,file.filename or '',result)
+            count=await run_in_threadpool(store.import_result,result,team_id,youth,Path(file.filename or 'import').name,observed or hint)
         except ValueError as e:raise HTTPException(422,str(e)) from None
         return {'ok':True,'players':count,'datasets':len(result['datasets']) or 1}
 

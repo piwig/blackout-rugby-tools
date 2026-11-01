@@ -19,6 +19,7 @@ from .imports import parse_import
 from .national import authenticated_member, manager_credentials, prepare_selection, selection_game_date, selection_ids
 from .team_identity import TeamId, is_selection, team_identity
 from .storage import pack
+from .observation_order import older_observation
 
 TTL_SECONDS = 15 * 60
 MAX_PREVIEWS = 128
@@ -66,20 +67,7 @@ def roster_revision(db, tid, youth):
 def is_older(dataset, observed, current):
     if not current or hashlib.sha256(pack(dataset['players']).encode()).hexdigest() == current['digest']:
         return False
-    try:
-        previous = datetime.fromisoformat((current['last_observed_at'] or current['observed_at']).replace('Z', '+00:00'))
-        incoming = datetime.fromisoformat(observed)
-        if ((previous.tzinfo is not None and incoming < previous)
-                or (previous.tzinfo is None and incoming.date() < previous.date())):
-            return True
-    except (ValueError, TypeError):
-        pass
-    try:
-        old_game = selection_game_date(json.loads(current['last_game_date'] or current['game_date'] or 'null'))
-    except (ValueError, TypeError):
-        old_game = None
-    new_game = dataset['game_date']
-    return bool(old_game and new_game and tuple(new_game[k] for k in ('season', 'round', 'day')) < tuple(old_game[k] for k in ('season', 'round', 'day')))
+    return older_observation(observed, dataset['game_date'], current)
 
 
 def inventory(data, filename, result):

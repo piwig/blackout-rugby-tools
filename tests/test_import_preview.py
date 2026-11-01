@@ -282,6 +282,19 @@ def test_older_changed_file_cannot_replace_newer_current_roster(env):
     assert client.get('/api/state?team_id=72450').json()['squad'][0]['name'] == 'Newer player'
 
 
+@pytest.mark.parametrize('legacy_at', ['2099-01-01T10:00:00Z', 'invalid-legacy-date'])
+def test_valid_preview_can_replace_changed_roster_with_invalid_legacy_chronology(env, legacy_at):
+    app, client, headers = env
+    app.state.store.save_snapshot('72450', False, [{'id': '99', 'name': 'Legacy player'}],
+                                  'Invalid legacy source', legacy_at, {'season': 65, 'round': 2, 'day': 3})
+    content = json.dumps({'players': [{'id': '42', 'name': 'Current player'}],
+                          'gameDate': {'season': 64, 'round': 2, 'day': 3}}).encode()
+    doc = preview(client, headers, content).json()
+    response = confirm(client, headers, doc)
+    assert response.status_code == 200, response.text
+    assert client.get('/api/state?team_id=72450').json()['squad'][0]['name'] == 'Current player'
+
+
 def test_storage_failure_rolls_back_entire_batch_and_token_can_retry(env, monkeypatch):
     app, client, headers = env
     doc = preview(client, headers, workbook(), 'rosters.ods').json()
