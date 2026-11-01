@@ -1,5 +1,15 @@
 # Blackout Rugby Tools
 
+## Fiabilité des affiliés et des sélections — 2.9.1
+
+Le choix d’équipe distingue désormais les clubs du compte Classic, les clubs suivis, les sélections actives et les sélections suspendues. Le tableau de bord d’une sélection donne aussi accès aux priorités de toutes les équipes. Une sélection suspendue conserve ses analyses et son historique, avec un accès clair au rattachement ; les commandes d’actualisation indisponibles ne sont plus proposées. Les sélections gardent un calendrier manuel, sans bouton d’import réservé aux clubs, et ne proposent plus d’académie de club dans la progression.
+
+Les feuilles ODS génériques importent dans le club choisi. Les feuilles historiques explicitement nommées `moeskroen` ou `latouff` gardent leur compatibilité ; les métadonnées, plannings et entraînements sans destination nommée suivent le club choisi. Deux feuilles visant le même effectif provoquent un refus complet plutôt qu’un écrasement dépendant de l’ordre des feuilles. Une réponse Classic explicitement vide actualise correctement un effectif vide ; une réponse malformée conserve les observations précédentes.
+
+Une relecture de joueurs inchangés conserve l’observation d’origine et actualise séparément la dernière lecture connue. L’historique ne gagne pas de progression fictive. Les espaces privés et les identifiants distincts club/U20/NT restent inchangés.
+
+Les pistes issues de la comparaison fonctionnelle sont consignées dans [le cadrage des évolutions de sélection](docs/selection-workbench-roadmap.md).
+
 **Application : [brt.bordebat.fr](https://brt.bordebat.fr)** · [Dépôt GitHub](https://github.com/piwig/blackout-rugby-tools)
 
 Le code source est public. **Compte BRT obligatoire pour utiliser l’application.** Créez votre compte, puis connectez-vous pour accéder aux outils et au formulaire Contact & idées. Chaque manager dispose de son espace privé.

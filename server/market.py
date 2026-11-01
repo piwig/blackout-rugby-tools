@@ -241,7 +241,7 @@ def register_market(app, store, auth, require_team):
 
     def analysis(team_id, doc):
         with store.db() as db:
-            row = db.execute('SELECT id,observed_at,payload FROM snapshots WHERE team_id=? AND youth=0 ORDER BY id DESC LIMIT 1',
+            row = db.execute('SELECT id,COALESCE(last_observed_at,observed_at) AS observed_at,payload FROM snapshots WHERE team_id=? AND youth=0 ORDER BY id DESC LIMIT 1',
                              (team_id,)).fetchone()
         squad = json.loads(row['payload']) if row else []
         return analyze_market(doc['plan'], doc['candidates'], doc['investments'], squad,

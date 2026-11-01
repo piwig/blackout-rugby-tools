@@ -302,7 +302,7 @@ const source = ts.transpileModule(fs.readFileSync('src/progression.tsx','utf8'),
 const artifact = {exports:{}};
 const i18n = require('./src/i18n/runtime.ts');
 i18n.installCatalogs({fr:JSON.parse(fs.readFileSync('src/i18n/locales/fr.json','utf8'))});
-const load = id => id === './i18n' ? i18n : ['./App','./coaching','./navigation-guard'].includes(id) ? {} : id === './types' ? {skills:[],labels:{}} : id.endsWith('.css') ? {} : require(id);
+const load = id => id === './i18n' ? i18n : ['./App','./coaching','./navigation-guard','./team-context'].includes(id) ? {} : id === './types' ? {skills:[],labels:{}} : id.endsWith('.css') ? {} : require(id);
 vm.runInNewContext(source,{module:artifact,exports:artifact.exports,require:load});
 const point = (at, player) => ({at,players:player?{'42':player}:{},roster_count:player?1:0,roster_conflict:false,players_truncated:false,metrics:{csr:{value:100,known_count:1,unknown_count:0,delta:null,comparison:'coverage_changed',conflict_count:0}}});
 const player = (value,extra={}) => ({values:{csr:value},conflicts:[],revealed:[],deltas:{},presence_conflict:false,...extra});

@@ -19,7 +19,7 @@ test('sidebar renders a distinct dashboard, four labelled disclosures and one cu
   assert.equal((html.match(/aria-current="page"/g)||[]).length,1);
   assert.match(html,/id="navigation-group-account-label"[^>]*aria-expanded="false"[^>]*aria-controls="navigation-group-account"/);
   assert.match(html,/id="navigation-group-account"[^>]*hidden=""/);
-  assert.match(html,/2\.8/);
+  assert.match(html,/2\.9\.1/);
   assert.match(html,/Se déconnecter/);
 });
 

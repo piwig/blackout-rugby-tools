@@ -32,7 +32,7 @@ export function Sidebar({page,selection,username,profile,displayName,busy,mobile
     <div className="sidebar-masthead">
       <button type="button" className="icon-button sidebar-close" aria-label={tr('Fermer la navigation')} onClick={onClose}><X size={20}/></button>
       <a className="brand" href="#" onClick={e=>{e.preventDefault();if(page==='home')onClose();else go('home')}}><img src="/images/brt-logo-192.png" alt=""/><span>{tr('BLACKOUT')}<small>{tr('RUGBY TOOLS')}</small></span></a>
-      <div className="edition"><i aria-hidden="true"/>{tr(' CLASSIC EDITION ')}<span>2.8.1</span></div>
+      <div className="edition"><i aria-hidden="true"/>{tr(' CLASSIC EDITION ')}<span>2.9.1</span></div>
     </div>
     <nav id="main-navigation" className="sidebar-navigation" aria-label={tr('Navigation principale')}>
       <div className="sidebar-home">{route('home')}</div>

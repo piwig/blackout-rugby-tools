@@ -265,7 +265,7 @@ def create_app(directory=None,password=None,secure=None):
         require_club_id(tid)
 
     @app.get('/api/health')
-    def health():return {'ok':True,'version':'2.9.0'}
+    def health():return {'ok':True,'version':'2.9.1'}
 
     @app.post('/api/login')
     def login(body:Login,request:Request,response:Response):
@@ -366,9 +366,15 @@ def create_app(directory=None,password=None,secure=None):
         return vacation_service(session['user_id']).stop(body.team_id)
 
     def snapshot_data(tid,youth):
-        with store.db() as db:rows=db.execute('SELECT id,team_id,youth,substr(source,1,500) AS source,substr(observed_at,1,80) AS observed_at,substr(imported_at,1,80) AS imported_at,digest,payload,game_date FROM snapshots WHERE team_id=? AND youth=? ORDER BY id DESC LIMIT 2',(tid,int(youth))).fetchall()
+        with store.db() as db:rows=db.execute('SELECT id,team_id,youth,substr(source,1,500) AS source,substr(observed_at,1,80) AS observed_at,substr(imported_at,1,80) AS imported_at,digest,payload,game_date,substr(last_observed_at,1,80) AS last_observed_at,substr(last_source,1,500) AS last_source,last_game_date FROM snapshots WHERE team_id=? AND youth=? ORDER BY id DESC LIMIT 2',(tid,int(youth))).fetchall()
         if not rows:return [],None
         latest=dict(rows[0]);players=json.loads(latest.pop('payload'));previous={p['id']:p for p in json.loads(rows[1]['payload'])} if len(rows)>1 else {}
+        latest['first_observed_at']=latest['observed_at'];latest['first_source']=latest['source']
+        if latest.pop('last_observed_at'):
+            latest['observed_at']=rows[0]['last_observed_at'];latest['source']=latest.pop('last_source')
+            latest['game_date']=latest.pop('last_game_date') or latest['game_date']
+        else:
+            latest.pop('last_source');latest.pop('last_game_date')
         game_date=json.loads(latest['game_date']) if latest['game_date'] else ({} if is_selection(tid) else store.get('game_date',{}))
         for p in players:
             p['metrics']=player_metrics(p);p['wc_projection']=wc_projection(p,game_date)
@@ -576,7 +582,7 @@ def create_app(directory=None,password=None,secure=None):
             if body.kind in ['academy','squad']:
                 if not client.credentials.get('mk'):raise ClassicError('Ajoutez la clé manager autorisant la lecture des compétences de ce club.')
                 doc=await client.request('p',teamid=body.team_id,**({'youth':'1'} if body.kind=='academy' else {}))
-                result=parse_import(pack(doc).encode(),'players.json');count=store.import_result(result,body.team_id,body.kind=='academy','API Classic',now())
+                result=parse_import(pack(doc).encode(),'players.json',allow_empty=True);count=store.import_result(result,body.team_id,body.kind=='academy','API Classic',now())
                 return {'ok':True,'players':count}
             doc=await client.request('t',teamid=body.team_id);team=doc.get('teams',{}).get(body.team_id)
             if not isinstance(team,dict):raise ClassicError('Club absent de la réponse Classic.')

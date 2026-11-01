@@ -41,6 +41,10 @@ class Store:
                 INSERT INTO snapshots SELECT * FROM snapshots_old;
                 DROP TABLE snapshots_old;
                 CREATE INDEX snapshots_latest ON snapshots(team_id,youth,id DESC);''')
+            # Retain original history while recording successful unchanged observations.
+            columns={row['name'] for row in db.execute('PRAGMA table_info(snapshots)')}
+            for column in ('last_observed_at','last_source','last_game_date'):
+                if column not in columns:db.execute('ALTER TABLE snapshots ADD COLUMN '+column+' TEXT')
             initial=[('72450','Moeskroen','BE'),('72444','LaTouff','LT'),('57627','XV Manchot','FR'),('71184','Rapa Nui','CL'),('77847','Harragas','GE'),('81242','Pif Paf Pastèque','NL'),('41988','Strathclyde United','SL')] if seed and not db.execute("SELECT 1 FROM kv WHERE key='initial_seed_done'").fetchone() else []
             for tid,name,country in initial:
                 db.execute('INSERT OR IGNORE INTO teams(id,name,country) VALUES(?,?,?)',(tid,name,country))
@@ -79,13 +83,45 @@ class Store:
         values=(team_id,int(youth),str(source)[:500],str(observed_at or now())[:80],now(),digest,payload,pack(game_date) if game_date else None)
         sql='INSERT INTO snapshots(team_id,youth,source,observed_at,imported_at,digest,payload,game_date) VALUES(?,?,?,?,?,?,?,?)'
         def save(conn):
-            last=conn.execute('SELECT digest FROM snapshots WHERE team_id=? AND youth=? ORDER BY id DESC LIMIT 1',(team_id,int(youth))).fetchone()
+            last=conn.execute('SELECT id,digest,observed_at,last_observed_at,game_date,last_game_date FROM snapshots WHERE team_id=? AND youth=? ORDER BY id DESC LIMIT 1',(team_id,int(youth))).fetchone()
             if not last or last['digest']!=digest:conn.execute(sql,values)
+            else:
+                # A file can expose its age only through gameDate. An identical
+                # older game observation is not a fresh reading, even when the
+                # upload itself has today's wall-clock timestamp.
+                def game_stamp(value):
+                    try:
+                        value=json.loads(value) if isinstance(value,str) else value
+                        return tuple(int(value[key]) for key in ('season','round','day'))
+                    except (ValueError,TypeError,KeyError):return None
+                previous_game=game_stamp(last['last_game_date'] or last['game_date'])
+                incoming_game=game_stamp(game_date)
+                # A reread of a dated historical file is not a current observation.
+                # Compare instants (including offsets); date-only legacy values
+                # retain their precision and remain unknown to freshness consumers.
+                def stamp(value):
+                    try:
+                        value=datetime.fromisoformat(value.replace('Z','+00:00'))
+                        return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value.astimezone(timezone.utc)
+                    except (TypeError,ValueError,OverflowError):return None
+                previous=stamp(last['last_observed_at'] or last['observed_at'])
+                incoming=stamp(values[3]);clock=stamp(values[4])
+                if previous is not None and previous>clock:previous=None
+                # Invalid/future legacy provenance cannot lock out a valid read.
+                if previous is not None and incoming_game is not None and previous_game is not None and incoming_game<previous_game:return
+                if incoming is not None and incoming<=clock and (previous is None or incoming>=previous):
+                    conn.execute('UPDATE snapshots SET last_observed_at=?,last_source=?,last_game_date=COALESCE(?,last_game_date) WHERE id=?',
+                                 (values[3],values[2],values[7],last['id']))
         if db is not None:save(db)
         else:
             with self.db() as conn:save(conn)
     def import_result(self,result,team_id,youth,filename,observed_at=None):
         datasets=result['datasets'] or [{'players':result['players'],'youth':youth,'team_hint':None}]
+        # Named legacy sheets may address another club. If a generic sheet and
+        # a legacy sheet resolve to the same roster, neither may overwrite the
+        # other according to sheet order. Reject the whole workbook instead.
+        destinations=[({'moeskroen':'72450','latouff':'72444'}.get(dataset.get('team_hint'),team_id),bool(dataset['youth'])) for dataset in datasets]
+        if len(set(destinations))!=len(destinations):raise ValueError('Plusieurs feuilles visent le meme effectif ; separez les destinations avant import.')
         count=0
         with self.db() as db:
             for dataset in datasets:
@@ -93,11 +129,18 @@ class Store:
                 if dataset.get('team_hint'):db.execute('INSERT OR IGNORE INTO teams(id,name,country) VALUES(?,?,?)',(tid,'LaTouff' if tid=='72444' else 'Moeskroen','LT' if tid=='72444' else 'BE'))
                 self.save_snapshot(tid,dataset['youth'],dataset['players'],filename+(' · '+dataset['sheet'] if 'sheet' in dataset else ''),observed_at or result.get('team',{}).get('date_maj'),result['game_date'],db)
                 count+=len(dataset['players'])
-            if result.get('team'):db.execute('UPDATE teams SET meta=? WHERE id=?',(pack(result['team']),'72450'))
-            for season,grid in result.get('plans',{}).items():db.execute('INSERT OR IGNORE INTO plans VALUES(?,?,?)',('72450',int(season),pack(grid)))
+            if result.get('team'):db.execute('UPDATE teams SET meta=? WHERE id=?',(pack(result['team']),team_id))
+            for season,grid in result.get('plans',{}).items():db.execute('INSERT OR IGNORE INTO plans VALUES(?,?,?)',(team_id,int(season),pack(grid)))
             for tr in result.get('training',[]):
-                tid=tr['teamid'];db.execute('INSERT OR REPLACE INTO kv VALUES(?,?)',('training:'+tid,pack([tr.get('s'+str(i),'') for i in range(1,5)])))
-        if result['game_date']:self.set('game_date',result['game_date'])
+                tid={'moeskroen':'72450','latouff':'72444'}.get(tr.get('team_hint'),team_id);db.execute('INSERT OR REPLACE INTO kv VALUES(?,?)',('training:'+tid,pack([tr.get('s'+str(i),'') for i in range(1,5)])))
+            if result['game_date']:
+                # Reimporting older observations must not rewind the game clock.
+                row=db.execute("SELECT value FROM kv WHERE key='game_date'").fetchone()
+                try:current=tuple(int(json.loads(row['value'])[key]) for key in ('season','round','day')) if row else None
+                except (ValueError,TypeError,KeyError):current=None
+                incoming=tuple(result['game_date'][key] for key in ('season','round','day'))
+                if current is None or incoming>=current:
+                    db.execute('INSERT OR REPLACE INTO kv VALUES(?,?)',('game_date',pack(result['game_date'])))
         return count
     def session(self,token):
         if not token:return None

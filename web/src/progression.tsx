@@ -1,4 +1,5 @@
 import {localeTag,tr} from './i18n';
+import {isSelectionTeam} from './team-context';
 import {useEffect, useId, useMemo, useRef, useState} from 'react';
 import {ArrowRight, CalendarDays, ChartNoAxesCombined, ChevronLeft, ChevronRight, RefreshCw, Users} from 'lucide-react';
 import {request, type Actions} from './App';
@@ -108,12 +109,13 @@ export function Progression(props:Actions) {
 function ProgressionWorkspace(props:Actions){
   const [view,setView]=useState<'observations'|'training'|'statistics'>('observations');
   const {confirmLeave}=useNavigationGuard();
-  const selection=props.d.current_team.kind==='u20'||props.d.current_team.kind==='nt';
+  const selection=isSelectionTeam(props.d.current_team);
   const views=[{id:'observations' as const,label:'Courbes de progression',Icon:ChartNoAxesCombined},...(!selection?[{id:'training' as const,label:'Rapports d’entraînement',Icon:CalendarDays},{id:'statistics' as const,label:'Statistiques individuelles',Icon:Users}]:[])];
   return <><div className="progression-workspace-tabs" aria-label={tr('Vues de la progression')}>{views.map(({id,label,Icon})=><button key={id} aria-pressed={view===id} disabled={props.busy} onClick={()=>{if(view!==id&&confirmLeave())setView(id)}}><Icon size={17}/>{tr(label)}</button>)}</div>{view==='observations'?<ProgressionPanel {...props}/>:<ClassicCoaching {...props} mode={view}/>}</>;
 }
 
 function ProgressionPanel({d,go}:Actions) {
+  const selection=isSelectionTeam(d.current_team);
   const model=useProgression(d);
   const [population,setPopulation]=useState<'seniors'|'academy'>('seniors'),[metric,setMetric]=useState<Metric>('csr'),[playerId,setPlayerId]=useState('');
   const [period,setPeriod]=useState('all'),[from,setFrom]=useState(''),[to,setTo]=useState(''),[page,setPage]=useState(0);
@@ -136,7 +138,7 @@ function ProgressionPanel({d,go}:Actions) {
     <div className="card-heading"><div><span className="eyebrow">{tr("OBSERVATIONS DATÉES")}</span><h2><ChartNoAxesCombined size={23}/>{tr("Votre effectif, dans le temps")}</h2><p className="muted">{d.current_team.name}{tr(" · Les faits conservés, leurs variations et leurs limites.")}</p></div><button className="button secondary" onClick={()=>go('settings')}>{tr("Importer une observation")}<ArrowRight size={16}/></button></div>
     <div className="progression-body"><ProgressionStatus model={model}/>{series&&<>
       <div className="progression-filters">
-        <label>{tr("Effectif")}<select value={population} onChange={event=>{const next=event.target.value as 'seniors'|'academy';setPopulation(next);setPlayerId('');setMetric(next==='academy'?'strength':'csr');}}><option value="seniors">{tr("Seniors")}</option><option value="academy">{tr("Académie")}</option></select></label>
+        <label>{tr("Effectif")}<select value={population} onChange={event=>{const next=event.target.value as 'seniors'|'academy';setPopulation(next);setPlayerId('');setMetric(next==='academy'?'strength':'csr');}}><option value="seniors">{selection?tr("Effectif de la sélection"):tr("Seniors")}</option>{!selection&&<option value="academy">{tr("Académie")}</option>}</select></label>
         <label>{tr("Vue")}<select value={playerId} onChange={event=>setPlayerId(event.target.value)}><option value="">{tr("Collectif · moyenne des valeurs connues")}</option>{series.players.map(player=><option key={player.id} value={player.id}>{player.name} · #{player.id}</option>)}</select></label>
         <label>{tr("Métrique")}<select value={metric} onChange={event=>setMetric(event.target.value as Metric)}>{['csr',...skills].map(key=><option key={key} value={key}>{metricLabel(key)}</option>)}</select></label>
         <label>{tr("Période")}<select value={period} onChange={event=>setPeriod(event.target.value)}><option value="all">{tr("Tout l’historique retenu")}</option><option value="30">{tr("30 jours jusqu’au dernier relevé")}</option><option value="90">{tr("90 jours jusqu’au dernier relevé")}</option><option value="365">{tr("365 jours jusqu’au dernier relevé")}</option><option value="custom">{tr("Dates personnalisées (UTC)")}</option></select></label>

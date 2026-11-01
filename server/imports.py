@@ -146,8 +146,9 @@ def row_dicts(rows):
     if not rows:return []
     return [dict(zip(rows[0],r)) for r in rows[1:] if r and str(r[0]).isdigit()]
 
-def parse_import(data,filename):
+def parse_import(data,filename,*,allow_empty=False):
     if len(data)>8_000_000:raise ValueError('Fichier limité à 8 Mo.')
+    empty_roster=False
     name=filename.lower();result={'players':[],'datasets':[],'game_date':None,'team':{},'training':[],'plans':{}}
     try:
         if name.endswith('.ods'):
@@ -156,11 +157,11 @@ def parse_import(data,filename):
                 # Derived sheets deliberately ignored: preserve original observations.
                 if sheet not in PLAYER_SHEETS:continue
                 players=[normalize_player(r) for r in row_dicts(rows)]
-                if players:result['datasets'].append({'team_hint':'latouff' if sheet.startswith('latouff') else 'moeskroen','youth':sheet.endswith(('_ya','_academy')),'players':players,'sheet':sheet})
+                if players:result['datasets'].append({'team_hint':'latouff' if sheet.startswith('latouff') else 'moeskroen' if sheet.startswith('moeskroen') else None,'youth':sheet.endswith(('_ya','_academy')),'players':players,'sheet':sheet})
             if 'team' in sheets and len(sheets['team'])>1:result['team']=dict(zip(sheets['team'][0],sheets['team'][1]))
             for sheet in ['youth_training','latouff_yatt']:
                 if sheet in sheets:
-                    result['training'] += [{**r,'team_hint':'latouff' if sheet.startswith('latouff') else 'moeskroen'} for r in row_dicts(sheets[sheet])]
+                    result['training'] += [{**r,'team_hint':'latouff' if sheet.startswith('latouff') else 'moeskroen' if sheet.startswith('moeskroen') else None} for r in row_dicts(sheets[sheet])]
             rows=sheets.get('Academy',[])
             mapping={'END':'stamina','DEX':'handling','ATT':'attack','DEF':'defense','TEC':'technique','FOR':'strength','SAU':'jumping','VIT':'speed','AGI':'agility','KIK':'kicking'}
             for i,row in enumerate(rows):
@@ -176,6 +177,7 @@ def parse_import(data,filename):
             elif isinstance(doc,dict):
                 source=doc.get('players',[])
                 if not isinstance(source,(dict,list)) or len(source)>MAX_PLAYERS:raise ValueError('Maximum 4 000 joueurs par fichier.')
+                empty_roster='players' in doc and not source
                 players=[{**v,'id':str(k)} for k,v in source.items()] if isinstance(source,dict) else source
                 date=doc.get('gameDate',doc.get('game_date'))
                 if isinstance(date,dict) and all(number(date.get(k)) is not None for k in ('season','round','day')):result['game_date']={k:int(date[k]) for k in ('season','round','day')}
@@ -187,7 +189,7 @@ def parse_import(data,filename):
         else:raise ValueError('Formats acceptés : ODS, CSV, JSON.')
     except (ValueError,KeyError,TypeError,csv.Error,UnicodeError) as e:
         raise ValueError('Import refusé : '+str(e)[:180]) from e
-    if not result['players'] or len(result['players'])>MAX_PLAYERS:raise ValueError('Le fichier doit contenir entre 1 et 4 000 joueurs.')
+    if (not result['players'] and not (allow_empty and empty_roster)) or len(result['players'])>MAX_PLAYERS:raise ValueError('Le fichier doit contenir entre 1 et 4 000 joueurs.')
     for dataset in result['datasets'] or [{'players':result['players']}]:
         ids=[player['id'] for player in dataset['players']]
         if len(set(ids))!=len(ids):raise ValueError('Le fichier contient plusieurs joueurs avec le même identifiant dans un effectif.')
