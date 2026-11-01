@@ -20,4 +20,13 @@ Les scénarios économiques utilisent les hypothèses déclarées. Le registre c
 
 ## État de publication
 
-Le code 2.11.0 est publié sur la branche principale. L'archive de déploiement est préparée, mais son transfert vers le VPS a expiré lors de l'établissement de la connexion SSH. Aucun basculement de version n'a été exécuté. Au dernier contrôle du 1 novembre, le domaine public répond encore en version 2.10.0. Les sauvegardes avant/après publication et les vérifications de production de 2.11.0 restent à effectuer après rétablissement de cet accès.
+La version 2.11.0, issue du commit `0e1a755`, a été déployée le 1 novembre 2026 à 11 h 29 (Europe/Paris), après une première tentative interrompue par des connexions SSH instables. Le transfert complet et son empreinte ont été vérifiés avant activation.
+
+- Sauvegardes avant et après publication réussies ; service BRT actif, sans redémarrage en boucle.
+- Intégrité des bases vérifiée ; nombres de lignes conservés pendant le contrôle de schéma.
+- Domaine public : version 2.11.0, redirection HTTPS et en-têtes de sécurité vérifiés.
+- Les 30 fichiers publiés correspondent exactement au build local validé.
+- Les 40 accès API privés contrôlés répondent 401 sans session. Le CAPTCHA est actif ; une connexion sans jeton CAPTCHA est rejetée (403).
+- Aucune erreur applicative relevée dans les journaux des cinq minutes contrôlées après activation.
+
+La limite de contrôle visuel mobile mentionnée plus haut reste applicable ; les contrôles de production ci-dessus ne la remplacent pas.

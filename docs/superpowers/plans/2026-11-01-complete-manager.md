@@ -45,4 +45,4 @@ Modifier main.py, exports.py, App/navigation/sidebar/pages/rugby/tutorial, tradu
 
 - [x] Tests de routes/auth/export et navigation.
 - [x] Revues, tests complets, contrôle synthétique Chrome sur bureau, build et audit public. Voir les limites de vérification dans `docs/release-2.11.0-validation.md`.
-- [ ] Commit/publication GitHub, sauvegardes et VPS, contrôles de production, bilan de validation.
+- [x] Commit/publication GitHub, sauvegardes et VPS, contrôles de production, bilan de validation.
