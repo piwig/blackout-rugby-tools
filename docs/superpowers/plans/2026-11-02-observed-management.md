@@ -29,26 +29,26 @@
 
 Files : web/src/roster-table.tsx, roster-table-model.ts, roster-table.css ; web/src/pages.tsx ; tests Node dédiés, tests/test_academy_statistics.py.
 
-- [ ] Tests RED : tri numérique600/1000/inconnus, colonnes complètes seniors/juniors, notes longues échappées et action fiche, valeurs0 préservées.
-- [ ] Implémenter les composants et relier Players, sans nouveau stockage ni changement d’import.
-- [ ] Tests GREEN et contrôle du contrat d’import600étoiles ; lien vers performances existantes.
+- [x] Tests RED : tri numérique600/1000/inconnus, colonnes complètes seniors/juniors, notes longues échappées et action fiche, valeurs0 préservées.
+- [x] Implémenter les composants et relier Players sans nouveau stockage ; préserver les champs main/pied et appartenances nationales effectivement fournis par les nouveaux imports.
+- [x] Tests GREEN et contrôle du contrat d’import600étoiles ; lien vers performances existantes.
 
 ### Task 2: Comparaison des quatre derniers matchs
 
 Files : server/match_recent.py, server/main.py ; tests/test_match_recent.py, tests/test_match_sheet_routes.py ; web/src/match-recent.tsx, match-recent-model.ts, match-recent.css ; web/src/match-sheet.tsx ; tests Node dédiés.
 
-- [ ] Tests RED : dernier4par côté, ordre chronologique fiable,0–0, champs manquants, déduplication, drapeaux4contextes et identité incohérente, erreurs assainies.
-- [ ] Lecteur borné : f cible, f last20par participant, noms t, rs sur les4 derniers ; aucune ancienne rencontre de substitution pour masquer un rapport manquant.
-- [ ] Route privée/CSRF et contexte ; UI à lecture volontaire, réponse tardive ignorée, rapport précédent conservé sur échec, sources et date.
-- [ ] Tests GREEN ; comparaison réelle en lecture seule sur club propre et preuves privées.
+- [x] Tests RED : dernier4par côté, ordre chronologique fiable,0–0, champs manquants, déduplication, drapeaux4contextes et identité incohérente, erreurs assainies.
+- [x] Lecteur borné : f cible, f last20par participant, noms t, rs sur les4 derniers ; aucune ancienne rencontre de substitution pour masquer un rapport manquant.
+- [x] Route privée/CSRF et contexte ; UI à lecture volontaire, réponse tardive ignorée, rapport précédent conservé sur échec, sources et date.
+- [x] Tests GREEN ; comparaison réelle en lecture seule sur club propre et preuves privées.
 
 ### Task 3: Lisibilité, validation et publication
 
 Files : web/src/data-basis.tsx, App.tsx ; quatre catalogues ; tutoriel ; README et bilan de version2.14.0 ; versions backend/sidebar.
 
-- [ ] Tests RED des repères observé/modèle et du parcours des nouvelles vues ; ajouter clés explicites quatre langues.
-- [ ] Intégrer repères et aide, sans nouvelles promesses statistiques.
-- [ ] Tests ciblés, build puis suites complètes (ne pas construire dist pendant les tests).
-- [ ] Revue indépendante de la branche ; corriger tout constat important et vérifier.
-- [ ] Commit/GitHub, archive exacte, sauvegardes et déploiement VPS, contrôles publics/SQLite et parcours connecté, preuve privée.
-- [ ] Répondre dans le fil du retour après vérification, décrire les apports réels et limites sans prétendre avoir audité toute règle du jeu.
+- [x] Tests RED des repères observé/modèle et du parcours des nouvelles vues ; ajouter clés explicites quatre langues.
+- [x] Intégrer repères et aide, sans nouvelles promesses statistiques.
+- [x] Tests ciblés, build puis suites complètes (ne pas construire dist pendant les tests).
+- [x] Revue indépendante de la branche ; corriger tout constat important et vérifier.
+- [x] Commit/GitHub, archive exacte, sauvegardes et déploiement VPS, contrôles publics/SQLite et parcours connecté, preuve privée.
+- [x] Répondre dans le fil du retour après vérification, décrire les apports réels et limites sans prétendre avoir audité toute règle du jeu.

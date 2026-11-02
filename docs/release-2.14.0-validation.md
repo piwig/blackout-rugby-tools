@@ -31,3 +31,11 @@ La revue indépendante a trouvé une régression : l’anniversaire avait dispar
 Le contrôle visuel de la page publiée a révélé une collision avec l’ancienne classe globale `.match-recent`, destinée à une liste de vignettes. Elle imposait une grille à tous les enfants du comparatif et une hauteur de 380 px. Le nouveau composant utilise désormais le préfixe isolé `.recent-comparison`, avec ses règles descendantes limitées à ce périmètre. Les observations et calculs restent identiques.
 
 Le défaut a été reproduit dans le navigateur (cartes comprimées à 136 px). Le contrôle des seuls nombres de cartes et de l’absence de débordement de page ne suffisait pas à détecter cette compression interne. Après reconstruction, les captures de la page complète ont été inspectées sur ordinateur et à 390 px : huit cartes conservées, largeurs de 749 px et 285 px, aucune hauteur plafonnée ni débordement horizontal de page. Les suites complètes du correctif passent : 1 395 tests Python et 233 tests Node ; TypeScript et build réussis.
+
+## Publication
+
+Le code 2.14.1 publié est `beefb820bdf3ae0fd4956ef41d4335b8916b3f5f`. L’archive reconstruite depuis ce commit et le bundle vérifié porte le SHA-256 `a9026ca8a4eabb7d58379bc12c467e366d4064617e50e53989a9fa2ef0ff3a52`. GitHub/main et le VPS ont reçu cette version le 2 novembre 2026.
+
+Les sauvegardes avant/après sont terminées avec succès. Les quatre contrôles SQLite en lecture seule confirment l’intégrité et la conservation des nombres de lignes des bases. Le contrôle public retrouve les 30 fichiers statiques à l’octet près, la santé 2.14.1, 51 routes privées refusées sans authentification, HTTPS, les en-têtes de sécurité et le CAPTCHA actif. Aucun ordre n’a été envoyé dans Classic pour ce lot applicatif.
+
+Le parcours connecté publié a été relu : tableau complet avec anniversaires et commentaires, lecture des deux feuilles puis huit cartes récentes et notes dépliables. Le comparatif utilise bien deux colonnes lisibles sur ordinateur, avec cartes de 749 px et hauteur libre. Une réponse décrivant les ajouts et les limites a été envoyée au testeur après ces contrôles ; les preuves détaillées restent privées.
