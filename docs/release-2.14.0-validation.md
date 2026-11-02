@@ -22,4 +22,6 @@ Références : [BRM V4](https://brm.webyzo.com/V4/index.php), [documentation API
 
 ## Validation locale
 
-1 395 tests Python et 232 tests Node réussis ; TypeScript et build vérifiés. Les quatre catalogues contiennent 3 817 clés, sans manque ni paramètre incohérent. Les avertissements existants concernent TestClient et la taille du bundle. Un contrôle local synthétique a vérifié la note junior après enregistrement/rechargement,600étoiles intégrales, une révélation distincte d’un gain, huit cartes récentes avec scores0–0 et l’affichage anglais à390px sans débordement de page.
+1 395 tests Python et 233 tests Node réussis ; TypeScript et build vérifiés. Les quatre catalogues contiennent 3 817 clés, sans manque ni paramètre incohérent. Les avertissements existants concernent TestClient et la taille du bundle. Un contrôle local synthétique a vérifié la note junior après enregistrement/rechargement, 600 étoiles intégrales, une révélation distincte d’un gain, huit cartes récentes avec scores 0–0 et l’affichage anglais à 390 px sans débordement de page.
+
+La revue indépendante a trouvé une régression : l’anniversaire avait disparu de la nouvelle table. Il a été restauré sous l’âge dans les deux vues, avec test de non-régression RED→GREEN et suites complètes relancées. Aucun autre constat actionnable n’a été relevé. Les sélections réelles, les données privées et la publication sont restées hors du périmètre du relecteur ; les vérifications réelles du coordinateur sont limitées à son propre accès.

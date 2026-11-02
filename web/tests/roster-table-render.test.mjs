@@ -29,3 +29,12 @@ test('complete junior table renders full stars, comments, unknowns and accessibl
  assert.match(html,/aria-sort="descending"/);assert.match(html,/Hauteur|Taille/);assert.match(html,/Énergie/);
  assert.match(html,/>0<\/span>|>0<\/td>/);
 });
+
+test('observed junior birthday stays visible in essential and complete roster views',()=>{
+ const {RosterTable}=load(path.resolve(import.meta.dirname,'../src/roster-table.tsx'));
+ const player={id:'1',name:'Birthday Example',age:17,birthday:'3:5',stars:600,changes:{},metrics:{skill_total:0}};
+ for(const complete of [false,true]){
+  const html=renderToStaticMarkup(React.createElement(RosterTable,{players:[player],notes:{},youth:true,complete,sort:'age',descending:true,busy:false,compare:[],onSort(){},onOpen(){},onWatch(){},onCompare(){}}));
+  assert.match(html,/3:5/);assert.match(html,/Anniversaire/);
+ }
+});

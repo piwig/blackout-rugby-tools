@@ -20,7 +20,7 @@ export function RosterTable({players,notes,youth,complete,sort,descending,busy,c
   if(key==='generation')return p.wc_projection?tr('S{season}',{season:p.wc_projection}):'—';
   const raw=rosterValue(p,key),change=rosterDelta(p,key);
   const value=skills.includes(key as typeof skills[number])?<Skill value={p[key]}/>:<span>{fmt(raw)}</span>;
-  return <>{value}{change&&<small className="roster-delta" title={tr('Avant : {before} · Après : {after}',{before:change.before,after:change.after})}>
+  return <>{value}{key==='age'&&<small className="sub-cell" title={tr('Anniversaire')}>{p.birthday||'—'}</small>}{change&&<small className="roster-delta" title={tr('Avant : {before} · Après : {after}',{before:change.before,after:change.after})}>
     {change.kind==='numeric'?`${change.delta>0?'+':''}${fmt(change.delta)}`:tr('Dévoilé')}</small>}</>;
  };
  return <table className={'players-table roster-table'+(complete?' roster-complete':'')}><thead><tr>
