@@ -4,6 +4,12 @@ import {ArrowLeft,ArrowRight,BookOpen,Check,CheckCircle2,ChevronRight,Compass,He
 
 type Lesson={id:string;title:string;duration:string;intro:string;steps:[string,string][];result:string;tip:string;page:string;action:string};
 const lessons:Lesson[]=[
+  {id:'match-sheet',title:'Lire le face-à-face avant le match',duration:'3 min',intro:'Jour de match compare les feuilles des deux équipes sur téléphone comme sur ordinateur.',steps:[
+    ['Choisir la rencontre','Sélectionnez votre club ou votre sélection, puis seniors ou juniors si nécessaire. Lisez le calendrier Classic ou saisissez un lien officiel.'],
+    ['Lire les deux feuilles','Lancez la comparaison. Les 23 postes restent à leur place ; une feuille non publiée ou une fiche manquante reste explicitement inconnue.'],
+    ['Comparer les lignes','Choisissez le pack, la charnière, le XV ou le banc. Chaque indicateur précise combien de valeurs sont connues. Consultez ensuite chaque duel avec capitaine et buteur.'],
+    ['Vérifier les limites','Relisez la date des données et les échéances fournies. Les repères horaires sont indicatifs. En auto, une énergie de 0 à 11 est ambiguë ; précisez son échelle seulement si vous la connaissez.']
+  ],result:'Vous préparez vos choix avec les feuilles réellement fournies par Classic.',tip:'L’indice ajusté est personnel, non officiel et ne prédit pas le vainqueur. Cet écran lit le jeu sans modifier vos réglages.',page:'matchday',action:'Ouvrir Jour de match'},
   {id:'coach-lab',title:'Préparer le XV et son plan de jeu',duration:'4 min',intro:'Staff & tactique rassemble les choix du staff, du groupe de joueurs jusqu’à la feuille enregistrée.',steps:[
     ['Choisir le groupe','Sélectionnez les seniors ou les juniors de votre club. Pour une sélection, son effectif reste séparé. Vérifiez la date des données et les disponibilités.'],
     ['Construire le XV','Choisissez les compétences, les performances moyennes, les meilleures notes ou leur combinaison. Réglez les critères avancés seulement si nécessaire. Les notes doivent partager une échelle et un contexte de poste.'],
@@ -224,7 +230,7 @@ const faqs=[
   ['Pourquoi le stade ou l’analyse ne donne-t-il pas une prédiction certaine ?','Les ratios du stade et les affinités de poste sont des modèles d’aide. L’analyse des commentaires ne reconnaît qu’une partie des événements. Les limites et les sources sont affichées pour éviter de confondre observations, estimations et règles officielles.']
 ];
 
-const contextLessons:Record<string,string>={coaching:'coach-lab',pool:'player-pool',performance:'player-performance',market:'market',contact:'contact',home:'daily',profile:'profile',progression:'progression',season:'season',vacation:'vacation',academy:'academy-followup',squad:'squad',matches:'opponents',training:'training',optimization:'lineup-lab',stadium:'stadium',settings:'connect',guide:'start'};
+const contextLessons:Record<string,string>={matchday:'match-sheet',coaching:'coach-lab',pool:'player-pool',performance:'player-performance',market:'market',contact:'contact',home:'daily',profile:'profile',progression:'progression',season:'season',vacation:'vacation',academy:'academy-followup',squad:'squad',matches:'opponents',training:'training',optimization:'lineup-lab',stadium:'stadium',settings:'connect',guide:'start'};
 const storageKey=(username:string)=>'brt-tutorial-v1:'+username;
 function readProgress(username:string):string[]{try{const value=JSON.parse(localStorage.getItem(storageKey(username))||'[]');return Array.isArray(value)?[...new Set<string>(value.filter((id:unknown)=>typeof id==='string'&&lessons.some(l=>l.id===id)))]:[]}catch{return []}}
 const normalize=(value:string)=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();

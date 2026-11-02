@@ -1,5 +1,11 @@
 # Blackout Rugby Tools
 
+## Jour de match — 2.13.0
+
+Comparez les deux feuilles Classic depuis **Préparer le match → Jour de match** : 23 duels en vis-à-vis, capitaines et buteurs, gabarits, forme, énergie, expérience, agressivité et discipline. Dix groupes permettent de comparer le pack, les lignes, le XV et le banc avec la couverture de chaque chiffre. Disponible pour les clubs suivis, affiliés, juniors, U20 et sélections nationales rattachées, sous réserve des données publiées par Classic.
+
+Le calendrier ou un lien officiel ouvre une lecture manuelle. Une feuille non publiée reste inconnue ; les échéances fournies et les repères calculés sont séparés. L’indice ajusté est personnel et non officiel ; l’échelle d’énergie doit être connue pour le calculer. L’écran lit le jeu sans modifier ses réglages. Aide intégrée en français, anglais, espagnol et italien.
+
 ## Interface allégée — 2.12.2
 
 Le bloc de retour présent au bas de chaque écran a été retiré. Le formulaire « Contact & idées » reste accessible depuis la navigation. Les retours déjà enregistrés sont conservés.

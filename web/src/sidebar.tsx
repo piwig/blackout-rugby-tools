@@ -4,11 +4,11 @@ import {tr} from './i18n';
 import {ProfileAvatar,type ProfilePreferences} from './profile';
 import {visibleNavigationGroups,readNavigationExpansion,revealNavigationGroup,saveNavigationExpansion,type NavigationId,type NavigationGroupId} from './navigation';
 
-const icons={home:LayoutDashboard,squad:Users,coaching:ClipboardList,pool:Network,performance:ChartNoAxesCombined,optimization:Sparkles,matches:BarChart3,season:CalendarRange,academy:Sprout,training:Dumbbell,progression:TrendingUp,stadium:Building2,market:Wallet,vacation:Palmtree,profile:UserRound,settings:Plug,contact:MessageCircle,guide:BookOpen};
+const icons={matchday:ArrowUpRight,home:LayoutDashboard,squad:Users,coaching:ClipboardList,pool:Network,performance:ChartNoAxesCombined,optimization:Sparkles,matches:BarChart3,season:CalendarRange,academy:Sprout,training:Dumbbell,progression:TrendingUp,stadium:Building2,market:Wallet,vacation:Palmtree,profile:UserRound,settings:Plug,contact:MessageCircle,guide:BookOpen};
 
 // Literal keys keep every navigation label available to the translation extractor.
 export function navigationLabels():Record<NavigationId,string>{
-  return {home:tr('Tableau de bord'),squad:tr('Effectif & XV'),coaching:tr('Staff & tactique'),pool:tr('Vivier de joueurs'),performance:tr('Performances par poste'),optimization:tr('Optimisation'),matches:tr('Analyse des matchs'),season:tr('Saison & calendrier'),academy:tr('Académie'),training:tr('Entraînement'),progression:tr('Progression'),stadium:tr('Stade & finances'),market:tr('Mercato & budget'),vacation:tr('Mode vacances'),profile:tr('Profil & affichage'),settings:tr('Connexion & données'),contact:tr('Contact & idées'),guide:tr('Tutoriel & aide')};
+  return {matchday:tr('Jour de match'),home:tr('Tableau de bord'),squad:tr('Effectif & XV'),coaching:tr('Staff & tactique'),pool:tr('Vivier de joueurs'),performance:tr('Performances par poste'),optimization:tr('Optimisation'),matches:tr('Analyse des matchs'),season:tr('Saison & calendrier'),academy:tr('Académie'),training:tr('Entraînement'),progression:tr('Progression'),stadium:tr('Stade & finances'),market:tr('Mercato & budget'),vacation:tr('Mode vacances'),profile:tr('Profil & affichage'),settings:tr('Connexion & données'),contact:tr('Contact & idées'),guide:tr('Tutoriel & aide')};
 }
 
 type SidebarProps={
@@ -32,7 +32,7 @@ export function Sidebar({page,selection,username,profile,displayName,busy,mobile
     <div className="sidebar-masthead">
       <button type="button" className="icon-button sidebar-close" aria-label={tr('Fermer la navigation')} onClick={onClose}><X size={20}/></button>
       <a className="brand" href="#" onClick={e=>{e.preventDefault();if(page==='home')onClose();else go('home')}}><img src="/images/brt-logo-192.png" alt=""/><span>{tr('BLACKOUT')}<small>{tr('RUGBY TOOLS')}</small></span></a>
-      <div className="edition"><i aria-hidden="true"/>{tr(' CLASSIC EDITION ')}<span>2.12.1</span></div>
+      <div className="edition"><i aria-hidden="true"/>{tr(' CLASSIC EDITION ')}<span>2.13.0</span></div>
     </div>
     <nav id="main-navigation" className="sidebar-navigation" aria-label={tr('Navigation principale')}>
       <div className="sidebar-home">{route('home')}</div>

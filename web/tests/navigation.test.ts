@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {navigationItems,navigationGroups,visibleNavigationGroups,isClubOnly,readNavigationExpansion,revealNavigationGroup,saveNavigationExpansion} from '../src/navigation.ts';
 
 test('all destinations are unique and assigned exactly once',()=>{
-  const expected=['home','optimization','season','progression','academy','squad','matches','training','stadium','market','vacation','profile','settings','contact','guide','pool','performance','coaching'].sort();
+  const expected=['home','optimization','season','progression','academy','squad','matchday','matches','training','stadium','market','vacation','profile','settings','contact','guide','pool','performance','coaching'].sort();
   assert.deepEqual(navigationItems.map(item=>item.id).sort(),expected);
   assert.deepEqual(['home',...navigationGroups.flatMap(group=>group.items)].sort(),expected);
 });
@@ -23,6 +23,7 @@ test('manager-wide tools remain reachable in club and selection contexts',()=>{
     assert.ok(routes.includes('pool'));
     assert.ok(routes.includes('performance'));
     assert.ok(routes.includes('coaching'));
+    assert.ok(routes.includes('matchday'));
   }
   const saved={match:false,development:false,club:false,account:false};
   assert.equal(revealNavigationGroup(saved,'pool').development,true);
