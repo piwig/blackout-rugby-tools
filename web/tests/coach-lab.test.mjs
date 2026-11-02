@@ -27,6 +27,13 @@ function button(tree,phrase){return nodes(tree).find(n=>n.type==='button'&&JSON.
 async function settle(){for(let i=0;i<15;i++)await Promise.resolve()}
 
 const attrs=['stamina','handling','attack','defense','technique','strength','jumping','speed','agility','kicking','height','weight','form','aggression','discipline','leadership','experience'];
+
+for(const modern of [false,true])test(`saved ${modern?'current':'legacy'} bench keeps its actual methodology`,async()=>{
+ const h=harness();h.render();h.requests[0].resolve({...doc,sheet:{...sheet,method:modern?'coach-lab-v2':'coach-lab-v1',bench:{...sheet.bench,method:modern?'exact-indicative-coverage-v1':undefined}}});await settle();
+ const html=renderToStaticMarkup(h.render());
+ if(modern){assert.match(html,/80 %/);assert.doesNotMatch(html,/Ancienne feuille : recalculez/)}
+ else{assert.match(html,/Ancienne feuille : recalculez/);assert.doesNotMatch(html,/affinité complète atteignant 80 %/)}
+});
 const config={weights:Object.fromEntries([...Array.from({length:15},(_,i)=>String(i+1)),'captain','kicker'].map(k=>[k,Object.fromEntries(attrs.map(a=>[a,a==='strength'?1:0]))])),references:Object.fromEntries(attrs.map(a=>[a,{min:0,max:21,direction:'higher'}])),energy_scale:'percent',energy_floor:60,energy_penalty:0,mode:'skills',rating_scale:'',position_scope:'exact',position_basis:'observed',minimum_notes:1,skill_share:50,locks:{},excluded_ids:[],objective:'balanced',conditions:{weather:'unknown',wind:'unknown'},opponent:null};
 const doc={revision:0,config,sheet:null,scales:[],performance_revision:0};
 const sheet={slots:{'1':'42'},players:[{slot:1,id:'42',name:'Synthetic',score:null,skills:{score:null,missing:['strength'],components:[]},performance:{count:0,small_sample:true,bounds:[null,null],evidence:[]}}],unfilled:Array.from({length:14},(_,i)=>i+2),responsibles:{captain:{selected:null,backups:[],ranking:[]},kicker:{selected:null,backups:[],ranking:[]}},tactics:{attacks:{driving:25,pickandgo:25,expansive:25,creative:25},kick_frequency:20,kick_types:{touch:50,territory:30,contestable:20},defense:'drift',intensity:65,discipline:'balanced',variants:[],base_plan:true,unknown_attributes:['strength'],known_means:{},conditions:{weather:'unknown',wind:'unknown'}},bench:{coverage:{Pilier:[]},gaps:['Pilier']},warnings:[],window:{start:'2026-07-01',end:'2026-11-01'},source:null};

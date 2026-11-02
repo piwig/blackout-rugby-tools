@@ -1,5 +1,11 @@
 # Blackout Rugby Tools
 
+## Préparation avant match — 2.13.1
+
+Le banc est choisi globalement, à titulaires fixés, pour maximiser la couverture indicative puis les scores personnels connus. Deux options de pilier sont recherchées ; les autres familles gardent au moins une option lorsque les données et l’effectif le permettent. Staff & tactique utilise désormais une affinité complète atteignant80% du meilleur rôle, et signale les anciennes feuilles à recalculer.
+
+Jour de match distingue les étapes avant verrouillage du XV, ajustement des tactiques et échéances dépassées selon les délais fournis pour votre équipe à l’heure de lecture. Le contrôle des23 et des responsables accompagne la comparaison adverse. Les qualifications, disponibilités et changements simultanés restent à vérifier dans Classic.
+
 ## Jour de match — 2.13.0
 
 Comparez les deux feuilles Classic depuis **Préparer le match → Jour de match** : 23 duels en vis-à-vis, capitaines et buteurs, gabarits, forme, énergie, expérience, agressivité et discipline. Dix groupes permettent de comparer le pack, les lignes, le XV et le banc avec la couverture de chaque chiffre. Disponible pour les clubs suivis, affiliés, juniors, U20 et sélections nationales rattachées, sous réserve des données publiées par Classic.
