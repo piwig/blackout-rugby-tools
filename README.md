@@ -1,6 +1,6 @@
 # Blackout Rugby Tools
 
-## Effectifs observés et quatre derniers matchs — 2.14.0
+## Effectifs observés et quatre derniers matchs — 2.14.1
 
 La vue **Toutes les caractéristiques** rassemble les attributs seniors et juniors, le cumul d’étoiles fourni par la source, les changements entre relevés et les commentaires privés. Les colonnes se trient sans transformer une inconnue en zéro. Les champs main, pied et appartenance nationale sont conservés lors des nouveaux imports.
 

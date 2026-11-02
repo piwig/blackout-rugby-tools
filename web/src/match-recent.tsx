@@ -23,7 +23,7 @@ export function RecentMatchComparison({teamId,kind,fixtureId,participants,csrf,b
   }catch(cause){if(live.current)setError(cause instanceof Error?cause.message:tr('Lecture Classic impossible.'))}
   finally{operation.current=false;if(live.current)setPending(false)}
  };
- return <section className="card match-recent" aria-labelledby={id} aria-busy={pending}>
+ return <section className="card recent-comparison" aria-labelledby={id} aria-busy={pending}>
   <div className="card-heading"><div><span className="eyebrow">{tr('LES FAITS AVANT LE DUEL')}</span><h3 id={id}><History size={20}/>{tr('Leurs quatre derniers matchs, et les nôtres.')}</h3></div><button type="button" className="button secondary" disabled={busy||pending} onClick={()=>void read()}><RefreshCw size={16}/>{pending?tr('Lecture des derniers matchs…'):tr('Comparer les quatre derniers matchs')}</button></div>
   <p>{tr('Scores, météo fournie et notes collectives du reporter Classic. Les matchs sans rapport gardent leur place ; aucune ancienne rencontre ne les remplace.')}</p>
   {pending&&<p role="status">{tr('Lecture limitée à quatre matchs par équipe. Les requêtes Classic sont espacées : cela peut prendre une minute.')}</p>}
