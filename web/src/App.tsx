@@ -19,6 +19,7 @@ import {SelectionDashboard} from './selection-dashboard';
 import {PlayerPool} from './player-pool';
 import {PlayerPerformance} from './player-performance';
 import {MatchSheet} from './match-sheet';
+import {DataBasis} from './data-basis';
 import {CoachLab} from './coach-lab';
 import {StadiumEconomy} from './stadium-economy';
 import {TransferLedger} from './transfer-ledger';
@@ -112,7 +113,7 @@ export default function App(){
     </header><main>
       <div className={'page-title '+(!['home','guide','profile'].includes(page)?'page-masthead':'')}><SectionPhoto page={page}/><div><div className="eyebrow">{page==='home'?tr('BONJOUR {name}',{name:displayName.toUpperCase()}):['pool','performance'].includes(page)?tr('MON RÉSEAU PRIVÉ'):d.current_team.name.toUpperCase()}</div><h1 id="page-heading" tabIndex={-1}>{tr(current.label)}</h1><p>{tr(page==='coaching'?coachDescription:selection&&page==='squad'?'Avec vos joueurs disponibles, comparez les postes, l’énergie et les compétences connues. Préparez votre XV, puis vérifiez la composition dans Classic.':descriptions[page])}</p></div><div className="page-actions"><HelpButton onClick={()=>setHelp(true)}/>{!['settings','guide','profile','contact'].includes(page)&&<button className="button secondary" onClick={()=>go('settings')}><Upload size={16}/><span>{tr("Actualiser mes données")}</span></button>}</div></div>
       {error&&<div className="notice error" role="alert"><span>{tr(error)}</span><button className="icon-button" aria-label={tr("Fermer l’erreur")} onClick={()=>setError('')}><X size={17}/></button></div>}
-      <div className="page-content" key={d.user.username+':'+d.csrf+':'+page}>{routeNotes[page]&&<div className="page-route-note"><Info size={17}/><span>{selection&&page==='season'?tr("Ajoutez les rendez-vous de votre sélection dans le calendrier manuel. Votre calendrier et vos intentions de rotation restent privés."):tr(routeNotes[page])}</span></div>}
+      <div className="page-content" key={d.user.username+':'+d.csrf+':'+page}><DataBasis d={d} page={page}/>{routeNotes[page]&&<div className="page-route-note"><Info size={17}/><span>{selection&&page==='season'?tr("Ajoutez les rendez-vous de votre sélection dans le calendrier manuel. Votre calendrier et vos intentions de rotation restent privés."):tr(routeNotes[page])}</span></div>}
         {blockedPage&&<section className="card prose"><h2>{tr("Cette rubrique concerne les clubs.")}</h2><p>{tr("Pour cette sélection, retrouvez l’effectif, les compositions, les matchs et la progression.")}</p><button className="button primary" onClick={()=>go('home')}>{tr("Ouvrir le tableau de bord de la sélection")}</button></section>}
         {page==='contact'&&<ContactPage {...props}/>}
         {page==='pool'&&<PlayerPool {...props}/>}

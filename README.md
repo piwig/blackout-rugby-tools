@@ -1,5 +1,13 @@
 # Blackout Rugby Tools
 
+## Effectifs observés et quatre derniers matchs — 2.14.0
+
+La vue **Toutes les caractéristiques** rassemble les attributs seniors et juniors, le cumul d’étoiles fourni par la source, les changements entre relevés et les commentaires privés. Les colonnes se trient sans transformer une inconnue en zéro. Les champs main, pied et appartenance nationale sont conservés lors des nouveaux imports.
+
+Dans **Jour de match**, comparez les quatre dernières rencontres terminées des deux équipes : scores confirmés, météo fournie et notes collectives du reporter Classic. Les rapports absents restent à leur place ; un relevé de score séparé peut compléter le résultat sans inventer de notes. Les repères de provenance distinguent les observations des modèles personnels de BRT.
+
+Voir le [bilan de validation 2.14.0](docs/release-2.14.0-validation.md).
+
 ## Feuilles des clubs et joueurs internationaux — 2.13.2
 
 Jour de match accepte les joueurs internationaux présents dans une feuille de club : leur sélection nationale ou U20 ne change pas le type de la rencontre. Le même amical est accessible depuis chacun de ses deux clubs suivis. Les contrôles d’équipe, de rencontre et de population restent actifs.

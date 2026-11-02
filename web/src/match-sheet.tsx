@@ -1,4 +1,4 @@
-import {useEffect,useId,useRef,useState} from 'react';
+import {useEffect,useId,useRef,useState,type ReactNode} from 'react';
 import {ArrowRightLeft,CalendarRange,Flag,RefreshCw,Search,ShieldCheck,Users} from 'lucide-react';
 import {request} from './App';
 import {localeTag,tr} from './i18n';
@@ -77,7 +77,7 @@ function ScopedMatchSheet({d,busy=false,kind}:{d:State;busy?:boolean;kind:number
       {error&&<div role="alert" className="notice warning">{error}{report&&<p>{tr('Le dernier rapport reste affiché avec sa date de lecture.')}</p>}</div>}
       {pending&&<p role="status" aria-live="polite">{tr('Classic prépare la réponse. Vous pouvez patienter sur cet écran.')}</p>}
     </section>
-    {report?<><RecentMatchComparison key={report.fixture.id} teamId={d.current_team.id} kind={kind} fixtureId={report.fixture.id} participants={[report.home.team_id,report.guest.team_id]} csrf={d.csrf} busy={locked}/><SheetReportView report={report}/></>:<section className="card sheet-empty"><Users size={36}/><h3>{tr('Un poste, deux joueurs, un duel à lire.')}</h3><p>{tr('La comparaison apparaîtra ici après lecture. Avant la publication adverse, certains noms peuvent manquer.')}</p></section>}
+    {report?<SheetReportView report={report} recent={<RecentMatchComparison key={report.fixture.id} teamId={d.current_team.id} kind={kind} fixtureId={report.fixture.id} participants={[report.home.team_id,report.guest.team_id]} csrf={d.csrf} busy={locked}/>}/>:<section className="card sheet-empty"><Users size={36}/><h3>{tr('Un poste, deux joueurs, un duel à lire.')}</h3><p>{tr('La comparaison apparaîtra ici après lecture. Avant la publication adverse, certains noms peuvent manquer.')}</p></section>}
   </>;
 }
 
@@ -93,7 +93,7 @@ function PlayerCard({player:p,team}:{player:SheetPlayer;team:string}){
   </article>;
 }
 
-export function SheetReportView({report:r}:{report:SheetReport}){
+export function SheetReportView({report:r,recent}:{report:SheetReport;recent?:ReactNode}){
   const [group,setGroup]=useState('pack'),[filter,setFilter]=useState('all'),id=useId();
   const labels=groupLabels(),homeGroup=r.home.groups.find(g=>g.key===group),guestGroup=r.guest.groups.find(g=>g.key===group);
   const slots=r.home.players.filter(p=>filter==='all'||filter==='xv'&&p.slot<=15||filter==='bench'&&p.slot>15);
@@ -107,6 +107,7 @@ export function SheetReportView({report:r}:{report:SheetReport}){
       <p className="sheet-footnote">{tr('Les caractéristiques sont celles de cette lecture, y compris pour un ancien match.')}</p>
       {[r.home,r.guest].filter(s=>s.lineup_state!=='available').map(s=><div className="notice warning" key={s.team_id}>{teamName(s)} : {s.lineup_state==='unavailable'?tr('Lecture impossible pour cette feuille. Réessayez ; elle peut ne pas être encore publiée.'):tr('Feuille non fournie par Classic')}</div>)}
     </section>
+    {recent}
     <section className="card sheet-deadlines"><h3><ShieldCheck size={18}/> {tr('Notre contrôle avant match')}</h3><strong>{phase}</strong>
       <p className="sheet-footnote">{tr('Selon les échéances fournies pour notre équipe, à la date de lecture. Relisez Classic avant toute modification.')}</p>
       <div className="sheet-scale-grid"><dl><div><dt>{tr('Titulaires identifiés')}</dt><dd>{ready.starters}/15</dd></div><div><dt>{tr('Remplaçants identifiés')}</dt><dd>{ready.bench}/8</dd></div></dl>

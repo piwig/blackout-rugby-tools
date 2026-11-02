@@ -7,7 +7,7 @@ import './roster-table.css';
 
 type Props={players:Player[];notes:State['notes'];youth:boolean;complete:boolean;sort:string;descending:boolean;busy:boolean;compare:string[];
   onSort:(key:string)=>void;onOpen:(player:Player)=>void;onWatch:(id:string)=>void;onCompare:(id:string)=>void};
-const headers=()=>({name:tr('Joueur'),age:tr('Âge'),stars:tr('Étoiles de recrutement'),csr:tr('CSR'),salary:tr('Salaire saisonnier'),
+const headers=()=>({name:tr('Joueur'),age:tr('Âge'),stars:tr('Étoiles de recrutement'),csr:tr('CSR'),salary:tr('Salaire (source)'),
  height:tr('Taille'),weight:tr('Poids'),hand:tr('Main'),foot:tr('Pied'),form:tr('Forme'),energy:tr('Énergie'),
  aggression:tr('Agressivité'),discipline:tr('Discipline'),leadership:tr('Leadership'),experience:tr('Expérience'),
  total:tr('Total connu'),generation:tr('Génération indicative'),nationality:tr('Nationalité'),nat:tr('Sélection nationale'),u20:tr('Sélection U20'),...Object.fromEntries(skills.map(k=>[k,tr(labels[k])]))});
