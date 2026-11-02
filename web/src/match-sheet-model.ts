@@ -30,3 +30,24 @@ function side(v:any,id:string){
 export function isSheetReport(v:any,team:string,kind:number,id:string|null):v is SheetReport{
   return record(v)&&v.team_id===team&&v.match_type===kind&&date(v.retrieved_at)&&fixture(v.fixture,kind)&&v.fixture.id===id&&[v.fixture.home_id,v.fixture.guest_id].includes(team.split(':').at(-1))&&side(v.home,v.fixture.home_id)&&side(v.guest,v.fixture.guest_id)&&record(v.timing?.indicative)&&['lineup_at','publication_at','tactics_at'].every(k=>optionalDate(v.timing.indicative[k]));
 }
+
+function ownSide(report:any){
+  const id=typeof report.team_id==='string'?report.team_id.split(':').at(-1):null;
+  return [report.home,report.guest].find(s=>id&&s?.team_id===id);
+}
+export function preparationWindow(report:any):{stage:'unknown'|'lineup'|'tactics'|'lineup_closed'|'closed'}{
+  const own=ownSide(report),read=report.retrieved_at;
+  if(!own||!date(read))return {stage:'unknown'};
+  const l=own.deadline_at,t=own.tactics_deadline_at,start=report.fixture?.start_at;
+  if(!optionalDate(l)||!optionalDate(t)||l&&t&&Date.parse(l)>Date.parse(t)||date(start)&&[l,t].some(v=>v&&Date.parse(v)>Date.parse(start)))return {stage:'unknown'};
+  const instant=Date.parse(read);
+  if(l&&instant<Date.parse(l))return {stage:'lineup'};
+  if(l)return {stage:!t?'lineup_closed':instant<Date.parse(t)?'tactics':'closed'};
+  return {stage:'unknown'};
+}
+export function sheetReadiness(report:any){
+  const players=(ownSide(report)?.players??[]).filter((p:any)=>typeof p.player_id==='string'&&p.player_id);
+  const starters=players.filter((p:any)=>p.slot>=1&&p.slot<=15),bench=players.filter((p:any)=>p.slot>=16&&p.slot<=23);
+  return {starters:starters.length,bench:bench.length,captain:starters.filter((p:any)=>p.captain).length===1,
+    kicker:starters.filter((p:any)=>p.kicker).length===1,duplicates:players.length-new Set(players.map((p:any)=>p.player_id)).size};
+}

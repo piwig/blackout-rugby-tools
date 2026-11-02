@@ -3,7 +3,7 @@ import {ArrowRightLeft,CalendarRange,Flag,RefreshCw,Search,ShieldCheck,Users} fr
 import {request} from './App';
 import {localeTag,tr} from './i18n';
 import {formatStatistic as fmt,type State} from './types';
-import {isSheetCalendar,isSheetReport,populationFor,referenceId,type EnergyScale,type SheetCalendar,type SheetPlayer,type SheetReport,type SheetSide} from './match-sheet-model';
+import {isSheetCalendar,isSheetReport,populationFor,referenceId,preparationWindow,sheetReadiness,type EnergyScale,type SheetCalendar,type SheetPlayer,type SheetReport,type SheetSide} from './match-sheet-model';
 import './match-sheet.css';
 
 const moment=(v:string|null)=>v?new Date(v).toLocaleString(localeTag(),{dateStyle:'medium',timeStyle:'short'}):tr('Non fournie');
@@ -96,12 +96,25 @@ export function SheetReportView({report:r}:{report:SheetReport}){
   const [group,setGroup]=useState('pack'),[filter,setFilter]=useState('all'),id=useId();
   const labels=groupLabels(),homeGroup=r.home.groups.find(g=>g.key===group),guestGroup=r.guest.groups.find(g=>g.key===group);
   const slots=r.home.players.filter(p=>filter==='all'||filter==='xv'&&p.slot<=15||filter==='bench'&&p.slot>15);
+  const ready=sheetReadiness(r),window=preparationWindow(r);
+  const phase={lineup:tr('Les 23 peuvent encore être préparés'),tactics:tr('XV verrouillé : place aux tactiques'),
+    closed:tr('Échéances indiquées dépassées'),lineup_closed:tr('XV verrouillé ; échéance tactique à confirmer'),unknown:tr('Horaires à confirmer dans Classic')}[window.stage];
   return <div className="sheet-report">
     <section className="card sheet-scoreboard"><span className="eyebrow">{tr('LE FACE-À-FACE')} · #{r.fixture.id}</span>
       <div className="sheet-team-heads"><div><span>{tr('Domicile')}</span><h3>{teamName(r.home)}</h3></div><ArrowRightLeft aria-hidden="true"/><div><span>{tr('Extérieur')}</span><h3>{teamName(r.guest)}</h3></div></div>
       <p>{r.fixture.competition} · {moment(r.fixture.start_at)}</p><p className="sheet-footnote">{tr('Lecture du {date}',{date:moment(r.retrieved_at)})} · {Intl.DateTimeFormat().resolvedOptions().timeZone}</p>
       <p className="sheet-footnote">{tr('Les caractéristiques sont celles de cette lecture, y compris pour un ancien match.')}</p>
       {[r.home,r.guest].filter(s=>s.lineup_state!=='available').map(s=><div className="notice warning" key={s.team_id}>{teamName(s)} : {s.lineup_state==='unavailable'?tr('Lecture impossible pour cette feuille. Réessayez ; elle peut ne pas être encore publiée.'):tr('Feuille non fournie par Classic')}</div>)}
+    </section>
+    <section className="card sheet-deadlines"><h3><ShieldCheck size={18}/> {tr('Notre contrôle avant match')}</h3><strong>{phase}</strong>
+      <p className="sheet-footnote">{tr('Selon les échéances fournies pour notre équipe, à la date de lecture. Relisez Classic avant toute modification.')}</p>
+      <div className="sheet-scale-grid"><dl><div><dt>{tr('Titulaires identifiés')}</dt><dd>{ready.starters}/15</dd></div><div><dt>{tr('Remplaçants identifiés')}</dt><dd>{ready.bench}/8</dd></div></dl>
+      <dl><div><dt>{tr('Capitaine dans le XV')}</dt><dd>{ready.captain?tr('Oui'):tr('À vérifier')}</dd></div><div><dt>{tr('Buteur dans le XV')}</dt><dd>{ready.kicker?tr('Oui'):tr('À vérifier')}</dd></div></dl></div>
+      {ready.duplicates>0&&<p className="notice warning">{tr('Doublons à corriger')}</p>}
+      <ol><li>{tr('Avant le verrouillage : comparez plusieurs XV et vérifiez banc, blessures, forme et énergie.')}</li>
+      <li>{tr('Après la publication adverse : relisez les duels et les conditions, puis ajustez les tactiques encore ouvertes.')}</li>
+      <li>{tr('Après le match : confrontez le plan aux faits et préparez le prochain adversaire.')}</li></ol>
+      <p className="sheet-footnote">{tr('Ce contrôle ne confirme pas une nouvelle sauvegarde. Les secours et la couverture après remplacements restent à vérifier dans le jeu.')}</p>
     </section>
     <section className="card sheet-deadlines"><h3>{tr('Le chronomètre du staff')}</h3>
       <div className="sheet-scale-grid">{[r.home,r.guest].map(s=><div key={s.team_id}><h4>{teamName(s)}</h4><dl><div><dt>{tr('Composition — échéance fournie')}</dt><dd>{moment(s.deadline_at)}</dd></div><div><dt>{tr('Tactiques — échéance fournie')}</dt><dd>{moment(s.tactics_deadline_at)}</dd></div></dl></div>)}</div>

@@ -3735,5 +3735,22 @@
   "Énergie extérieur": "Energía visitante",
   "Énergie moyenne": "Energía media",
   "Lecture impossible pour cette feuille. Réessayez ; elle peut ne pas être encore publiée.": "No se pudo leer esta alineación. Reinténtalo; puede que aún no esté publicada.",
-  "Classic n’a pas fourni le calendrier junior complet. Les rencontres affichées ont été vérifiées ; vous pouvez aussi saisir un lien.": "Classic no facilitó el calendario júnior completo. Los partidos mostrados se han verificado; también puedes introducir un enlace."
+  "Classic n’a pas fourni le calendrier junior complet. Les rencontres affichées ont été vérifiées ; vous pouvez aussi saisir un lien.": "Classic no facilitó el calendario júnior completo. Los partidos mostrados se han verificado; también puedes introducir un enlace.",
+  "Les 23 peuvent encore être préparés": "Todavía se pueden preparar los 23",
+  "XV verrouillé : place aux tactiques": "XV bloqueado: turno de las tácticas",
+  "Échéances indiquées dépassées": "Los plazos indicados han vencido",
+  "XV verrouillé ; échéance tactique à confirmer": "XV bloqueado; plazo táctico por confirmar",
+  "Horaires à confirmer dans Classic": "Confirma los horarios en Classic",
+  "Notre contrôle avant match": "Nuestra revisión previa al partido",
+  "Selon les échéances fournies pour notre équipe, à la date de lecture. Relisez Classic avant toute modification.": "Según los plazos facilitados para nuestro equipo en el momento de la lectura. Revisa Classic antes de modificar nada.",
+  "Titulaires identifiés": "Titulares identificados",
+  "Remplaçants identifiés": "Suplentes identificados",
+  "Capitaine dans le XV": "Capitán en el XV",
+  "Buteur dans le XV": "Pateador en el XV",
+  "Doublons à corriger": "Duplicados que corregir",
+  "Avant le verrouillage : comparez plusieurs XV et vérifiez banc, blessures, forme et énergie.": "Antes del bloqueo: compara varios XV y revisa banquillo, lesiones, forma y energía.",
+  "Après la publication adverse : relisez les duels et les conditions, puis ajustez les tactiques encore ouvertes.": "Tras publicarse la alineación rival: revisa los duelos y las condiciones, y ajusta las tácticas que sigan abiertas.",
+  "Après le match : confrontez le plan aux faits et préparez le prochain adversaire.": "Tras el partido: contrasta el plan con los hechos y prepara al próximo rival.",
+  "Ce contrôle ne confirme pas une nouvelle sauvegarde. Les secours et la couverture après remplacements restent à vérifier dans le jeu.": "Esta revisión no confirma un nuevo guardado. Debes comprobar en el juego los relevos y la cobertura tras los cambios.",
+  "Couverture : affinité complète atteignant 80 % du meilleur rôle du joueur. Deux options de pilier sont recherchées. Les qualifications et remplacements simultanés restent à vérifier.": "Cobertura: afinidad completa que alcanza el 80 % del mejor rol del jugador. Se buscan dos opciones de pilar. Hay que comprobar las habilitaciones y los cambios simultáneos."
 }
