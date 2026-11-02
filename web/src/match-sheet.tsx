@@ -79,8 +79,8 @@ function ScopedMatchSheet({d,busy=false,kind}:{d:State;busy?:boolean;kind:number
   </>;
 }
 
-function PlayerCard({player:p}:{player:SheetPlayer}){
-  return <article className={'sheet-player '+(p.status!=='available'?'sheet-player-unknown':'')}>
+function PlayerCard({player:p,team}:{player:SheetPlayer;team:string}){
+  return <article aria-label={`${team} · #${p.slot} · ${p.name||tr('Joueur non fourni')}`} className={'sheet-player '+(p.status!=='available'?'sheet-player-unknown':'')}>
     <h4>{p.name||(p.status==='missing_player'?tr('Fiche non fournie'):tr('Joueur non fourni'))}</h4>
     {p.player_id&&<small>#{p.player_id}</small>}
     {(p.captain||p.kicker)&&<div className="sheet-roles">{p.captain&&<span><Flag size={12}/>{tr('Capitaine')}</span>}{p.kicker&&<span>{tr('Buteur')}</span>}</div>}
@@ -109,11 +109,11 @@ export function SheetReportView({report:r}:{report:SheetReport}){
     <section className="card sheet-summary"><div className="card-heading"><h3>{tr('La bataille des lignes')}</h3><label htmlFor={id+'group'} className="sr-only">{tr('Groupe à comparer')}</label><select id={id+'group'} value={group} onChange={e=>setGroup(e.target.value)}>{Object.entries(labels).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></div>
       <p className="sheet-footnote">{tr('Chaque chiffre indique sa couverture. Une moyenne partielle décrit seulement les joueurs connus.')}</p>
       <div className="sheet-metric-heading"><span>{teamName(r.home)}</span><span>{teamName(r.guest)}</span></div>
-      <div className="sheet-metrics">{metrics().map(([key,label,unit])=><div className="sheet-metric" key={key}><h4>{label}</h4><div>{[homeGroup,guestGroup].map((g,i)=>{const m=g?.metrics[key];return <div key={i}><strong>{fmt(m?.value)}{m?.value!=null&&unit&&<small> {unit}</small>}</strong><small>{m?`${m.known}/${m.expected} ${tr('valeurs connues')}`:tr('Non fourni')}</small></div>})}</div></div>)}</div>
+      <div className="sheet-metrics">{metrics().map(([key,label,unit])=><div className="sheet-metric" key={key}><h4>{label}</h4><div>{[homeGroup,guestGroup].map((g,i)=>{const m=g?.metrics[key];return <div key={i} role="group" aria-label={`${label} · ${teamName(i===0?r.home:r.guest)}`}><strong>{fmt(m?.value)}{m?.value!=null&&unit&&<small> {unit}</small>}</strong><small>{m?`${m.known}/${m.expected} ${tr('valeurs connues')}`:tr('Non fourni')}</small></div>})}</div></div>)}</div>
     </section>
     <section className="sheet-pairs" aria-labelledby={id+'pairs'}><div className="sheet-pairs-title"><h3 id={id+'pairs'}>{tr('Le duel poste par poste')}</h3><label className="sr-only" htmlFor={id+'filter'}>{tr('Joueurs affichés')}</label><select id={id+'filter'} value={filter} onChange={e=>setFilter(e.target.value)}><option value="all">{tr('Les 23 joueurs')}</option><option value="xv">{tr('XV titulaire')}</option><option value="bench">{tr('Banc')}</option></select></div>
       <div className="sheet-metric-heading sheet-pair-teams"><span>{teamName(r.home)}</span><span>{teamName(r.guest)}</span></div>
-      {slots.map(p=><section key={p.slot} className="sheet-pair" data-jersey={p.slot} aria-label={`${p.slot} · ${position(p.slot)}`}><h3><span>{p.slot}</span>{position(p.slot)}</h3><div className="sheet-player-pair"><PlayerCard player={p}/><PlayerCard player={r.guest.players[p.slot-1]}/></div></section>)}
+      {slots.map(p=><section key={p.slot} className="sheet-pair" data-jersey={p.slot} aria-label={`${p.slot} · ${position(p.slot)}`}><h3><span>{p.slot}</span>{position(p.slot)}</h3><div className="sheet-player-pair"><PlayerCard player={p} team={teamName(r.home)}/><PlayerCard player={r.guest.players[p.slot-1]} team={teamName(r.guest)}/></div></section>)}
     </section>
     <details className="card sheet-method"><summary>{tr('Indice personnel : comprendre les calculs')}</summary><p>{tr('Cet indice non officiel reprend une formule personnelle : CSR × (1 + 0,07 × (forme − 7)) × (1 + 0,02 × (expérience − 7)) × énergie en % / 100.')}</p><p>{tr('Le résultat est tronqué par joueur, puis la moyenne des indices connus est arrondie à l’entier inférieur. Une donnée manquante laisse l’indice inconnu. Le poids total exige tous les poids du groupe.')}</p><p>{tr('Le niveau d’énergie multiplié par dix reste une approximation. Un indice, un poids ou un CSR supérieur ne garantit aucun avantage tactique ni résultat.')}</p></details>
   </div>;

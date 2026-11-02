@@ -1,6 +1,7 @@
 """Public match-sheet comparison. Bounded reads only; never fall back to Default."""
 import math
 from datetime import timedelta
+from decimal import Decimal
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -69,7 +70,9 @@ def _fixture_row(raw, team_id, kind):
 async def list_sheet_fixtures(client, team_id, match_type, *, now=None):
     team, kind = _context(team_id, match_type)
     current = _now(now)
-    rows = _rows(await _read(client, 'f', future=team, **_flags(kind)), 200)
+    document = await _read(client, 'f', future=team, **_flags(kind))
+    _check_flags(document, kind)
+    rows = _rows(document, 200)
     fixtures = []
     for raw in rows.values():
         item = _fixture_row(raw, team, kind)
@@ -130,7 +133,7 @@ def _summaries(players):
             if values:
                 if field == 'weight':
                     if len(values) == len(selected): value = round(sum(values), 2)
-                elif field == 'adjusted_csr': value = math.floor(sum(values) / len(values))
+                elif field == 'adjusted_csr': value = sum(values) // len(values)
                 else: value = round(sum(values) / len(values), 2)
             name = 'weight_total' if field == 'weight' else field + '_average'
             metrics[name] = {'value': value, 'known': len(values), 'expected': len(selected)}
@@ -153,7 +156,8 @@ def build_side(team, name, lineup, players, scale):
         energy, percent, energy_scale = _energy(raw.get('energy') if raw else None, scale)
         slot.update(energy_raw=energy, energy_percent=percent, energy_scale=energy_scale, adjusted_csr=None)
         if all(slot[f] is not None for f in ('csr', 'form', 'experience')) and percent is not None:
-            slot['adjusted_csr'] = math.trunc(slot['csr'] * (1 + .07 * (slot['form']-7)) * (1 + .02 * (slot['experience']-7)) * percent / 100)
+            csr, form, xp, energy = (Decimal(str(v)) for v in (slot['csr'],slot['form'],slot['experience'],percent))
+            slot['adjusted_csr'] = int(csr * (1 + Decimal('.07') * (form-7)) * (1 + Decimal('.02') * (xp-7)) * energy / 100)
         slots.append(slot)
     return {'team_id': team, 'name': name, 'lineup_state': 'available' if lineup else 'not_provided',
             'energy_scale': scale,
@@ -166,12 +170,15 @@ async def fetch_match_sheet(client, request, *, now=None):
     team, kind = _context(request.team_id, request.match_type)
     fixture_id = parse_fixture_reference(request.reference, kind)
     current, flags = _now(now), _flags(kind)
-    rows = _rows(await _read(client, 'f', fixtureid=fixture_id, **flags), 1)
+    document = await _read(client, 'f', fixtureid=fixture_id, **flags)
+    _check_flags(document, kind)
+    rows = _rows(document, 1)
     if fixture_id not in rows: raise ClassicError(INVALID)
     fixture = _fixture_row(rows[fixture_id], team, kind)
     teams = [fixture['home_id'], fixture['guest_id']]
     # Resource matrix: f/lu/p use the population; junior names use club t.
     names_doc = await _read(client, 't', teamids=','.join(teams), **_flags(0 if kind == 3 else kind))
+    _check_flags(names_doc, 0 if kind == 3 else kind)
     names = names_doc.get('teams')
     if not isinstance(names, dict) or len(names) > 2: raise ClassicError(INVALID)
     for key, row in names.items():

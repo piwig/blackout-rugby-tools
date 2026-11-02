@@ -149,3 +149,29 @@ def test_upstream_errors_never_disclose_url_or_credentials():
         async def request(self,*a,**k): raise ClassicError('https://example.invalid/?mk=SECRET')
     with pytest.raises(ClassicError) as e: read(Broken())
     assert 'SECRET' not in str(e.value) and 'example.invalid' not in str(e.value)
+
+
+@pytest.mark.parametrize('resource',['f','t','lu','p'])
+@pytest.mark.parametrize('team,kind',[('9',0),('9',3),('u20:9',1),('nt:9',2)])
+def test_root_population_contradictions_are_rejected(resource,team,kind):
+    class Contradiction(Classic):
+        async def request(self,r,**params):
+            doc=await super().request(r,**params)
+            if r==resource: doc['nat' if kind!=2 else 'youth']='1'
+            return doc
+    with pytest.raises(ClassicError):
+        asyncio.run(fetch_match_sheet(Contradiction(),SheetRequest(team_id=team,match_type=kind,reference='90'),now=NOW))
+
+
+@pytest.mark.parametrize('team,kind',[('9',0),('9',3),('u20:9',1),('nt:9',2)])
+def test_calendar_root_population_is_checked(team,kind):
+    class Contradiction(Classic):
+        async def request(self,r,**params):
+            doc=await super().request(r,**params);doc['nat' if kind!=2 else 'youth']='1';return doc
+    with pytest.raises(ClassicError): asyncio.run(list_sheet_fixtures(Contradiction(),team,kind,now=NOW))
+
+
+@pytest.mark.parametrize('csr,form,xp,expected',[(100,1,7,58),(1000,2,1,572)])
+def test_decimal_formula_truncates_only_after_exact_multiplication(csr,form,xp,expected):
+    c=Classic();c.players['101'].update(csr=csr,form=form,experience=xp,energy=100)
+    assert read(c)['home']['players'][0]['adjusted_csr']==expected

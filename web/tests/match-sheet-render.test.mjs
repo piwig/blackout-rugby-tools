@@ -32,6 +32,9 @@ test('every jersey has a stable pair, with role badges and unknown values',()=>{
   assert.match(html,/Capitaine/);assert.match(html,/Buteur/);assert.match(html,/Fiche non fournie/);
   assert.match(html,/Échelle inconnue/);assert.match(html,/Feuille non fournie par Classic/);
   assert.match(html,/Repères indicatifs/);assert.match(html,/Indice personnel/);
+  assert.match(html,/<article[^>]*aria-label="Home · #1 · Player 1"/);
+  assert.match(html,/aria-label="Poids total · Home"/);
+  assert.match(html,/aria-label="Poids total · Away"/);
 });
 
 const nodes=v=>Array.isArray(v)?v.flatMap(nodes):v&&typeof v==='object'?[v,...nodes(v.props?.children)]:[];
