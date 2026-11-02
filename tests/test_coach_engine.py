@@ -13,6 +13,19 @@ def player(identifier='1', **changes):
             **{key:10 for key in ('stamina','handling','attack','defense','technique','strength','jumping','speed','agility','kicking')}, **changes}
 
 
+def test_bench_coverage_requires_relative_affinity_and_not_just_complete_attributes():
+    e=engine();config=e.defaults();config['locks']={str(i):str(i) for i in range(1,16)}
+    for shirt in range(1,16):
+        config['weights'][str(shirt)]={key:0 for key in e.ATTRIBUTES}
+        config['weights'][str(shirt)]['kicking' if shirt==15 else 'strength']=1
+    roster=[player(str(i),strength=21,kicking=1) for i in range(1,24)]
+    result=e.calculate(roster,[],config,'9','club','2026-11-02T00:00:00+00:00')
+    assert result['bench']['coverage']['Arrière']==[]
+    assert 'Arrière' in result['bench']['gaps']
+    assert result['bench']['needed']['Pilier']==2
+    assert len([s for s in result['slots'] if int(s)>15])==8
+
+
 def observation(**changes):
     return {'team_id':'72450','context':'club','player_id':'1','match_date':'2026-10-01',
             'position':'1','position_basis':'observed','rating_scale':'observer','rating':8,

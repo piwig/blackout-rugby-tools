@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 
 from .domain import SKILLS, SKILL_LABELS, number, player_metrics, stadium_plan
 from .team_identity import is_selection,team_identity
+from .bench_selection import select_bench
 from .role_weights import validate_weights
 
 
@@ -213,7 +214,7 @@ def make_lineup(squad, saved, objective, energy_floor, energy_scale, generated_a
         if injury_status(player.get('injured'), generated_at) is None:
             explanation += ' Disponibilité médicale non confirmée.'
         if bench:
-            explanation += ' Banc choisi en priorité pour compléter les rôles couverts, puis selon la meilleure affinité.'
+            explanation += ' Banc choisi globalement pour maximiser la couverture indicative, puis la somme des meilleures affinités connues.'
         elif str(slot) in locks:
             explanation += ' Poste verrouillé par le manager.'
         elif identifier in starter_ids:
@@ -235,14 +236,13 @@ def make_lineup(squad, saved, objective, energy_floor, energy_scale, generated_a
         best = max(r['score'] for r in affinities)
         coverable[index] = [r['name'] for r in affinities if r['score'] >= .8*best]
     coverage = {role: [] for role in role_names}
-    remaining = {i for i in range(len(candidates)) if i not in used}
-    reserves = []
-    while remaining and len(reserves) < 8:
-        index = min(remaining, key=lambda i: (
-            -sum(len(coverage[role]) < needs[role] for role in coverable[i]),
-            -max(candidates[i]['scores'].values()), str(candidates[i]['player']['id'])))
-        reserves.append(index)
-        remaining.remove(index)
+    remaining = [i for i in range(len(candidates)) if i not in used]
+    by_id = {str(candidates[i]['player']['id']): i for i in remaining}
+    chosen = select_bench([{'id': pid, 'covers': coverable[index],
+                           'score': max(candidates[index]['scores'].values())}
+                          for pid,index in by_id.items()], role_names)
+    reserves = [by_id[pid] for pid in chosen]
+    for index in reserves:
         for role in coverable[index]:
             coverage[role].append(str(candidates[index]['player']['id']))
     for position, index in enumerate(reserves, 16):

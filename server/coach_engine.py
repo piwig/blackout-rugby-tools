@@ -4,9 +4,10 @@ from datetime import date
 
 from .domain import SKILLS, number
 from .optimization import ROLES, energy_of, injury_status, maximum_assignment, unique_players
+from .bench_selection import select_bench
 from .role_weights import default_weights
 
-METHOD = 'coach-lab-v1'
+METHOD = 'coach-lab-v2'
 ATTRIBUTES = (*SKILLS, 'height', 'weight', 'form', 'aggression', 'discipline', 'leadership', 'experience')
 
 
@@ -159,6 +160,13 @@ def calculate(roster, observations, config, team_id, cohort, generated_at, *, ma
             if score is not None and config['energy_penalty']:
                 score = None if energy is None else score-abs(score)*config['energy_penalty']/100*(110-energy)/110
             edges[(shirt, pid)] = {'score': score, 'skills': skill, 'performance': perf, 'energy': energy}
+    role_names=list(dict.fromkeys(ROLES))
+    affinities={pid:{role:max((edges[(s,pid)]['skills']['score'] for s in range(1,16)
+                              if ROLES[s-1]==role and edges[(s,pid)]['skills']['score'] is not None),default=None)
+                     for role in role_names} for pid in eligible}
+    coverable={pid:[role for role,value in values.items() if value is not None and
+                   value>=.8*max(v for v in values.values() if v is not None)]
+               for pid,values in affinities.items()}
     if manual is not None:
         slots = {k:v for k,v in manual.items() if v}
         if len(set(slots.values()))!=len(slots) or not set(slots.values())<=set(eligible) or any(slots.get(k)!=v for k,v in locks.items()):
@@ -169,14 +177,12 @@ def calculate(roster, observations, config, team_id, cohort, generated_at, *, ma
         candidates = [pid for pid in eligible if pid not in locks.values()]
         assignments = maximum_assignment([[edges[(shirt,pid)]['score'] for pid in candidates] for shirt in shirts])
         slots.update({str(shirt): candidates[index] for shirt,index in zip(shirts,assignments) if index is not None})
-        # Bench coverage greedily adds the best complete score for each distinct broad role, up to eight.
-        remaining = [pid for pid in candidates if pid not in slots.values()]
-        bench = []
-        for role in dict.fromkeys(ROLES):
-            candidates_for_role = [(max((edges[(s,pid)]['score'] for s in range(1,16) if ROLES[s-1]==role and edges[(s,pid)]['score'] is not None),default=None),pid) for pid in remaining]
-            ranked = sorted(((-score,pid) for score,pid in candidates_for_role if score is not None))
-            if ranked and len(bench)<8:
-                pid=ranked[0][1];bench.append(pid);remaining.remove(pid)
+        remaining = [pid for pid in eligible if pid not in slots.values()
+                     and any(edges[(s,pid)]['score'] is not None for s in range(1,16))]
+        bench = select_bench([{'id':pid, 'covers':coverable[pid],
+                               'score':max((edges[(s,pid)]['score'] for s in range(1,16)
+                                            if edges[(s,pid)]['score'] is not None),default=None)}
+                              for pid in remaining],role_names)
         slots.update({str(i):pid for i,pid in enumerate(bench,16)})
     starter_ids = {pid for slot,pid in slots.items() if int(slot)<=15}
     ranked_roles = {}
@@ -191,7 +197,9 @@ def calculate(roster, observations, config, team_id, cohort, generated_at, *, ma
                               'backups':[r['id'] for r in ranking if r['id']!=primary and r['id'] in slots.values() and r['score'] is not None][:3]}
     selected = [{'slot':int(slot),'id':pid,'name':players[pid].get('name',pid),
                  **(edges[(int(slot),pid)] if int(slot)<=15 else {'score':None})} for slot,pid in sorted(slots.items(),key=lambda item:int(item[0]))]
-    coverage = {role:[pid for slot,pid in slots.items() if int(slot)>15 and any(edges[(s,pid)]['skills']['score'] is not None for s in range(1,16) if ROLES[s-1]==role)] for role in dict.fromkeys(ROLES)}
+    coverage = {role:[pid for slot,pid in slots.items() if int(slot)>15 and role in coverable[pid]]
+                for role in role_names}
+    needed = {role:2 if role=='Pilier' else 1 for role in role_names}
     plan = propose_tactics([players[pid] for pid in sorted(starter_ids)],config)
     if tactics:
         plan.update(tactics);plan['manual']=True
@@ -204,5 +212,5 @@ def calculate(roster, observations, config, team_id, cohort, generated_at, *, ma
     if any(p['score'] is None for p in selected if p['slot']<=15): warnings.append('Une sélection manuelle possède un score incomplet.')
     return {'method':METHOD,'generated_at':generated_at,'window':{'start':start.isoformat(),'end':end.isoformat()},
             'slots':slots,'players':selected,'unfilled':unfilled,'responsibles':ranked_roles,'tactics':plan,
-            'bench':{'coverage':coverage,'gaps':[role for role,pids in coverage.items() if not pids]},'warnings':warnings,
+            'bench':{'coverage':coverage,'needed':needed,'method':'exact-indicative-coverage-v1','gaps':[role for role,pids in coverage.items() if len(pids)<needed[role]]},'warnings':warnings,
             'unknown_energy':unknown_energy,'unknown_injury':unknown_injury}
