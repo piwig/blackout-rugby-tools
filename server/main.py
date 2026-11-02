@@ -275,7 +275,7 @@ def create_app(directory=None,password=None,secure=None):
         require_club_id(tid)
 
     @app.get('/api/health')
-    def health():return {'ok':True,'version':'2.13.1'}
+    def health():return {'ok':True,'version':'2.13.2'}
 
     @app.post('/api/login')
     def login(body:Login,request:Request,response:Response):

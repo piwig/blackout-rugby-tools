@@ -1,5 +1,11 @@
 # Blackout Rugby Tools
 
+## Feuilles des clubs et joueurs internationaux — 2.13.2
+
+Jour de match accepte les joueurs internationaux présents dans une feuille de club : leur sélection nationale ou U20 ne change pas le type de la rencontre. Le même amical est accessible depuis chacun de ses deux clubs suivis. Les contrôles d’équipe, de rencontre et de population restent actifs.
+
+Voir le [bilan de validation 2.13.2](docs/release-2.13.2-validation.md).
+
 ## Préparation avant match — 2.13.1
 
 Le banc est choisi globalement, à titulaires fixés, pour maximiser la couverture indicative puis les scores personnels connus. Deux options de pilier sont recherchées ; les autres familles gardent au moins une option lorsque les données et l’effectif le permettent. Staff & tactique utilise désormais une affinité complète atteignant 80 % du meilleur rôle, et signale les anciennes feuilles à recalculer.

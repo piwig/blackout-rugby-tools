@@ -229,7 +229,11 @@ async def fetch_match_sheet(client, request, *, now=None):
             for key, player in players.items():
                 if key not in ids or not isinstance(player, dict) or 'id' in player and _identifier(player['id']) != key:
                     raise ClassicError(INVALID)
-                _check_flags(player, kind)
+                # Player nat/u20 values are selection country memberships (e.g.
+                # FR), not this fixture's population selectors. Root, fixture
+                # and lineup context remain checked independently above.
+                if 'youth' in player:
+                    _check_flags({'youth': player['youth']}, kind)
         all_players.append(players)
     sides = [build_side(t, names.get(t, {}).get('name') if isinstance(names.get(t, {}).get('name'), str) else None,
                         row, players, scale, read_failed=doc is None) for t, row, players, scale, doc in zip(teams, lineups, all_players,

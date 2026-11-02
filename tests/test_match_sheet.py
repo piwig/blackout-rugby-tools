@@ -98,6 +98,31 @@ def test_each_resource_has_exact_population_flags(team,kind,flag):
     assert c.calls==[('f',{'future':'9',**flag})]
 
 
+@pytest.mark.parametrize('team,kind', [('9',0),('8',0),('9',3),('8',3),
+                                      ('u20:9',1),('u20:8',1),('nt:9',2),('nt:8',2)])
+def test_international_player_memberships_do_not_change_the_fixture_population(team,kind):
+    c=Classic()
+    # On player records these are country memberships, not query selectors.
+    c.players['101'].update(nat='FR',u20='IE')
+    c.players['201'].update(nat='IE',u20='FR')
+    report=asyncio.run(fetch_match_sheet(c,SheetRequest(team_id=team,match_type=kind,reference='90'),now=NOW))
+    assert report['team_id']==team and report['match_type']==kind
+    assert report['fixture']['side']==('home' if team.endswith('9') else 'guest')
+    for side in ('home','guest'):
+        assert report[side]['lineup_state']=='available'
+        assert len(report[side]['players'])==23
+        assert report[side]['players'][0]['csr']==10000
+        assert 'nat' not in report[side]['players'][0] and 'u20' not in report[side]['players'][0]
+    for resource,params in c.calls:
+        expected={} if resource=='t' and kind==3 else {0:{},1:{'u20':'1'},2:{'nat':'1'},3:{'youth':'1'}}[kind]
+        assert {k:params[k] for k in ('nat','u20','youth') if k in params}==expected
+
+
+def test_player_youth_selector_contradiction_is_still_rejected():
+    c=Classic();c.players['101']['youth']='1'
+    with pytest.raises(ClassicError):read(c)
+
+
 @pytest.mark.parametrize('team,kind',[('u20:9',0),('nt:9',1),('9',2)])
 def test_incompatible_population_makes_no_calls(team,kind):
     c=Classic()
