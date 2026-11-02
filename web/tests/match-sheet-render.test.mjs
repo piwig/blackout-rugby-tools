@@ -61,7 +61,7 @@ test('a late calendar response cannot update an unmounted team context',async()=
 test('a failed refresh keeps the previous dated report',async()=>{
   const h=interaction();let tree=h.render();
   nodes(tree).find(n=>n.type==='input').props.onChange({target:{value:'90'}});
-  const previous={retrieved_at:'2026-01-01T12:00:00Z'};h.hooks[4].value=previous;
+  const previous={retrieved_at:'2026-01-01T12:00:00Z',fixture:{id:'90'},home:{team_id:'9'},guest:{team_id:'8'}};h.hooks[4].value=previous;
   tree=h.render();nodes(tree).find(n=>n.type==='form').props.onSubmit({preventDefault(){}});
   assert.equal(h.requests.length,1);assert.equal(h.requests[0].body.reference,'90');
   h.requests[0].reject(Error('Temporary Classic failure'));

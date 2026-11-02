@@ -5,6 +5,7 @@ import {localeTag,tr} from './i18n';
 import {formatStatistic as fmt,type State} from './types';
 import {isSheetCalendar,isSheetReport,populationFor,referenceId,preparationWindow,sheetReadiness,type EnergyScale,type SheetCalendar,type SheetPlayer,type SheetReport,type SheetSide} from './match-sheet-model';
 import './match-sheet.css';
+import {RecentMatchComparison} from './match-recent';
 
 const moment=(v:string|null)=>v?new Date(v).toLocaleString(localeTag(),{dateStyle:'medium',timeStyle:'short'}):tr('Non fournie');
 const teamName=(side:SheetSide)=>side.name||`${tr('Équipe')} ${side.team_id}`;
@@ -76,7 +77,7 @@ function ScopedMatchSheet({d,busy=false,kind}:{d:State;busy?:boolean;kind:number
       {error&&<div role="alert" className="notice warning">{error}{report&&<p>{tr('Le dernier rapport reste affiché avec sa date de lecture.')}</p>}</div>}
       {pending&&<p role="status" aria-live="polite">{tr('Classic prépare la réponse. Vous pouvez patienter sur cet écran.')}</p>}
     </section>
-    {report?<SheetReportView report={report}/>:<section className="card sheet-empty"><Users size={36}/><h3>{tr('Un poste, deux joueurs, un duel à lire.')}</h3><p>{tr('La comparaison apparaîtra ici après lecture. Avant la publication adverse, certains noms peuvent manquer.')}</p></section>}
+    {report?<><RecentMatchComparison key={report.fixture.id} teamId={d.current_team.id} kind={kind} fixtureId={report.fixture.id} participants={[report.home.team_id,report.guest.team_id]} csrf={d.csrf} busy={locked}/><SheetReportView report={report}/></>:<section className="card sheet-empty"><Users size={36}/><h3>{tr('Un poste, deux joueurs, un duel à lire.')}</h3><p>{tr('La comparaison apparaîtra ici après lecture. Avant la publication adverse, certains noms peuvent manquer.')}</p></section>}
   </>;
 }
 

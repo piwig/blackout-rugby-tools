@@ -13,12 +13,13 @@ def client(tmp_path,monkeypatch):
         yield c
 
 
-@pytest.mark.parametrize('path,extra',[('fixtures',{}),('read',{'reference':'90'})])
+@pytest.mark.parametrize('path,extra',[('fixtures',{}),('read',{'reference':'90'}),('recent',{'reference':'90'})])
 def test_sheet_routes_auth_csrf_and_workspace(client,monkeypatch,path,extra):
     calls=[]
     async def fake(*args,**kwargs): calls.append(args); return {'team_id':'9','match_type':3}
     monkeypatch.setattr('server.main.list_sheet_fixtures',fake)
     monkeypatch.setattr('server.main.fetch_match_sheet',fake)
+    monkeypatch.setattr('server.main.compare_recent_matches',fake,raising=False)
     body={'team_id':'9','match_type':3,**extra}
     url='/api/match-sheet/'+path
     csrf=client.headers.pop('X-CSRF-Token')

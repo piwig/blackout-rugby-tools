@@ -37,6 +37,7 @@ from .team_identity import TEAM_PATTERN,OPTIONAL_TEAM_PATTERN,CLUB_ONLY,describe
 from .national import register_national,sync_selection,selection_game_date
 from .match_prep import FixturesRequest,ScoutRequest,list_upcoming_fixtures,scout_opponent
 from .match_sheet import SheetCalendarRequest,SheetRequest,list_sheet_fixtures,fetch_match_sheet
+from .match_recent import compare_recent_matches
 from .match_import import MAX_MATCH_BYTES,read_match_document,normalize_match_document
 from .match_review import effective_match,register_match_review
 from .match_routes import register_match_direct
@@ -451,6 +452,13 @@ def create_app(directory=None,password=None,secure=None):
         throttle('match-sheet:'+body.team_id)
         try:return await asyncio.wait_for(fetch_match_sheet(ClassicClient(match_credentials(body.team_id)),body),90)
         except asyncio.TimeoutError:raise HTTPException(504,'Classic tarde à répondre. Relancez la lecture des feuilles.') from None
+
+    @app.post('/api/match-sheet/recent',dependencies=[Depends(auth)])
+    async def match_sheet_recent(body:SheetRequest):
+        require_team(body.team_id)
+        throttle('match-sheet-recent:'+body.team_id)
+        try:return await asyncio.wait_for(compare_recent_matches(ClassicClient(match_credentials(body.team_id)),body),90)
+        except asyncio.TimeoutError:raise HTTPException(504,'Classic tarde à répondre. Relancez la comparaison récente.') from None
 
     @app.get('/api/optimization')
     def optimization(team_id:str=Query(default='',pattern=OPTIONAL_TEAM_PATTERN),
