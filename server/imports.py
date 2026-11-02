@@ -6,7 +6,7 @@ import zipfile
 from defusedxml import ElementTree as ET
 from .domain import SKILLS,number
 
-PLAYER_FIELDS=set(SKILLS+['id','name','age','age_decimal','birthday','weight','height','nationality','dualnationality','aggression','discipline','leadership','experience','energy','form','stars','jersey','pops','reveals','WC','csr','delta_csr','salary','capped_for','injured'])
+PLAYER_FIELDS=set(SKILLS+['id','name','age','age_decimal','birthday','weight','height','nationality','dualnationality','hand','foot','nat','u20','aggression','discipline','leadership','experience','energy','form','stars','jersey','pops','reveals','WC','csr','delta_csr','salary','capped_for','injured'])
 ALIASES={'player_id':'id','playerid':'id','player_name':'name','scouting_stars_used':'stars'}
 MAX_PLAYERS=4000
 MAX_XML_DEPTH=48
