@@ -8,6 +8,8 @@ Le calendrier ou un lien officiel ouvre une lecture manuelle. Une feuille non pu
 
 Si Classic échoue sur le calendrier junior, BRT propose une liste partielle de rencontres de championnat vérifiées dans le contexte junior. Aucun match senior n’est simplement renommé ; la saisie d’un lien reste disponible. Le refus de lecture d’une feuille est expliqué sans masquer l’autre équipe.
 
+Voir le [bilan de validation de la version](docs/release-2.13.0-validation.md), avec les calculs, les contrôles et les limites connues.
+
 ## Interface allégée — 2.12.2
 
 Le bloc de retour présent au bas de chaque écran a été retiré. Le formulaire « Contact & idées » reste accessible depuis la navigation. Les retours déjà enregistrés sont conservés.
