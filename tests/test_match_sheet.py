@@ -175,3 +175,72 @@ def test_calendar_root_population_is_checked(team,kind):
 def test_decimal_formula_truncates_only_after_exact_multiplication(csr,form,xp,expected):
     c=Classic();c.players['101'].update(csr=csr,form=form,experience=xp,energy=100)
     assert read(c)['home']['players'][0]['adjusted_csr']==expected
+
+
+def test_refused_opposing_lineup_preserves_available_side_and_explains_missing_read():
+    class Refused(Classic):
+        async def request(self,resource,**params):
+            if resource=='lu' and params['teamid']=='8':
+                raise ClassicError('Provider refused https://example.invalid/?mk=SECRET')
+            return await super().request(resource,**params)
+    result=read(Refused())
+    assert result['home']['lineup_state']=='available'
+    assert result['home']['players'][0]['name']=='Player 101'
+    assert result['guest']['lineup_state']=='unavailable'
+    assert len(result['guest']['players'])==23
+    assert all(p['status']=='not_provided' for p in result['guest']['players'])
+    assert 'SECRET' not in str(result) and 'example.invalid' not in str(result)
+
+
+def test_inconsistent_opposing_lineup_still_rejects_report_instead_of_hiding_it():
+    c=Classic();c.lineups['8']['fixtureid']='91'
+    with pytest.raises(ClassicError):read(c)
+
+
+class BrokenYouthCalendar(Classic):
+    def __init__(self):
+        super().__init__();self.fixture['competition']='League'
+    async def request(self,resource,**params):
+        if resource=='f' and 'future' in params and params.get('youth')=='1':
+            self.calls.append((resource,params));raise ClassicError('Upstream unavailable')
+        return await super().request(resource,**params)
+
+
+def test_broken_youth_future_uses_only_verified_fixture_batch_and_marks_partial():
+    c=BrokenYouthCalendar()
+    result=asyncio.run(list_sheet_fixtures(c,'9',3,now=NOW))
+    assert result['partial'] is True and result['candidate_count']==1
+    assert [f['id'] for f in result['fixtures']]==['90']
+    assert c.calls==[('f',{'future':'9','youth':'1'}),('f',{'future':'9'}),('f',{'fixtureids':'90','youth':'1'})]
+
+
+def test_youth_fallback_rejects_unrequested_fixture_and_population():
+    class Wrong(BrokenYouthCalendar):
+        async def request(self,r,**p):
+            doc=await super().request(r,**p)
+            if 'fixtureids' in p:doc['fixtures']={'91':{**self.fixture,'id':'91'}}
+            return doc
+    with pytest.raises(ClassicError):asyncio.run(list_sheet_fixtures(Wrong(),'9',3,now=NOW))
+
+
+def test_youth_fallback_never_relabels_senior_friendly_as_junior_match():
+    c=BrokenYouthCalendar();c.fixture['competition']='Friendly'
+    result=asyncio.run(list_sheet_fixtures(c,'9',3,now=NOW))
+    assert result['partial'] is True and result['fixtures']==[]
+    assert len(c.calls)==2
+
+
+def test_youth_fallback_candidates_are_bounded_to_fifty_nearest_matches():
+    class Many(BrokenYouthCalendar):
+        async def request(self,r,**p):
+            doc=await super().request(r,**p)
+            if r=='f' and 'future' in p:
+                doc['fixtures']={str(i):{**self.fixture,'id':str(i)} for i in range(100,160)}
+            if 'fixtureids' in p:
+                ids=p['fixtureids'].split(',')
+                doc['fixtures']={i:{**self.fixture,'id':i} for i in ids}
+            return doc
+    c=Many();result=asyncio.run(list_sheet_fixtures(c,'9',3,now=NOW))
+    assert result['partial'] is True and result['candidate_count']==50
+    assert len(result['fixtures'])==50 and len(c.calls)==3
+    assert len(c.calls[-1][1]['fixtureids'].split(','))==50

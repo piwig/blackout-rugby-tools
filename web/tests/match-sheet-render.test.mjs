@@ -35,6 +35,8 @@ test('every jersey has a stable pair, with role badges and unknown values',()=>{
   assert.match(html,/<article[^>]*aria-label="Home · #1 · Player 1"/);
   assert.match(html,/aria-label="Poids total · Home"/);
   assert.match(html,/aria-label="Poids total · Away"/);
+  const unavailable=renderToStaticMarkup(React.createElement(SheetReportView,{report:{...r,guest:{...r.guest,lineup_state:'unavailable'}}}));
+  assert.match(unavailable,/Lecture impossible pour cette feuille/);
 });
 
 const nodes=v=>Array.isArray(v)?v.flatMap(nodes):v&&typeof v==='object'?[v,...nodes(v.props?.children)]:[];
@@ -63,4 +65,11 @@ test('a failed refresh keeps the previous dated report',async()=>{
   h.requests[0].reject(Error('Temporary Classic failure'));
   for(let i=0;i<5;i++)await Promise.resolve();
   assert.equal(h.hooks[4].value,previous);assert.equal(h.hooks[6].value,'Temporary Classic failure');
+});
+
+test('a verified fallback calendar is explicitly labelled incomplete',()=>{
+  const h=interaction();h.render();h.hooks[2].value={partial:true,fixtures:[]};
+  const notice=nodes(h.render()).find(n=>n.type==='p'&&n.props.className==='notice warning');
+  assert.match(notice.props.children,/calendrier junior complet/);
+  assert.match(notice.props.children,/vérifiées/);
 });

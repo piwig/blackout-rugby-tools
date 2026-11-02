@@ -3733,5 +3733,7 @@
   "Échelle inconnue": "Unknown scale",
   "Énergie domicile": "Home energy",
   "Énergie extérieur": "Away energy",
-  "Énergie moyenne": "Average energy"
+  "Énergie moyenne": "Average energy",
+  "Lecture impossible pour cette feuille. Réessayez ; elle peut ne pas être encore publiée.": "This team sheet could not be read. Try again; it may not have been published yet.",
+  "Classic n’a pas fourni le calendrier junior complet. Les rencontres affichées ont été vérifiées ; vous pouvez aussi saisir un lien.": "Classic did not supply the complete junior schedule. The listed fixtures have been verified; you can also enter a link."
 }

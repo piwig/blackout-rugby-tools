@@ -3733,5 +3733,7 @@
   "Échelle inconnue": "Escala desconocida",
   "Énergie domicile": "Energía local",
   "Énergie extérieur": "Energía visitante",
-  "Énergie moyenne": "Energía media"
+  "Énergie moyenne": "Energía media",
+  "Lecture impossible pour cette feuille. Réessayez ; elle peut ne pas être encore publiée.": "No se pudo leer esta alineación. Reinténtalo; puede que aún no esté publicada.",
+  "Classic n’a pas fourni le calendrier junior complet. Les rencontres affichées ont été vérifiées ; vous pouvez aussi saisir un lien.": "Classic no facilitó el calendario júnior completo. Los partidos mostrados se han verificado; también puedes introducir un enlace."
 }

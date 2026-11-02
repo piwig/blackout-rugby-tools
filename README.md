@@ -6,6 +6,8 @@ Comparez les deux feuilles Classic depuis **Préparer le match → Jour de match
 
 Le calendrier ou un lien officiel ouvre une lecture manuelle. Une feuille non publiée reste inconnue ; les échéances fournies et les repères calculés sont séparés. L’indice ajusté est personnel et non officiel ; l’échelle d’énergie doit être connue pour le calculer. L’écran lit le jeu sans modifier ses réglages. Aide intégrée en français, anglais, espagnol et italien.
 
+Si Classic échoue sur le calendrier junior, BRT propose une liste partielle de rencontres de championnat vérifiées dans le contexte junior. Aucun match senior n’est simplement renommé ; la saisie d’un lien reste disponible. Le refus de lecture d’une feuille est expliqué sans masquer l’autre équipe.
+
 ## Interface allégée — 2.12.2
 
 Le bloc de retour présent au bas de chaque écran a été retiré. Le formulaire « Contact & idées » reste accessible depuis la navigation. Les retours déjà enregistrés sont conservés.

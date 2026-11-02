@@ -70,7 +70,27 @@ def _fixture_row(raw, team_id, kind):
 async def list_sheet_fixtures(client, team_id, match_type, *, now=None):
     team, kind = _context(team_id, match_type)
     current = _now(now)
-    document = await _read(client, 'f', future=team, **_flags(kind))
+    partial, candidate_count = False, None
+    try:
+        document = await _read(client, 'f', future=team, **_flags(kind))
+    except ClassicError:
+        if kind != 3: raise
+        # Some Classic deployments fail on youth+future. Club league IDs are
+        # merely candidates: confirm them with youth=1 before listing anything.
+        senior_doc = await _read(client, 'f', future=team)
+        _check_flags(senior_doc, 0)
+        senior_rows = _rows(senior_doc, 200)
+        candidates = []
+        for raw in senior_rows.values():
+            item = _fixture_row(raw, team, 0)
+            start = _date(raw.get('matchstart'))
+            if raw.get('competition') == 'League' and start and start > current and raw.get('matchfinish') in (None, '', 0, '0'):
+                candidates.append(item)
+        candidates.sort(key=lambda f: (f['start_at'], int(f['id'])))
+        ids = [f['id'] for f in candidates[:50]]
+        partial, candidate_count = True, len(ids)
+        document = await _read(client, 'f', fixtureids=','.join(ids), youth='1') if ids else {'fixtures': {}}
+        if set(_rows(document, 50)) - set(ids): raise ClassicError(INVALID)
     _check_flags(document, kind)
     rows = _rows(document, 200)
     fixtures = []
@@ -81,7 +101,8 @@ async def list_sheet_fixtures(client, team_id, match_type, *, now=None):
             fixtures.append(item)
     fixtures.sort(key=lambda f: (f['start_at'], int(f['id'])))
     return {'team_id': team_id, 'match_type': kind, 'retrieved_at': current.isoformat(timespec='seconds'),
-            'fixtures': fixtures, 'excluded_count': len(rows) - len(fixtures)}
+            'fixtures': fixtures, 'excluded_count': len(rows) - len(fixtures),
+            'partial': partial, 'candidate_count': candidate_count}
 
 
 def _lineup(doc, team, fixture, kind):
@@ -141,7 +162,7 @@ def _summaries(players):
     return groups
 
 
-def build_side(team, name, lineup, players, scale):
+def build_side(team, name, lineup, players, scale, *, read_failed=False):
     slots = []
     for index, key in enumerate(SLOTS, 1):
         pid = lineup.get(key) if lineup else None
@@ -159,7 +180,7 @@ def build_side(team, name, lineup, players, scale):
             csr, form, xp, energy = (Decimal(str(v)) for v in (slot['csr'],slot['form'],slot['experience'],percent))
             slot['adjusted_csr'] = int(csr * (1 + Decimal('.07') * (form-7)) * (1 + Decimal('.02') * (xp-7)) * energy / 100)
         slots.append(slot)
-    return {'team_id': team, 'name': name, 'lineup_state': 'available' if lineup else 'not_provided',
+    return {'team_id': team, 'name': name, 'lineup_state': 'unavailable' if read_failed else 'available' if lineup else 'not_provided',
             'energy_scale': scale,
             'deadline_at': d.isoformat(timespec='seconds') if lineup and (d := _date(lineup.get('deadline'))) else None,
             'tactics_deadline_at': d.isoformat(timespec='seconds') if lineup and (d := _date(lineup.get('tacticsdeadline'))) else None,
@@ -185,8 +206,17 @@ async def fetch_match_sheet(client, request, *, now=None):
         if key not in teams or not isinstance(row, dict) or 'id' in row and _identifier(row['id']) != key:
             raise ClassicError(INVALID)
         _check_flags(row, 0 if kind == 3 else kind)
-    lineups = [await _read(client, 'lu', teamid=t, fixtureid=fixture_id, **flags) for t in teams]
-    lineups = [_lineup(doc, t, fixture_id, kind) for doc, t in zip(lineups, teams)]
+    documents = []
+    for t in teams:
+        try:
+            documents.append(await _read(client, 'lu', teamid=t, fixtureid=fixture_id, **flags))
+        except ClassicError:
+            # Classic can refuse an unpublished opposing sheet, rather than
+            # returning an empty list. Preserve the other side; don't infer why.
+            documents.append(None)
+    # Validation is outside the read-error handler: contradictory identities
+    # or population flags must still reject the complete response.
+    lineups = [_lineup(doc, t, fixture_id, kind) if doc is not None else None for doc, t in zip(documents, teams)]
     all_players = []
     for row in lineups:
         ids = [_identifier(row[k]) for k in SLOTS if row and row.get(k) not in (None, '', 0, '0')]
@@ -202,8 +232,8 @@ async def fetch_match_sheet(client, request, *, now=None):
                 _check_flags(player, kind)
         all_players.append(players)
     sides = [build_side(t, names.get(t, {}).get('name') if isinstance(names.get(t, {}).get('name'), str) else None,
-                        row, players, scale) for t, row, players, scale in zip(teams, lineups, all_players,
-                         (request.home_energy_scale, request.guest_energy_scale))]
+                        row, players, scale, read_failed=doc is None) for t, row, players, scale, doc in zip(teams, lineups, all_players,
+                         (request.home_energy_scale, request.guest_energy_scale), documents)]
     start = _date(fixture['start_at'])
     guidance = {key: (start - timedelta(minutes=minutes)).isoformat(timespec='seconds') if start else None
                 for key, minutes in (('lineup_at', 185), ('publication_at', 180), ('tactics_at', 125))}

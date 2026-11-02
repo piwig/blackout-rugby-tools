@@ -22,6 +22,7 @@ test('report identity and jersey order are validated before rendering',()=>{
       csr:null,weight:null,height:null,form:null,experience:null,aggression:null,discipline:null,energy_raw:null,energy_percent:null,energy_scale:'unknown',adjusted_csr:null})),groups:[]};
   const r={team_id:'9',match_type:3,retrieved_at:'2026-01-01T12:00:00Z',fixture:{id:'90',home_id:'9',guest_id:'8',type:3,start_at:null,finish_at:null},home:side,guest:{...side,team_id:'8'},timing:{indicative:{lineup_at:null,publication_at:null,tactics_at:null}}};
   assert.equal(isSheetReport(r,'9',3,'90'),true);
+  assert.equal(isSheetReport({...r,guest:{...r.guest,lineup_state:'unavailable'}},'9',3,'90'),true);
   for(const [team,kind,id] of [['8',3,'90'],['9',0,'90'],['9',3,'91']] as const) assert.equal(isSheetReport(r,team,kind,id),false);
   assert.equal(isSheetReport({...r,home:{...side,players:side.players.slice(1)}},'9',3,'90'),false);
   const swapped=structuredClone(r);swapped.home.players[2].slot=4;

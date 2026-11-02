@@ -14,7 +14,9 @@ Un écran dédié, utilisant l’adaptateur Classic existant, est préférable �
 - Lire uniquement `f`, `t`, `lu`, `p`, avec le contexte Classic correspondant (`youth=1`, `u20=1`, `nat=1`). Contrôler que la rencontre appartient bien à l’équipe affichée. Aucun appel d’écriture, aucune tactique privée ni donnée brute confidentielle retournée au navigateur.
 - Présenter les 15 postes et les huit places de banc dans leur ordre exact, les noms d’équipes, capitaines et buteurs. Par joueur : CSR, poids, taille, forme, énergie brute, expérience, agressivité, discipline ; les compétences ne sont pas nécessaires à cette comparaison.
 - Un joueur absent de la réponse conserve sa ligne ; aucun décalage de postes. Une composition absente reste « non fournie » : aucun remplacement silencieux par le Default, aucune tentative de contourner sa publication. Un banc historique à sept joueurs laisse la place 23 explicitement absente.
+- Si Classic refuse la lecture d’une feuille, ce côté reste « lecture impossible », sans supposer la cause ; l’autre feuille peut être consultée. Une réponse reçue avec une identité ou une population contradictoire rejette toujours le rapport complet.
 - Lectures bornées : une rencontre, deux équipes, deux feuilles, au plus 46 joueurs par lots de 23. L’adaptateur garde son espacement global. Les exceptions amont et leurs URLs ne doivent pas exposer de clés.
+- Repli du calendrier junior si Classic échoue sur `future+youth` : lire le calendrier du club puis vérifier au plus 50 identifiants de championnat avec `fixtureids+youth`. Ne jamais transformer une rencontre senior en junior sans cette confirmation. Trois requêtes maximum ; la liste de repli est explicitement partielle et la saisie d’un lien reste disponible.
 
 ## Calculs
 

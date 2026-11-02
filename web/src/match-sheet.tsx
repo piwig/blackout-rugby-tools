@@ -65,6 +65,7 @@ function ScopedMatchSheet({d,busy=false,kind}:{d:State;busy?:boolean;kind:number
       <div className="sheet-calendar-row"><button className="button secondary" disabled={locked} onClick={()=>void run('calendar')}><RefreshCw size={16} className={pending==='calendar'?'sheet-spin':''}/>{pending==='calendar'?tr('Lecture du calendrier…'):tr('Lire le calendrier Classic')}</button>
         {calendar&&<label htmlFor={id+'fixture'}>{tr('Rencontres à venir')}<select id={id+'fixture'} value={calendar.fixtures.some(f=>f.id===reference)?reference:''} disabled={locked} onChange={e=>setReference(e.target.value)}><option value="">{tr('Choisir une rencontre')}</option>{calendar.fixtures.map(f=><option key={f.id} value={f.id}>{moment(f.start_at)} · {f.competition} · #{f.id}</option>)}</select></label>}
       </div>
+      {calendar?.partial&&<p role="status" className="notice warning">{tr('Classic n’a pas fourni le calendrier junior complet. Les rencontres affichées ont été vérifiées ; vous pouvez aussi saisir un lien.')}</p>}
       {calendar&&!calendar.fixtures.length&&<p role="status">{tr('Aucune rencontre à venir fournie. Vous pouvez saisir un identifiant.')}</p>}
       <form onSubmit={e=>{e.preventDefault();void run('sheet')}}>
         <label htmlFor={id+'reference'}>{tr('Identifiant ou lien officiel Classic')}<input id={id+'reference'} value={reference} maxLength={2000} disabled={locked} onChange={e=>setReference(e.target.value)} placeholder="12345678" required/></label>
@@ -100,7 +101,7 @@ export function SheetReportView({report:r}:{report:SheetReport}){
       <div className="sheet-team-heads"><div><span>{tr('Domicile')}</span><h3>{teamName(r.home)}</h3></div><ArrowRightLeft aria-hidden="true"/><div><span>{tr('Extérieur')}</span><h3>{teamName(r.guest)}</h3></div></div>
       <p>{r.fixture.competition} · {moment(r.fixture.start_at)}</p><p className="sheet-footnote">{tr('Lecture du {date}',{date:moment(r.retrieved_at)})} · {Intl.DateTimeFormat().resolvedOptions().timeZone}</p>
       <p className="sheet-footnote">{tr('Les caractéristiques sont celles de cette lecture, y compris pour un ancien match.')}</p>
-      {[r.home,r.guest].filter(s=>s.lineup_state==='not_provided').map(s=><div className="notice warning" key={s.team_id}>{teamName(s)} : {tr('Feuille non fournie par Classic')}</div>)}
+      {[r.home,r.guest].filter(s=>s.lineup_state!=='available').map(s=><div className="notice warning" key={s.team_id}>{teamName(s)} : {s.lineup_state==='unavailable'?tr('Lecture impossible pour cette feuille. Réessayez ; elle peut ne pas être encore publiée.'):tr('Feuille non fournie par Classic')}</div>)}
     </section>
     <section className="card sheet-deadlines"><h3>{tr('Le chronomètre du staff')}</h3>
       <div className="sheet-scale-grid">{[r.home,r.guest].map(s=><div key={s.team_id}><h4>{teamName(s)}</h4><dl><div><dt>{tr('Composition — échéance fournie')}</dt><dd>{moment(s.deadline_at)}</dd></div><div><dt>{tr('Tactiques — échéance fournie')}</dt><dd>{moment(s.tactics_deadline_at)}</dd></div></dl></div>)}</div>
