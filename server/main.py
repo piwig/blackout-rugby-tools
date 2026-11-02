@@ -36,6 +36,7 @@ from .exports import export_chunks
 from .team_identity import TEAM_PATTERN,OPTIONAL_TEAM_PATTERN,CLUB_ONLY,describe_team,is_selection,require_club_id
 from .national import register_national,sync_selection,selection_game_date
 from .match_prep import FixturesRequest,ScoutRequest,list_upcoming_fixtures,scout_opponent
+from .match_sheet import SheetCalendarRequest,SheetRequest,list_sheet_fixtures,fetch_match_sheet
 from .match_import import MAX_MATCH_BYTES,read_match_document,normalize_match_document
 from .match_review import effective_match,register_match_review
 from .match_routes import register_match_direct
@@ -436,6 +437,20 @@ def create_app(directory=None,password=None,secure=None):
         throttle('match-scout:'+body.team_id)
         try:return await asyncio.wait_for(scout_opponent(ClassicClient(credentials(body.team_id)),body.team_id,body.fixture_id),90)
         except asyncio.TimeoutError:raise HTTPException(504,'Classic tarde à répondre. Relancez l’étude de l’adversaire.') from None
+
+    @app.post('/api/match-sheet/fixtures',dependencies=[Depends(auth)])
+    async def match_sheet_fixtures(body:SheetCalendarRequest):
+        require_team(body.team_id)
+        throttle('match-sheet-calendar:'+body.team_id)
+        try:return await asyncio.wait_for(list_sheet_fixtures(ClassicClient(match_credentials(body.team_id)),body.team_id,body.match_type),90)
+        except asyncio.TimeoutError:raise HTTPException(504,'Classic tarde à répondre. Relancez la lecture du calendrier.') from None
+
+    @app.post('/api/match-sheet/read',dependencies=[Depends(auth)])
+    async def match_sheet_read(body:SheetRequest):
+        require_team(body.team_id)
+        throttle('match-sheet:'+body.team_id)
+        try:return await asyncio.wait_for(fetch_match_sheet(ClassicClient(match_credentials(body.team_id)),body),90)
+        except asyncio.TimeoutError:raise HTTPException(504,'Classic tarde à répondre. Relancez la lecture des feuilles.') from None
 
     @app.get('/api/optimization')
     def optimization(team_id:str=Query(default='',pattern=OPTIONAL_TEAM_PATTERN),
