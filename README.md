@@ -2,9 +2,11 @@
 
 ## Préparation avant match — 2.13.1
 
-Le banc est choisi globalement, à titulaires fixés, pour maximiser la couverture indicative puis les scores personnels connus. Deux options de pilier sont recherchées ; les autres familles gardent au moins une option lorsque les données et l’effectif le permettent. Staff & tactique utilise désormais une affinité complète atteignant80% du meilleur rôle, et signale les anciennes feuilles à recalculer.
+Le banc est choisi globalement, à titulaires fixés, pour maximiser la couverture indicative puis les scores personnels connus. Deux options de pilier sont recherchées ; les autres familles gardent au moins une option lorsque les données et l’effectif le permettent. Staff & tactique utilise désormais une affinité complète atteignant 80 % du meilleur rôle, et signale les anciennes feuilles à recalculer.
 
-Jour de match distingue les étapes avant verrouillage du XV, ajustement des tactiques et échéances dépassées selon les délais fournis pour votre équipe à l’heure de lecture. Le contrôle des23 et des responsables accompagne la comparaison adverse. Les qualifications, disponibilités et changements simultanés restent à vérifier dans Classic.
+Jour de match distingue les étapes avant verrouillage du XV, ajustement des tactiques et échéances dépassées selon les délais fournis pour votre équipe à l’heure de lecture. Le contrôle des 23 et des responsables accompagne la comparaison adverse. Les qualifications, disponibilités et changements simultanés restent à vérifier dans Classic.
+
+Voir le [bilan de validation 2.13.1](docs/release-2.13.1-validation.md).
 
 ## Jour de match — 2.13.0
 
