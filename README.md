@@ -2,6 +2,8 @@
 
 ## Audience facultative — 2.16.0
 
+Version publiée le 24 novembre 2026 sur [BRT](https://brt.bordebat.fr).
+
 BRT peut mesurer les visites et les rubriques consultées avec une installation
 Umami/Vigie existante. Les chemins et titres transmis sont génériques ; les
 données des comptes et des clubs ne sont pas jointes. Le choix **Audience et

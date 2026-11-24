@@ -81,15 +81,20 @@ production config append and private environment, no unrelated project edits.
 - [x] Inspect existing Umami setup. Reuse suitable BRT site/reader if present;
   otherwise create dedicated team/site/view-only reader using authorized admin
   access. Never reset an existing credential to obtain access.
-- [ ] Back up before mutation. Configure BRT reader privately, append Vigie
+- [x] Back up before mutation. Configure BRT reader privately, append Vigie
   audience-only project, sync and restart; verify BRT readable, other site denied
   and writes denied with that reader. Preserve all existing projects.
-- [ ] Package committed BRT source/build, back up and publish with rollback;
+- [x] Package committed BRT source/build, back up and publish with rollback;
   preserve auth/CAPTCHA/private APIs and current app/game settings.
-- [ ] In Chrome verify actual screen and privacy choice; inspect sanitized request
+- [x] In Chrome verify actual screen and privacy choice; inspect sanitized request
   and prove receipt in Umami/Vigie. Separate recipe traffic from organic traffic.
-- [ ] Test dashboard/JSON/MCP availability separately and record exact limitations.
-- [ ] Save private operational proof and update public docs with sanitized outcome.
+- [x] Test dashboard/JSON/MCP availability separately and record exact limitations.
+- [x] Save private operational proof and update public docs with sanitized outcome.
+
+Publication: code e429f6d, followed by visible version-badge/documentation correction.
+Actual acceptance receipt verified in Umami and Vigie. Dedicated reader and API
+isolation checked. MCP chat connectors unavailable/non configured; dashboard/JSON
+independent and working. No community message or advertising publication sent.
 
 ## Self-review
 

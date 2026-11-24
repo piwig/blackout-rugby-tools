@@ -36,9 +36,28 @@ publiques à compléter. La suite finale a été exécutée après stabilisation
 et adaptation explicite de l'unique nouvelle route publique. Les autres API
 métier restent privées.
 
-La vérification de publication et de réception réelle reste à consigner après
-déploiement. Les preuves opérationnelles, secrets et mesures de l'instance
-hébergée restent hors de Git.
+## Publication vérifiée
+
+Version publiée le 24 novembre 2026. Les services sont actifs, les options de
+mesure publiques sont configurées, et les données/règles de gestion du jeu sont
+restées identiques avant et après publication. Des sauvegardes locales et
+distantes ont été exécutées avant et après publication.
+
+Dans Chrome, le compte administrateur connecté ne charge aucun tracker. Une
+visite publique dans un navigateur isolé a transmis un objet limité aux cinq
+champs prévus. Sa réception dans Umami puis dans les agrégats Vigie à 7 et 30
+jours est vérifiée ; cette recette n'est pas une observation de trafic organique.
+Après refus, la navigation n'émet plus de mesure et le rechargement conserve le
+refus sans charger le tracker. Le rendu public a été inspecté à largeur étroite.
+
+Le lecteur Umami est limité à son équipe et à son site ; les statistiques d'un
+autre site sont refusées. Vigie refuse les requêtes sans authentification. Son
+dashboard et ses routes JSON fonctionnent, mais les deux connecteurs MCP essayés
+dans le chat restent indisponibles/non configurés : leur disponibilité ne doit
+pas être confondue avec celle du service de collecte.
+
+Les preuves opérationnelles, secrets et mesures de l'instance hébergée restent
+hors de Git.
 
 ## Interprétation
 
