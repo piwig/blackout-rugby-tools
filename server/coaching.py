@@ -22,28 +22,35 @@ import time
 from datetime import datetime, timedelta, timezone
 from typing import Literal
 
-from fastapi import Depends, HTTPException, Query
+from fastapi import Depends, HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+from starlette.concurrency import run_in_threadpool
+from starlette.datastructures import UploadFile
+from starlette.formparsers import MultiPartException, MultiPartParser
 
 from .classic import ClassicClient, ClassicError, _utc
 from .national import authenticated_member
 from .storage import now, pack
 from .team_identity import TeamId, require_club_id
+from .training_email import MAX_DOCUMENT_BYTES, MAX_FILE_BYTES, MAX_PLAYERS, SKILLS, TrainingEmailError, normalize_club_name, parse_training_email
 
 
-SKILLS = frozenset(('stamina', 'handling', 'attack', 'defense', 'technique', 'strength', 'jumping', 'speed', 'agility', 'kicking'))
-MAX_PLAYERS = 200
 STATISTICS_BATCH = 50
 HISTORY_LIMIT = 20
 READ_TIMEOUT = 120
 PREVIEW_TTL = 600
 MAX_PREVIEW_BYTES = 16_000_000
-MAX_DOCUMENT_BYTES = 512_000
 _UNAVAILABLE = 'Lecture Classic indisponible. Les données enregistrées sont conservées.'
 _INVALID = 'Données de suivi Classic incohérentes ou non reconnues.'
 _CONFLICT = 'Le compte ou les données ont changé. Relisez un nouvel aperçu avant de confirmer.'
-_EXPIRED = 'Cet aperçu a expiré ou a déjà été utilisé. Relisez les données Classic.'
+_EXPIRED = 'Cet aperçu a expiré ou a déjà été utilisé. Créez un nouvel aperçu.'
 _TOO_LARGE = 'Ce relevé dépasse la limite de taille. Les données enregistrées sont conservées.'
+_MAIL_SOURCE = 'Classic email'
+_MAIL_UPLOAD = 'Joignez un seul fichier de rapport d’entraînement.'
+_MAIL_IDENTITY = 'Le club déclaré dans le fichier ne correspond pas au club sélectionné.'
+_DECLARED_IDENTITY = 'L’identité déclarée dans le fichier ne certifie pas son expéditeur.'
+_HISTORICAL_PLAYERS = 'Certains joueurs du rapport ne figurent pas dans l’effectif actuel du club.'
+_REPORT_DISAGREEMENT = 'Des rapports enregistrés pour cette période diffèrent sur des valeurs communes.'
 
 # Explicit aliases from the documented JSON names, without inferred quantities.
 COUNTERS = {
@@ -247,6 +254,9 @@ def _phase(value, individual=False):
     for player_id, raw in _rows(value['players']):
         player = {'player_id': player_id, 'player_name': _name(raw.get('name', raw.get('player name'))),
                   **_before_after(raw, 'csr'), **_before_after(raw, 'energy')}
+        if player['energy_before'] is not None or player['energy_after'] is not None:
+            player['energy'] = {'kind': 'numeric', 'scale': 'unreported',
+                                'before': player['energy_before'], 'after': player['energy_after']}
         if individual:
             skills = raw.get('skills')
             if skills is not None and (not isinstance(skills, list) or len(skills) > len(SKILLS)):
@@ -262,9 +272,12 @@ def _phase(value, individual=False):
                     if code in seen:
                         _bad()
                     seen.add(code)
+                    trainer = {'name': _name(skill.get('trainer')), 'level': _integer(skill.get('trainerlevel'), 1000, optional=True),
+                               'type': _name(skill.get('trainertype'))}
                     player['skills'].append({'skill': code,
                                              'sessions': _integer(skill.get('sessions'), 1000, minimum=1),
-                                             'pops': _changes(skill.get('pops'))})
+                                             'pops': _changes(skill.get('pops')),
+                                             'trainer': trainer if any(value is not None for value in trainer.values()) else None})
         else:
             player.update(pops=_changes(raw.get('pops')), drops=_changes(raw.get('drops'), -1))
         result['players'].append(player)
@@ -281,7 +294,7 @@ def _report(doc, team_id, request):
     source_date = _game_date(doc.get('gameDate'))
     if source_date is not None and (season, round_number) > (source_date['season'], source_date['round']):
         _bad()
-    return {'report_id': _identifier(raw.get('id')), 'season': season, 'round': round_number,
+    return {'schema_version': 2, 'report_id': _identifier(raw.get('id')), 'season': season, 'round': round_number,
             'team': _phase(raw['report'].get('team')), 'individual': _phase(raw['report'].get('individual'), True),
             'observed_at': now(), 'provenance': _provenance(doc, 'tr', requested_period=(
                 {'season': request.season, 'round': request.round} if request.season is not None else None))}
@@ -327,6 +340,95 @@ def _digest(document):
     # Observation clocks are provenance, not a new semantic revision.
     content = {key: value for key, value in document.items() if key not in ('key', 'observed_at', 'provenance')}
     return hashlib.sha256(json.dumps(content, sort_keys=True, ensure_ascii=False, separators=(',', ':')).encode()).hexdigest()
+
+
+def _report_base(value):
+    # Fields added in v2 can be available on just one side of a legacy comparison.
+    # The earlier proof remains immutable and common v2 fields are checked separately.
+    if isinstance(value, dict):
+        ignored = {'key', 'observed_at', 'provenance', 'schema_version', 'energy', 'trainer'}
+        return {key: _report_base(item) for key, item in value.items() if key not in ignored and item is not None}
+    if isinstance(value, list):
+        return [_report_base(item) for item in value]
+    return value
+
+
+def _known_difference(left, right):
+    if left is None or right is None:
+        return False
+    if isinstance(left, dict) and isinstance(right, dict):
+        return any(_known_difference(left[key], right[key]) for key in left.keys() & right.keys())
+    return left != right
+
+
+def _indexed(values, key):
+    return {item[key]: item for item in (values or [])}
+
+
+def _changes_differ(left, right):
+    if left is None or right is None:
+        return False
+    a, b = _indexed(left, 'skill'), _indexed(right, 'skill')
+    return a.keys() != b.keys() or _known_difference(a, b)
+
+
+def _energy(player):
+    return player.get('energy') or {'kind': 'numeric', 'scale': 'unreported',
+                                    'before': player.get('energy_before'), 'after': player.get('energy_after')}
+
+
+def _player_disagrees(left, right):
+    if any(_known_difference(left.get(key), right.get(key)) for key in ('player_name', 'csr_before', 'csr_after')):
+        return True
+    if any(_changes_differ(left.get(key), right.get(key)) for key in ('pops', 'drops')):
+        return True
+    a, b = _energy(left), _energy(right)
+    if a['kind'] == b['kind'] and a.get('scale') == b.get('scale') and _known_difference(a, b):
+        return True
+    left_skills, right_skills = left.get('skills'), right.get('skills')
+    if left_skills is None or right_skills is None:
+        return False
+    a, b = _indexed(left_skills, 'skill'), _indexed(right_skills, 'skill')
+    if a.keys() != b.keys():
+        return True
+    return any(any(_known_difference(a[key].get(field), b[key].get(field)) for field in ('sessions', 'trainer'))
+               or _changes_differ(a[key].get('pops'), b[key].get('pops')) for key in a)
+
+
+def _reports_disagree(left, right):
+    for phase in ('team', 'individual'):
+        a, b = left.get(phase), right.get(phase)
+        if a is None or b is None:
+            continue
+        if _known_difference(a.get('skills'), b.get('skills')):
+            return True
+        roster_a, roster_b = a.get('players'), b.get('players')
+        if roster_a is None or roster_b is None:
+            continue
+        players_a, players_b = _indexed(roster_a, 'player_id'), _indexed(roster_b, 'player_id')
+        if players_a.keys() != players_b.keys() or any(_player_disagrees(players_a[key], players_b[key]) for key in players_a):
+            return True
+    return False
+
+
+def _mail_report(document):
+    return (document.get('provenance') or {}).get('source') == _MAIL_SOURCE
+
+
+def _report_period_key(team_id, document):
+    return f"coaching:{team_id}:report:{document['season']:03d}:{document['round']:02d}"
+
+
+def _report_key(team_id, document, digest):
+    key = _report_period_key(team_id, document)
+    return f'{key}:mail:{digest}' if _mail_report(document) else key
+
+
+def _report_disagreement(db, team_id, document, digest):
+    period = _report_period_key(team_id, document)
+    rows = _safe_values(db, 'WHERE (key=? OR key LIKE ?) AND key<>?',
+                        (period, period + ':mail:%', _report_key(team_id, document, digest)))
+    return any(_reports_disagree(document, _decoded(row)) for row in rows)
 
 
 def _safe_values(db, suffix, parameters=()):
@@ -377,10 +479,12 @@ def _bundle(db, team_id, report_offset=0, statistics_offset=0):
 
 def _stored(db, team_id, kind, document, digest):
     if kind == 'report':
-        key = f"coaching:{team_id}:report:{document['season']:03d}:{document['round']:02d}"
+        key = _report_key(team_id, document, digest)
         row = _safe_values(db, 'WHERE key=?', (key,)).fetchone()
-        if row and _digest(_decoded(row)) != digest:
-            raise HTTPException(409, 'Un rapport différent existe déjà pour cette saison et cette semaine. L’observation précédente est conservée.')
+        if row and not _mail_report(document):
+            existing = _decoded(row)
+            if _report_base(existing) != _report_base(document) or _reports_disagree(existing, document):
+                raise HTTPException(409, 'Un rapport différent existe déjà pour cette saison et cette semaine. L’observation précédente est conservée.')
         return bool(row)
     if kind == 'instructions':
         row = _safe_values(db, 'WHERE key LIKE ? ORDER BY key DESC LIMIT 1', (f'coaching:{team_id}:instructions:%',)).fetchone()
@@ -393,13 +497,83 @@ def _statistics_current_key(team_id, document):
     return f"coaching:{team_id}:current-statistics:{document['scope']}:{document['season'] or 'all'}"
 
 
+def _local_club_name(db, team_id):
+    row = db.execute('SELECT name FROM teams WHERE id=?', (team_id,)).fetchone()
+    return normalize_club_name(row['name']) if row else None
+
+
+def _mail_identity(db, team_id, document):
+    player_ids = {p['player_id'] for phase in ('team', 'individual') for p in document[phase]['players']}
+    # Inspect only IDs from the latest senior roster, without loading its other data.
+    rows = db.execute('''
+        SELECT json_extract(player.value, '$.id') AS player_id
+        FROM snapshots AS roster, json_each(roster.payload) AS player
+        WHERE roster.id=(SELECT id FROM snapshots WHERE team_id=? AND youth=0 ORDER BY id DESC LIMIT 1)
+    ''', (team_id,))
+    missing = sorted(player_ids - {str(row['player_id']) for row in rows}, key=int)
+    return {'club_name': document['provenance']['club_name'], 'club_id': document['provenance']['club_id'],
+            'player_count': len(player_ids), 'roster_match_count': len(player_ids) - len(missing), 'missing_player_ids': missing}
+
+
+async def _training_upload(request):
+    if request.headers.get('content-type', '').partition(';')[0].strip().lower() != 'multipart/form-data':
+        raise HTTPException(422, _MAIL_UPLOAD)
+
+    async def bounded_body():
+        received = 0
+        async for chunk in request.stream():
+            received += len(chunk)
+            if received > MAX_FILE_BYTES + 64 * 1024:
+                raise HTTPException(413, _TOO_LARGE)
+            yield chunk
+
+    try:
+        form = await MultiPartParser(request.headers, bounded_body(), max_files=1, max_fields=0).parse()
+    except MultiPartException:
+        raise HTTPException(422, _MAIL_UPLOAD) from None
+    try:
+        file = form.get('file')
+        if not isinstance(file, UploadFile) or not file.filename:
+            raise HTTPException(422, _MAIL_UPLOAD)
+        if file.size is not None and file.size > MAX_FILE_BYTES:
+            raise HTTPException(413, _TOO_LARGE)
+        return await file.read(MAX_FILE_BYTES + 1), file.filename
+    finally:
+        await form.close()
+
+
 def register_coaching(app, store, auth, require_team, credentials, throttle):
     """Register private club routes. `store` may be a ContextVar-backed PrivateStore."""
     previews, guard = {}, threading.Lock()
 
     def club(team_id):
         require_club_id(team_id)
-        require_team(team_id)
+        return require_team(team_id)
+
+    def save_preview(team_id, kind, owner, document, digest, baseline, already_imported, warnings, **details):
+        payload = pack(document)
+        size = len(payload.encode())
+        if size > MAX_DOCUMENT_BYTES:
+            raise HTTPException(413, _TOO_LARGE)
+        if size > MAX_PREVIEW_BYTES:
+            raise HTTPException(413, 'Aperçu trop volumineux. Les aperçus précédents sont conservés.')
+        token = secrets.token_urlsafe(32)
+        with guard:
+            stamp = time.monotonic()
+            for key in list(previews):
+                if previews[key]['expires'] <= stamp:
+                    previews.pop(key)
+            own = [key for key, entry in previews.items() if entry['owner'] == owner]
+            while len(own) >= 3:
+                previews.pop(own.pop(0))
+            while previews and (len(previews) >= 16 or sum(entry['size'] for entry in previews.values()) + size > MAX_PREVIEW_BYTES):
+                previews.pop(next(iter(previews)))
+            previews[token] = {'owner': owner, 'team_id': team_id, 'kind': kind, 'payload': payload, 'size': size,
+                               'digest': digest, 'baseline': baseline, 'expires': stamp + PREVIEW_TTL}
+        return {'team_id': team_id, 'kind': kind, 'preview_id': token, 'expected_revision': baseline[0],
+                'expires_at': (datetime.now(timezone.utc) + timedelta(seconds=PREVIEW_TTL)).isoformat(timespec='seconds'),
+                'status': 'empty' if kind == 'statistics' and not document['players'] else 'available',
+                'data': document, 'already_imported': already_imported, 'warnings': warnings, **details}
 
     @app.get('/api/clubs/{team_id}/coaching', dependencies=[Depends(auth)])
     def get_bundle(team_id: TeamId, report_offset: int = Query(0, ge=0, le=1_000_000),
@@ -450,24 +624,7 @@ def register_coaching(app, store, auth, require_team, credentials, throttle):
             if (_revision(db, team_id), _context(db, credentials(team_id))) != baseline or str(store.path) != owner:
                 raise HTTPException(409, _CONFLICT)
             already_imported = _stored(db, team_id, body.kind, document, digest)
-        payload = pack(document)
-        size = len(payload.encode())
-        if size > MAX_DOCUMENT_BYTES:
-            raise HTTPException(413, _TOO_LARGE)
-        if size > MAX_PREVIEW_BYTES:
-            raise HTTPException(413, 'Aperçu trop volumineux. Les aperçus précédents sont conservés.')
-        token = secrets.token_urlsafe(32)
-        with guard:
-            for key in list(previews):
-                if previews[key]['expires'] <= time.monotonic():
-                    previews.pop(key)
-            own = [key for key, entry in previews.items() if entry['owner'] == owner]
-            while len(own) >= 3:
-                previews.pop(own.pop(0))
-            while previews and (len(previews) >= 16 or sum(entry['size'] for entry in previews.values()) + size > MAX_PREVIEW_BYTES):
-                previews.pop(next(iter(previews)))
-            previews[token] = {'owner': owner, 'team_id': team_id, 'kind': body.kind, 'payload': payload, 'size': size,
-                               'digest': digest, 'baseline': baseline, 'expires': time.monotonic() + PREVIEW_TTL}
+            disagreement = body.kind == 'report' and _report_disagreement(db, team_id, document, digest)
         warnings = []
         if body.kind == 'statistics':
             warnings.append('Les statistiques concernent les joueurs actuels ; leur carrière peut inclure d’autres clubs. Les minutes et les postes ne sont pas fournis.')
@@ -475,10 +632,44 @@ def register_coaching(app, store, auth, require_team, credentials, throttle):
                 warnings.append('Certains joueurs n’ont pas de statistiques retournées ; leurs valeurs restent inconnues.')
         if body.kind == 'instructions':
             warnings.append('Ces instructions sont les réglages actuels ; elles ne prouvent pas un entraînement réalisé.')
-        return {'team_id': team_id, 'kind': body.kind, 'preview_id': token, 'expected_revision': baseline[0],
-                'expires_at': (datetime.now(timezone.utc) + timedelta(seconds=PREVIEW_TTL)).isoformat(timespec='seconds'),
-                'status': 'empty' if body.kind == 'statistics' and not document['players'] else 'available',
-                'data': document, 'already_imported': already_imported, 'warnings': warnings}
+        if disagreement:
+            warnings.append(_REPORT_DISAGREEMENT)
+        return save_preview(team_id, body.kind, owner, document, digest, baseline, already_imported, warnings)
+
+    @app.post('/api/clubs/{team_id}/coaching/import-preview', dependencies=[Depends(auth)], openapi_extra={
+        'requestBody': {'required': True, 'content': {'multipart/form-data': {
+            'schema': {'type': 'object', 'required': ['file'], 'properties': {'file': {'type': 'string', 'format': 'binary'}}}
+        }}},
+    })
+    async def import_preview(team_id: TeamId, request: Request):
+        club(team_id)
+        throttle('coaching-import-preview:' + team_id)
+        owner = str(store.path)
+        with store.db() as db:
+            db.execute('BEGIN')
+            baseline = (_revision(db, team_id), _local_club_name(db, team_id))
+        content, filename = await _training_upload(request)
+        try:
+            document = await run_in_threadpool(parse_training_email, content, filename)
+        except TrainingEmailError as exc:
+            raise HTTPException(exc.status_code, str(exc)) from None
+        if document['club_name'] != baseline[1] or document['club_id'] not in (None, team_id):
+            raise HTTPException(422, _MAIL_IDENTITY)
+        digest = _digest(document)
+        document['provenance'].update(club_name=document.pop('club_name'), club_id=document.pop('club_id'))
+        document.update(key=f"report:{document['season']}:{document['round']}:mail:{digest}", observed_at=now())
+        warnings = [_DECLARED_IDENTITY]
+        with store.db() as db:
+            db.execute('BEGIN')
+            if (_revision(db, team_id), _local_club_name(db, team_id)) != baseline or str(store.path) != owner:
+                raise HTTPException(409, _CONFLICT)
+            identity = _mail_identity(db, team_id, document)
+            already_imported = _stored(db, team_id, 'report', document, digest)
+            if identity['missing_player_ids']:
+                warnings.append(_HISTORICAL_PLAYERS)
+            if _report_disagreement(db, team_id, document, digest):
+                warnings.append(_REPORT_DISAGREEMENT)
+        return save_preview(team_id, 'report', owner, document, digest, baseline, already_imported, warnings, identity=identity)
 
     @app.post('/api/clubs/{team_id}/coaching/confirm', dependencies=[Depends(auth)])
     def confirm(team_id: TeamId, body: CoachingConfirm):
@@ -496,7 +687,8 @@ def register_coaching(app, store, auth, require_team, credentials, throttle):
         document, kind = json.loads(entry['payload']), entry['kind']
         with store.db() as db:
             db.execute('BEGIN IMMEDIATE')
-            if (_revision(db, team_id), _context(db, credentials(team_id))) != entry['baseline']:
+            context = _local_club_name(db, team_id) if kind == 'report' and _mail_report(document) else _context(db, credentials(team_id))
+            if (_revision(db, team_id), context) != entry['baseline']:
                 raise HTTPException(409, _CONFLICT)
             unchanged = _stored(db, team_id, kind, document, entry['digest'])
             if not unchanged:
@@ -508,7 +700,7 @@ def register_coaching(app, store, auth, require_team, credentials, throttle):
                 serialized = pack(document)
                 if len(serialized.encode()) > MAX_DOCUMENT_BYTES:
                     raise HTTPException(413, _TOO_LARGE)
-                key = (f"coaching:{team_id}:report:{document['season']:03d}:{document['round']:02d}" if kind == 'report'
+                key = (_report_key(team_id, document, entry['digest']) if kind == 'report'
                        else f"coaching:{team_id}:{kind}:{revision:012d}:{entry['digest']}")
                 db.execute('INSERT INTO kv(key,value) VALUES(?,?)', (key, serialized))
                 if kind == 'statistics':

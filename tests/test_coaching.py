@@ -119,6 +119,193 @@ def bundle(env, query=''):
     return env.client.get('/api/clubs/123/coaching' + query)
 
 
+def import_mail(env, body=None, team='123', filename='training.html'):
+    if body is None:
+        body = (Path(__file__).parent / 'fixtures' / 'training-report.html').read_bytes()
+    return env.client.post(f'/api/clubs/{team}/coaching/import-preview', files={'file': (filename, body)})
+
+
+def test_local_mail_import_needs_no_classic_credentials_and_persists_only_normalized_report(env):
+    store = env.stores['primary']
+    with store.db() as db:
+        db.execute("DELETE FROM kv WHERE key='classic_account'")
+    env.creds.clear()
+    store.save_snapshot('123', False, [{'id': '101', 'name': 'Camille Démo'}], 'Synthetic snapshot')
+    response = import_mail(env, filename='private-name.html')
+    assert response.status_code == 200, response.text
+    value = response.json()
+    assert value['kind'] == 'report' and value['expected_revision'] == 0 and not value['already_imported']
+    assert value['data']['provenance']['source'] == 'Classic email'
+    assert value['data']['provenance']['source_format'] == 'html'
+    assert value['identity'] == {'club_name': 'Example Club', 'club_id': None, 'player_count': 2,
+                                 'roster_match_count': 1, 'missing_player_ids': ['102']}
+    assert 'Certains joueurs du rapport ne figurent pas dans l’effectif actuel du club.' in value['warnings']
+    assert 'L’identité déclarée dans le fichier ne certifie pas son expéditeur.' in value['warnings']
+    assert bundle(env).json()['report_total'] == 0
+    saved = confirm(env, value)
+    assert saved.status_code == 200, saved.text
+    assert saved.json()['imported'] and saved.json()['bundle']['revision'] == 1
+    assert bundle(env).json()['reports'] == [value['data']]
+    with store.db() as db:
+        row = db.execute("SELECT key,value FROM kv WHERE key LIKE 'coaching:123:report:%'").fetchone()
+        assert row['key'].startswith('coaching:123:report:061:08:mail:')
+        assert 'private-name.html' not in row['value'] and '<table>' not in row['value']
+    assert env.calls == []
+
+
+def test_local_mail_rejects_wrong_destination_and_explicit_club_id(env):
+    synthetic = (Path(__file__).parent / 'fixtures' / 'training-report.html').read_text(encoding='utf-8')
+    assert import_mail(env, team='999').status_code == 404
+    assert import_mail(env, team='u20:9').status_code == 422
+    assert import_mail(env, team='124').status_code == 422
+    assert import_mail(env, synthetic.replace('page=training', 'clubid=124').encode()).status_code == 422
+    assert import_mail(env, synthetic.replace('Example Club', 'example Club').encode()).status_code == 422
+    assert bundle(env).json()['report_total'] == 0
+    assert env.calls == []
+
+
+def test_local_mail_matches_unicode_and_space_normalized_club_name(env):
+    synthetic = (Path(__file__).parent / 'fixtures' / 'training-report.html').read_text(encoding='utf-8')
+    with env.stores['primary'].db() as db:
+        db.execute("UPDATE teams SET name=? WHERE id='123'", ('  Cafe\u0301    Imaginaire ',))
+    response = import_mail(env, synthetic.replace('Example Club', 'Café&nbsp;Imaginaire').encode())
+    assert response.status_code == 200, response.text
+    assert response.json()['identity']['club_name'] == 'Café Imaginaire'
+
+
+def test_upload_is_private_and_bounded(env):
+    response = import_mail(env, b'x' * (2 * 1024 * 1024 + 1))
+    assert response.status_code == 413
+    assert bundle(env).json()['report_total'] == 0
+    env.client.headers.pop('X-Manager')
+    assert import_mail(env).status_code == 401
+
+
+def test_identical_mail_from_eml_after_html_confirms_unchanged(env):
+    from email.message import EmailMessage
+
+    first = import_mail(env).json()
+    assert confirm(env, first).status_code == 200
+    email = EmailMessage()
+    synthetic = (Path(__file__).parent / 'fixtures' / 'training-report.html').read_text(encoding='utf-8')
+    email.set_content(synthetic, subtype='html', cte='base64')
+    second = import_mail(env, email.as_bytes(), filename='forward.eml').json()
+    assert second['already_imported'] and second['data']['key'] == first['data']['key']
+    result = confirm(env, second).json()
+    assert result['unchanged'] and result['bundle']['revision'] == 1
+    assert result['bundle']['reports'][0]['provenance']['source_format'] == 'html'
+
+
+def test_mail_keeps_distinct_sources_and_warns_only_on_shared_conflicts(env):
+    phases = env.responses['tr']['report']['report']
+    api_skill = phases['individual']['players']['101']['skills'][0]
+    api_skill['trainer'] = 'Coach Émile'
+    for phase in ('team', 'individual'):
+        phases[phase]['players']['102'] = {'id': '102'}
+    assert confirm(env, preview(env, 'report').json()).status_code == 200
+    matching = import_mail(env).json()
+    warning = 'Des rapports enregistrés pour cette période diffèrent sur des valeurs communes.'
+    assert warning not in matching['warnings']
+    assert confirm(env, matching).status_code == 200
+    synthetic = (Path(__file__).parent / 'fixtures' / 'training-report.html').read_text(encoding='utf-8')
+    different = import_mail(env, synthetic.replace('10,150', '10,160').encode()).json()
+    assert warning in different['warnings'] and not different['already_imported']
+    result = confirm(env, different).json()
+    assert result['imported'] and result['bundle']['report_total'] == 3
+    reports = result['bundle']['reports']
+    assert len({report['key'] for report in reports}) == 3
+    assert [report['provenance']['source'] for report in reports].count('Classic email') == 2
+    assert warning in preview(env, 'report').json()['warnings']
+    assert bundle(env, '?report_offset=2').json()['reports'][0]['provenance']['source'] == 'Classic API'
+
+
+def test_changed_sessions_skill_is_visible_as_a_report_disagreement(env):
+    first = import_mail(env).json()
+    assert confirm(env, first).status_code == 200
+    synthetic = (Path(__file__).parent / 'fixtures' / 'training-report.html').read_text(encoding='utf-8')
+    modified = synthetic.replace('<b>Defense</b><br><span>2 sessions', '<b>Kicking</b><br><span>2 sessions')
+    second = import_mail(env, modified.encode()).json()
+    assert 'Des rapports enregistrés pour cette période diffèrent sur des valeurs communes.' in second['warnings']
+
+
+@pytest.mark.parametrize('reported, warns', [(True, True), (False, False)])
+def test_phase_participants_disagree_only_when_both_lists_are_supplied(env, reported, warns):
+    phases = env.responses['tr']['report']['report']
+    phases['individual'] = None
+    if reported:
+        phases['team']['players'] = {}
+    else:
+        phases['team'].pop('players')
+    assert confirm(env, preview(env, 'report').json()).status_code == 200
+    result = import_mail(env).json()
+    warning = 'Des rapports enregistrés pour cette période diffèrent sur des valeurs communes.'
+    assert (warning in result['warnings']) == warns
+
+
+def test_mail_confirmation_rejects_other_owner_wrong_team_wrong_revision_and_expiry(env, monkeypatch):
+    first = import_mail(env).json()
+    env.client.headers['X-Manager'] = 'second'
+    assert confirm(env, first).status_code == 409
+    assert bundle(env).json()['report_total'] == 0
+    env.client.headers['X-Manager'] = 'primary'
+    assert confirm(env, first, '124').status_code == 409
+    assert confirm(env, dict(first, expected_revision=1)).status_code == 409
+    assert confirm(env, first).status_code == 200
+    second = import_mail(env).json()
+    import server.coaching as coaching
+    monkeypatch.setattr(coaching.time, 'monotonic', lambda: float('inf'))
+    assert confirm(env, second).status_code == 409
+
+
+def test_mail_confirmation_rejects_changed_club_name_and_stale_revision(env):
+    first = import_mail(env).json()
+    with env.stores['primary'].db() as db:
+        db.execute("UPDATE teams SET name='Renamed Club' WHERE id='123'")
+    assert confirm(env, first).status_code == 409
+    with env.stores['primary'].db() as db:
+        db.execute("UPDATE teams SET name='Example Club' WHERE id='123'")
+    first, second = import_mail(env).json(), import_mail(env).json()
+    assert confirm(env, first).status_code == 200
+    assert confirm(env, second).status_code == 409
+    assert bundle(env).json()['report_total'] == 1
+
+
+def test_new_api_reports_keep_numeric_energy_and_trainer_metadata(env):
+    response = preview(env, 'report')
+    assert response.status_code == 200, response.text
+    data = response.json()['data']
+    assert data['schema_version'] == 2
+    player = data['individual']['players'][0]
+    assert player['energy'] == {'kind': 'numeric', 'scale': 'unreported', 'before': 105, 'after': 95}
+    assert (player['energy_before'], player['energy_after']) == (105, 95)
+    assert player['skills'][0]['trainer'] == {'name': 'Private Trainer', 'level': 5, 'type': 'defense'}
+
+
+def test_rereading_legacy_optional_absence_and_null_keeps_the_original_api_report(env):
+    legacy = preview(env, 'report').json()['data']
+    legacy.pop('schema_version', None)
+    player = legacy['individual']['players'][0]
+    player.pop('energy', None)
+    player.pop('player_name', None)
+    player['skills'][0]['trainer'] = None
+    with env.stores['primary'].db() as db:
+        db.execute('INSERT INTO kv VALUES(?,?)', ('coaching:123:report:061:08', json.dumps(legacy)))
+    response = preview(env, 'report')
+    assert response.status_code == 200, response.text
+    assert response.json()['already_imported']
+    assert confirm(env, response.json()).json()['unchanged']
+    assert bundle(env).json()['reports'] == [legacy]
+    env.responses['tr']['report']['report']['individual']['players']['101']['csr']['is'] = 600
+    assert preview(env, 'report').status_code == 409
+
+
+def test_known_conflicting_api_trainer_cannot_replace_original_proof(env):
+    assert confirm(env, preview(env, 'report').json()).status_code == 200
+    env.responses['tr']['report']['report']['individual']['players']['101']['skills'][0]['trainerlevel'] = '6'
+    assert preview(env, 'report').status_code == 409
+    assert bundle(env).json()['reports'][0]['individual']['players'][0]['skills'][0]['trainer']['level'] == 5
+
+
 def test_preview_preserves_unknown_youth_and_does_not_save_before_confirm(env):
     response = preview(env)
     assert response.status_code == 200, response.text
