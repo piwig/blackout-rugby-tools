@@ -58,13 +58,15 @@
 
 ### Task 2: Report summaries and import UI
 
-**Files:** Modify `web/src/coaching-model.ts`, `web/src/coaching.tsx`, relevant coaching CSS, `web/src/i18n.ts` (or actual locale files); add/modify `web/tests/coaching-*.test.*`.
+**Files:** Modify `web/src/coaching-model.ts`, `web/src/coaching.tsx`, relevant coaching CSS, `web/src/i18n.ts` (or actual locale files); add/modify `web/tests/coaching-*.test.*`. Add the read-time report disagreement annotation in `server/coaching.py` and its route regression in `tests/test_coaching.py` so warnings remain visible after reload and across history pages.
 
 **Interfaces:**
 - Consumes Task 1's report and multipart-preview contract. Use confirmed exact contract from its report.
 - Produces exported pure `trainingReportSummary(report: TrainingReport)` with per-phase CSR known/population counts, positive/negative/stable counts, sessions known/unknown, whole-level changes known/unknown, and per-player continuous total coverage plus explicit discontinuities. Summary is only for one selected report.
+- Continuous total is conservative: a player needs both phase rows, all four CSR values and an equal midpoint. Single-phase rows stay in their phase sums and count as excluded from the continuous total. The denominator is the union of supplied IDs, marked incomplete when either phase population is unknown. Never substitute a zero for a missing phase or endpoint; zero observed changes remain known. Counts of session coverage refer to skill entries, not session count, with players whose skill list is missing reported separately.
 - Existing Classic API preview/confirm and statistic views stay usable. Local file import works with no Classic account access.
 - Unknown phase/player arrays and old numeric energy fields remain readable. Source stamp, period selector options and preview clearly identify mail/API and destination.
+- Saved report responses add `source_disagreement: boolean`, computed against all stored observations for that period, not only the current history page. This is a read-time annotation and must never rewrite stored proofs. The selected report shows the existing translated disagreement warning when true.
 
 - [ ] Write failing model tests with literal partial/continuous/discontinuous trajectories and unequal populations; assert total only on known continuous paths, no double count, null/[] differences, unknown sessions and negative CSR retained.
 - [ ] Implement typed report extensions and summary calculation.
@@ -75,11 +77,12 @@
 
 ### Task 3: Help, integrated verification and final review
 
-**Files:** Modify existing help content and `docs/community-coaching-methodology.md`; update README release description if repository convention warrants it; no account facts.
+**Files:** Modify existing help content (`web/src/tutorial.tsx` and four locale catalogs), `docs/community-coaching-methodology.md`, `README.md`, and add `docs/release-2.15.0-validation.md`. Update release-label constants in `server/main.py` and `web/src/sidebar.tsx` to `2.15.0`; no account facts.
 
 **Interfaces:** Consumes both implemented contracts. Produces user help explaining supported files, preview/confirm, source identity, unknown values, coverage and causal limits.
 
 - [ ] Update help in four existing languages and methodology with actual validation scope; do not claim API live success based on mail success.
+- [ ] Record local release `2.15.0` consistently in health/sidebar/README, with explicit unpublished status and the browser validation limitation; check the health endpoint and rebuild for these label/help changes.
 - [ ] Validate the real report privately against independently known phase/pop/session/CSR totals; retain only generic outcome in public docs.
 - [ ] Run full Python and Node suites and production build on final code; run `git diff --check` and scan changed tracked files for accidental private facts.
 - [ ] Exercise the local upload/preview/confirm/reload/cancel and narrow layout in browser if available, using synthetic fixture and private local test store. Record exact limitation if unavailable.

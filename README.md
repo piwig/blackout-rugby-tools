@@ -1,5 +1,13 @@
 # Blackout Rugby Tools
 
+## Import des rapports d’entraînement Classic — 2.15.0
+
+Version locale, non publiée. Dans **Progression → Rapports d’entraînement**, sélectionnez votre club puis importez le corps HTML du rapport Classic en anglais ou le message EML qui le contient, jusqu’à 2 Mio. L’import du fichier local fonctionne sans clé Classic. Relisez le club déclaré, la destination, la période, la source et les avertissements dans l’aperçu avant de conserver le relevé dans votre carnet privé.
+
+Chaque rapport affiche sa provenance et sa couverture par phase, avec le détail des joueurs et des séances renseignées. Les rapports de la même période restent consultables par source, et les doublons de contenu sont détectés. Le total CSR continu couvre les joueurs dont le raccord entre les deux phases est vérifiable.
+
+Le parcours a été vérifié par des tests locaux. La recette visuelle sur navigateur, y compris à largeur étroite, reste à effectuer. Voir le [bilan de validation 2.15.0](docs/release-2.15.0-validation.md).
+
 ## Effectifs observés et quatre derniers matchs — 2.14.1
 
 La vue **Toutes les caractéristiques** rassemble les attributs seniors et juniors, le cumul d’étoiles fourni par la source, les changements entre relevés et les commentaires privés. Les colonnes se trient sans transformer une inconnue en zéro. Les champs main, pied et appartenance nationale sont conservés lors des nouveaux imports.
@@ -108,7 +116,7 @@ Les chapitres peuvent être marqués comme lus. Ces repères sont séparés par 
 
 La sidebar regroupe les outils dans **Préparer le match**, **Faire progresser**, **Piloter le club** et **Mon espace**. Les groupes sont repliables, le tableau de bord reste direct et le profil est fixé au pied du menu. Le groupe de la page ouverte se révèle automatiquement ; les outils propres aux clubs restent masqués pour une sélection.
 
-Dans **Progression**, trois vues distinguent les courbes, les rapports d’entraînement et les statistiques individuelles. Les lectures Classic sont explicites, avec aperçu avant conservation. Les consignes actuelles ne prouvent pas la réalisation d’un entraînement ; un rapport indisponible laisse les précédents intacts. Les statistiques concernent les joueurs présents dans l’effectif lors de la collecte, en carrière ou en championnat pour une saison choisie. Elles présentent les valeurs connues, les joueurs absents, un tri et une comparaison entre relevés de même périmètre. Aucun temps joué ni poste n’est inventé pour calculer un taux par 80 minutes.
+Dans **Progression**, trois vues distinguent les courbes, les rapports d’entraînement et les statistiques individuelles. Les lectures Classic et les imports de rapports par fichier passent par un aperçu avant conservation. Les consignes décrivent les séances prévues. Les statistiques concernent les joueurs présents dans l’effectif lors de la collecte, en carrière ou en championnat pour une saison choisie. Elles présentent les valeurs connues, les joueurs absents, un tri et une comparaison entre relevés de même périmètre. Aucun temps joué ni poste n’est inventé pour calculer un taux par 80 minutes.
 
 **Mon profil** conserve le nom affiché, les initiales, le numéro de maillot et l’avatar. Le club de cœur est facultatif et distinct des clubs Classic gérés : Toulouse, La Rochelle, Leinster, Racing 92, Toulon, Clermont, Munster ou Crusaders. Leurs huit logos réels sont servis localement ; les sources et la mention d’indépendance sont accessibles dans les crédits. Le profil propose aussi une densité confortable ou compacte, du texte normal ou grand, des mouvements réduits, une page de départ et une bannière stade ou vestiaire. Les six rubriques du tableau de bord peuvent être masquées et réordonnées. Une sauvegarde concurrente conserve le brouillon et demande de comparer les versions.
 
