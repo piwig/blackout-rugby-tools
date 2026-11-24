@@ -1,6 +1,6 @@
 # BRT 2.15.0 — Import des rapports d’entraînement Classic
 
-Version locale, non publiée. L’étiquette 2.15.0 figure dans le menu latéral et dans la réponse de `GET /api/health`.
+Version publiée le 24 novembre 2026 sur [BRT](https://brt.bordebat.fr). L’étiquette 2.15.0 figure dans le menu latéral et dans la réponse de `GET /api/health`.
 
 ## Parcours
 
@@ -26,4 +26,18 @@ Les tests de régression utilisent les routes et le stockage local pour comparer
 - Un contrôle privé sur un rapport authentique a confronté les phases, les passages, les séances et les CSR à des totaux établis indépendamment. Le parcours dans l’application locale a confirmé l’authentification, la protection CSRF, l’absence d’écriture à l’aperçu, la confirmation, la relecture et la détection du doublon sans clé Classic.
 - Les réponses réelles de `ti` (instructions) et `ps` (statistiques) avaient été vérifiées auparavant. Pour `tr` (rapports via l’API), la validation repose sur la documentation et les tests synthétiques. Le contrôle privé concerne le parcours par fichier.
 
-Chrome a ouvert l’application locale avec des données synthétiques. La connexion du débogueur est restée indisponible pour l’inspection, les interactions et les captures après une tentative de reprise sur le même onglet. Le parcours interactif connecté et le rendu à largeur étroite restent à vérifier sur navigateur.
+Lors de la validation locale, Chrome a ouvert l’application avec des données synthétiques. La connexion du débogueur est restée indisponible pour l’inspection, les interactions et les captures après une tentative de reprise sur le même onglet.
+
+## Publication du 24 novembre 2026
+
+La révision applicative `1a8cbbaf48d5184b302a733740db3d07c0219e11` a été publiée après une nouvelle vérification complète : 1 483 tests Python, 252 tests Node et les quatre catalogues de 3 882 clés ont été validés. Le build de production a réussi. L’archive publiée porte le SHA-256 `eb1994d9b74097821db431adcd168cd3bcb1823fa230dec3b2a11ced4f431c27`.
+
+Les contrôles après bascule ont confirmé :
+
+- `GET /api/health` répond avec `ok: true` et la version `2.15.0` ; le service est actif.
+- Les 30 fichiers web servis en HTTPS correspondent au build vérifié. Les 110 couples route/méthode privés contrôlés refusent une requête anonyme avec le statut 401.
+- La redirection HTTPS, les en-têtes de sécurité et le CAPTCHA sont actifs.
+- Les données, les clés, la configuration et le réglage du worker existants ont été préservés. Aucun pilote d’écriture Classic n’a été activé par la publication.
+- Les sauvegardes avant et après la bascule ont réussi. Un exercice de restauration depuis la sauvegarde hors site a vérifié l’intégrité SQLite et la présence des composants attendus, sans démarrer l’application restaurée ni déchiffrer les identifiants.
+
+La page publique de connexion a été inspectée dans Chrome après publication. Le CAPTCHA demande une intervention humaine et n’a pas été franchi. Le parcours interactif connecté et le rendu à largeur étroite restent à vérifier ; les contrôles HTTP et les tests locaux ne remplacent pas cette recette.

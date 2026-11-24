@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- Work only in the existing isolated checkout; no deployment, push, game write or email synchronization.
+- Initial implementation scope: work only in the existing isolated checkout; no deployment, push, game write or email synchronization. The user's later publication instruction is recorded below and supersedes the deployment/push restriction for that release.
 - No real account, mail, player or secret data in tracked source/tests/docs. Synthetic fixtures only; real-report validation stays in private excluded folders.
 - No new dependency or remote service; no execution or fetching of imported HTML content.
 - Formats v1: English Classic HTML and EML containing that HTML, including multipart, quoted-printable and base64. Reject text-only, ambiguous forwarded chains and unrecognized languages.
@@ -95,5 +95,9 @@ The user approved the complete implementation and local validation after reading
 
 ## État de livraison
 
-Lot livré localement le 24 novembre 2026, après clôture de la revue indépendante. Les 1 483 tests Python et 252 tests Node passent ; compilation et quatre catalogues validés. Le contrôle privé du rapport réel et des données ajoutées au dépôt est terminé. Le parcours connecté et le rendu étroit n’ont pas pu être vérifiés, le contrôle Chrome étant indisponible ; cette limite est consignée dans le bilan. La version 2.15.0 demeure non publiée et la branche isolée est conservée.
+Lot livré initialement en local le 24 novembre 2026, après clôture de la revue indépendante. Les 1 483 tests Python et 252 tests Node passent ; compilation et quatre catalogues validés. Le contrôle privé du rapport réel et des données ajoutées au dépôt est terminé. Le parcours connecté et le rendu étroit n’ont pas pu être vérifiés à cette étape, le contrôle Chrome étant indisponible ; cette limite est consignée dans le bilan.
+
+## Publication autorisée puis vérifiée
+
+Le 24 novembre 2026, l’instruction ultérieure de Pierig « il faut publier » a autorisé la publication. La révision applicative `1a8cbbaf48d5184b302a733740db3d07c0219e11` a été intégrée à `main`, poussée et déployée en version 2.15.0. Les tests complets ont été relancés avant publication ; les contrôles de santé, de fichiers web, d’accès privé, de conservation des données et des sauvegardes ont réussi. La page publique de connexion a été inspectée dans Chrome ; le parcours connecté reste bloqué par le CAPTCHA et le rendu étroit reste à vérifier. Voir le [bilan de validation](../../release-2.15.0-validation.md) pour le périmètre exact des contrôles.
 

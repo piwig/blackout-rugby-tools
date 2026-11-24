@@ -36,4 +36,4 @@ La navigation conserve un accès principal au tableau de bord et regroupe les ou
 
 ## Validation et publication
 
-L’import et les bilans ont été testés sur des fichiers et des observations synthétiques. Un contrôle privé sur un rapport authentique a confirmé la lecture hors ligne, les valeurs par phase et le parcours de conservation dans l’application locale. La recette visuelle sur navigateur reste à effectuer. La version 2.15.0 est locale et non publiée. [Bilan de validation 2.15.0](release-2.15.0-validation.md)
+L’import et les bilans ont été testés sur des fichiers et des observations synthétiques. Un contrôle privé sur un rapport authentique a confirmé la lecture hors ligne, les valeurs par phase et le parcours de conservation dans l’application locale. La version 2.15.0 a été publiée le 24 novembre 2026 sur [BRT](https://brt.bordebat.fr), après vérification des fichiers servis, des protections d’accès et des sauvegardes. La page publique de connexion a été inspectée dans Chrome. Le CAPTCHA a empêché la recette interactive connectée ; celle-ci et le rendu à largeur étroite restent à vérifier. [Bilan de validation 2.15.0](release-2.15.0-validation.md)

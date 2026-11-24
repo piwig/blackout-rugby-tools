@@ -2,11 +2,11 @@
 
 ## Import des rapports d’entraînement Classic — 2.15.0
 
-Version locale, non publiée. Dans **Progression → Rapports d’entraînement**, sélectionnez votre club puis importez le corps HTML du rapport Classic en anglais ou le message EML qui le contient, jusqu’à 2 Mio. L’import du fichier local fonctionne sans clé Classic. Relisez le club déclaré, la destination, la période, la source et les avertissements dans l’aperçu avant de conserver le relevé dans votre carnet privé.
+Version publiée le 24 novembre 2026 sur [BRT](https://brt.bordebat.fr). Dans **Progression → Rapports d’entraînement**, sélectionnez votre club puis importez le corps HTML du rapport Classic en anglais ou le message EML qui le contient, jusqu’à 2 Mio. L’import du fichier local fonctionne sans clé Classic. Relisez le club déclaré, la destination, la période, la source et les avertissements dans l’aperçu avant de conserver le relevé dans votre carnet privé.
 
 Chaque rapport affiche sa provenance et sa couverture par phase, avec le détail des joueurs et des séances renseignées. Les rapports de la même période restent consultables par source, et les doublons de contenu sont détectés. Le total CSR continu couvre les joueurs dont le raccord entre les deux phases est vérifiable.
 
-Le parcours a été vérifié par des tests locaux. La recette visuelle sur navigateur, y compris à largeur étroite, reste à effectuer. Voir le [bilan de validation 2.15.0](docs/release-2.15.0-validation.md).
+Le parcours a été vérifié par des tests locaux et les contrôles de publication ont réussi. La page publique de connexion a été inspectée dans Chrome ; le parcours interactif connecté et le rendu à largeur étroite restent à vérifier. Voir le [bilan de validation 2.15.0](docs/release-2.15.0-validation.md).
 
 ## Effectifs observés et quatre derniers matchs — 2.14.1
 
