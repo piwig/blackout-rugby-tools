@@ -33,6 +33,63 @@ test('a report with unknown team skills renders its known player observations',(
   assert.match(html,/Annuler/);assert.match(html,/12,000/);assert.doesNotMatch(html,/NaN|Infinity|Cancel/);
 });
 
+test('a saved mail report shows its provenance, warning, trainer level and original labels',()=>{
+  const html=render(TrainingReportView,{data:{key:'mail:1',report_id:null,season:1,round:2,observed_at:'2026-10-01T10:00:00Z',
+    provenance:{source:'Classic email',source_format:'eml',club_name:'Example & Club',club_id:null},
+    source_disagreement:true,team:null,individual:{players:[
+      {player_id:'1',csr_before:110,csr_after:115,energy:{kind:'label',before:'Fresh',after:'Annuler'},
+        skills:[{skill:'pace',sessions:2,trainer:{name:'Coach Démo',level:7,type:null},
+          pops:[{skill:'pace',before:null,after:null,before_label:'Some',after_label:'More'}]}]},
+    ]}}});
+  assert.match(html,/Mail Classic.*EML/);
+  assert.match(html,/Example &amp; Club/);
+  assert.match(html,/Des rapports enregistrés pour cette période diffèrent sur des valeurs communes/);
+  assert.match(html,/Coach Démo.*niveau 7/i);
+  assert.match(html,/Fresh → Annuler/);
+  assert.match(html,/Some → More/);
+  assert.doesNotMatch(html,/RAPPORT OFFICIEL|API Classic|Cancel|%/);
+});
+
+test('a mail preview identifies its file source before it is saved',()=>{
+  const data={key:'mail:preview',report_id:null,season:1,round:2,observed_at:'2026-10-01T10:00:00Z',
+    provenance:{source:'Classic email',source_format:'html',club_name:'Example Club',club_id:null},
+    team:{players:[]},individual:{players:[]}};
+  const html=render(TrainingReportView,{data,preview:true});
+  assert.match(html,/Mail Classic · HTML · Analysé le/);
+  assert.doesNotMatch(html,/Importé le/);
+});
+
+test('report detail and coverage distinguish unknown lists, empty lists and a known absence of rises',()=>{
+  const html=render(TrainingReportView,{data:{key:'api:1',report_id:'1',season:1,round:2,observed_at:'2026-10-01T10:00:00Z',
+    team:{players:[]},individual:{players:[
+      {player_id:'1',csr_before:110,csr_after:105,energy_before:105,energy_after:95,
+        skills:[{skill:'pace',sessions:0,pops:[]},{skill:'defense',sessions:null,pops:null}]},
+      {player_id:'2',skills:null},
+      {player_id:'3',skills:[]},
+    ]}}});
+  assert.match(html,/API Classic/);
+  assert.match(html,/Aucun joueur dans cette partie du rapport/);
+  assert.match(html,/105 → 95/);
+  assert.match(html,/Aucun passage de niveau signalé/);
+  assert.match(html,/Passages de niveau non renseignés/);
+  assert.match(html,/Liste de compétences non renseignée/);
+  assert.match(html,/Aucune compétence entraînée indiquée/);
+  assert.match(html,/1\/2 entrées de compétence renseignées/);
+  assert.match(html,/0\/3 joueurs avec un écart CSR calculable/);
+  assert.doesNotMatch(html,/105 %|95 %/);
+});
+
+test('continuous coverage shows known breaks alongside signed phase deltas',()=>{
+  const html=render(TrainingReportView,{data:{key:'api:1',report_id:'1',season:1,round:2,observed_at:'2026-10-01T10:00:00Z',
+    team:{players:[{player_id:'1',player_name:'Example Player',csr_before:100,csr_after:110}]},
+    individual:{players:[{player_id:'1',csr_before:112,csr_after:107}]}}});
+  assert.match(html,/\+10/);
+  assert.match(html,/-5/);
+  assert.match(html,/Ruptures de continuité du CSR/);
+  assert.match(html,/Example Player.*110.*112/);
+  assert.doesNotMatch(html,/\+7|\+5/);
+});
+
 test('unknown instruction slots are distinct from explicitly free slots',()=>{
   const html=render(InstructionsView,{data:{key:'instructions:1',observed_at:'2026-10-01T10:00:00Z',team_skills:['unreported',null,'strength','speed'],youth_skills:null,individual:[]}});
   assert.match(html,/Non renseigné/);assert.equal((html.match(/Créneau libre/g)||[]).length,1);

@@ -423,17 +423,17 @@ def _report_key(team_id, document, digest):
     return f'{key}:mail:{digest}' if _mail_report(document) else key
 
 
-def _report_disagreement(db, team_id, document, digest):
+def _report_disagreement(db, team_id, document, storage_key):
     period = _report_period_key(team_id, document)
     rows = _safe_values(db, 'WHERE (key=? OR key LIKE ?) AND key<>?',
-                        (period, period + ':mail:%', _report_key(team_id, document, digest)))
+                        (period, period + ':mail:%', storage_key))
     return any(_reports_disagree(document, _decoded(row)) for row in rows)
 
 
 def _safe_values(db, suffix, parameters=()):
     # SQLite tests the byte length before transmitting a value to Python. An
     # oversized legacy row never reaches json.loads or a list of raw documents.
-    return db.execute('SELECT length(CAST(value AS BLOB)) AS bytes, '
+    return db.execute('SELECT key, length(CAST(value AS BLOB)) AS bytes, '
                       'CASE WHEN length(CAST(value AS BLOB))<=? THEN value ELSE NULL END AS value FROM kv ' + suffix,
                       (MAX_DOCUMENT_BYTES, *parameters))
 
@@ -472,7 +472,13 @@ def _bundle(db, team_id, report_offset=0, statistics_offset=0):
         pattern = f'coaching:{team_id}:{kind}:%'
         result[kind + '_total'] = db.execute('SELECT COUNT(*) FROM kv WHERE key LIKE ?', (pattern,)).fetchone()[0]
         rows = _safe_values(db, 'WHERE key LIKE ? ORDER BY key DESC LIMIT ? OFFSET ?', (pattern, HISTORY_LIMIT, offset))
-        result[plural] = [_decoded(row) for row in rows]
+        documents = []
+        for row in rows:
+            document = _decoded(row)
+            if kind == 'report':
+                document['source_disagreement'] = _report_disagreement(db, team_id, document, row['key'])
+            documents.append(document)
+        result[plural] = documents
     return result
 
 
@@ -623,7 +629,7 @@ def register_coaching(app, store, auth, require_team, credentials, throttle):
             if (_revision(db, team_id), _context(db, credentials(team_id))) != baseline or str(store.path) != owner:
                 raise HTTPException(409, _CONFLICT)
             already_imported = _stored(db, team_id, body.kind, document, digest)
-            disagreement = body.kind == 'report' and _report_disagreement(db, team_id, document, digest)
+            disagreement = body.kind == 'report' and _report_disagreement(db, team_id, document, _report_key(team_id, document, digest))
         warnings = []
         if body.kind == 'statistics':
             warnings.append('Les statistiques concernent les joueurs actuels ; leur carrière peut inclure d’autres clubs. Les minutes et les postes ne sont pas fournis.')
@@ -666,7 +672,7 @@ def register_coaching(app, store, auth, require_team, credentials, throttle):
             already_imported = _stored(db, team_id, 'report', document, digest)
             if identity['missing_player_ids']:
                 warnings.append(_HISTORICAL_PLAYERS)
-            if _report_disagreement(db, team_id, document, digest):
+            if _report_disagreement(db, team_id, document, _report_key(team_id, document, digest)):
                 warnings.append(_REPORT_DISAGREEMENT)
         return save_preview(team_id, 'report', owner, document, digest, baseline, already_imported, warnings, identity=identity)
 

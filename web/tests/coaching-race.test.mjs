@@ -6,12 +6,13 @@ import vm from 'node:vm';
 import ts from 'typescript';
 
 const require=createRequire(import.meta.url),React=require('react');
+const model=require('../src/coaching-model.ts');
 
 // Exercise the production panel's effects and handlers without a browser or
 // network. Local imports unrelated to request ordering are deliberately stubbed.
-function panelHarness(){
+function panelHarness({classicAccess=true}={}){
   const hooks=[],requests=[];
-  let cursor=0,pendingEffects=[];
+  let cursor=0,pendingEffects=[],dirty=false;
   const react={...React,
     useState(initial){
       const index=cursor++;
@@ -31,7 +32,7 @@ function panelHarness(){
       }
     },
   };
-  const request=(url,body)=>new Promise(resolve=>requests.push({url,body,resolve}));
+  const request=(url,body,csrf)=>new Promise((resolve,reject)=>requests.push({url,body,csrf,resolve,reject}));
   const source=readFileSync(new URL('../src/coaching.tsx',import.meta.url),'utf8');
   // Export the private component only in this in-memory test compilation.
   const compiled=ts.transpileModule(source+'\nexport {CoachingPanel};',{
@@ -42,15 +43,16 @@ function panelHarness(){
     if(id==='react')return react;
     if(id==='./App')return {request};
     if(id==='./i18n')return {tr:value=>value,localeTag:()=> 'fr-FR'};
-    if(id==='./types')return {fmt:value=>value??'—',labels:{}};
-    if(id==='./navigation-guard')return {useUnsavedChanges(){}};
-    if(id==='./coaching-model'||id.endsWith('.css'))return {};
+    if(id==='./types')return {formatStatistic:value=>value??'—',labels:{}};
+    if(id==='./navigation-guard')return {useUnsavedChanges(value){dirty=value}};
+    if(id==='./coaching-model')return model;
+    if(id.endsWith('.css'))return {};
     return require(id);
   };
-  vm.runInNewContext(compiled,{module:artifact,exports:artifact.exports,require:load,URLSearchParams});
+  vm.runInNewContext(compiled,{module:artifact,exports:artifact.exports,require:load,URLSearchParams,FormData});
   const props={mode:'training',busy:false,go(){},d:{
-    user:{username:'synthetic-coach'},csrf:'synthetic-session',current_team:{id:'123'},
-    classic_account:{team_ids:['123']},settings:{developer_ready:true},game_date:null,
+    user:{username:'synthetic-coach'},csrf:'synthetic-session',current_team:{id:'123',name:'Example Club'},
+    classic_account:classicAccess?{team_ids:['123']}:null,settings:{developer_ready:classicAccess},game_date:null,
   }};
   return {
     requests,
@@ -62,6 +64,10 @@ function panelHarness(){
     },
     bundle:()=>hooks.find(hook=>hook.kind==='state'&&hook.value?.team_id==='123'&&'revision' in hook.value)?.value,
     instructionsView:artifact.exports.InstructionsView,
+    classicCoaching:artifact.exports.ClassicCoaching,
+    props,
+    isDirty:()=>dirty,
+    unmount:()=>hooks.filter(hook=>hook.kind==='effect').forEach(hook=>hook.cleanup?.()),
   };
 }
 
@@ -76,6 +82,150 @@ function text(value){
   return typeof value==='object'?text(value.props?.children):String(value);
 }
 async function settle(){for(let i=0;i<10;i++)await Promise.resolve()}
+
+const form=(tree,label)=>elements(tree).find(node=>node.type==='form'&&node.props['aria-label']===label);
+const fileInput=(tree)=>elements(tree).find(node=>node.type==='input'&&node.props.type==='file');
+const chooseFile=(tree,file)=>fileInput(tree).props.onChange({currentTarget:{files:[file]}});
+const upload=(tree)=>form(tree,'Importer un rapport reçu par mail').props.onSubmit({preventDefault(){}});
+const button=(tree,label)=>elements(tree).find(node=>node.type==='button'&&text(node)===label);
+const reportData={key:'report:1:2:mail:synthetic',report_id:null,season:1,round:2,observed_at:'2026-10-01T10:00:00Z',
+  team:{players:[]},individual:{players:[]},provenance:{source:'Classic email',source_format:'eml',club_name:'Example Club',club_id:null}};
+const reportPreview={team_id:'123',kind:'report',preview_id:'synthetic-mail-token',expires_at:'2026-10-01T10:10:00Z',
+  expected_revision:0,status:'available',already_imported:false,warnings:['L’identité déclarée dans le fichier ne certifie pas son expéditeur.'],
+  identity:{club_name:'Example Club',club_id:null,player_count:0,roster_match_count:0,missing_player_ids:[]},data:reportData};
+const emptyBundle={team_id:'123',revision:0,instructions:null,reports:[],statistics:[],
+  report_total:0,statistics_total:0,history_limit:20,report_offset:0,statistics_offset:0};
+
+test('local file preview and confirmation use the selected club and CSRF with no Classic access',async()=>{
+  const panel=panelHarness({classicAccess:false});
+  let tree=panel.render();
+  const file=new File(['<table></table>'],'synthetic.eml',{type:'message/rfc822'});
+  chooseFile(tree,file);
+  tree=panel.render();
+  assert.equal(panel.isDirty(),true);
+  form(tree,'Lecture par l’API Classic').props.onSubmit({preventDefault(){}});
+  assert.equal(panel.requests.length,1,'Submitting the disabled API form must not call Classic');
+  upload(tree);
+  const request=panel.requests[1];
+  assert.equal(request.url,'/clubs/123/coaching/import-preview');
+  assert.equal(request.csrf,'synthetic-session');
+  assert.deepEqual([...request.body.keys()],['file']);
+  assert.equal(request.body.get('file'),file);
+  request.resolve(reportPreview);
+  await settle();
+  tree=panel.render();
+  assert.match(text(tree),/Destination.*Example Club/);
+  assert.match(text(tree),/identité déclarée/);
+
+  button(tree,'Conserver ce relevé').props.onClick();
+  const confirmation=panel.requests[2];
+  assert.equal(confirmation.url,'/clubs/123/coaching/confirm');
+  assert.equal(confirmation.csrf,'synthetic-session');
+  assert.equal(confirmation.body.preview_id,'synthetic-mail-token');
+  assert.equal(confirmation.body.expected_revision,0);
+  tree=panel.render();
+  assert.equal(fileInput(tree).props.disabled,true);
+  assert.equal(button(tree,'Annuler cet aperçu').props.disabled,true);
+  confirmation.resolve({ok:true,imported:true,unchanged:false,bundle:{...emptyBundle,revision:1,reports:[reportData],report_total:1}});
+  await settle();
+  panel.requests[0].reject(new Error('Outdated history error'));
+  await settle();
+  tree=panel.render();
+  assert.equal(panel.isDirty(),false);
+  assert.equal(panel.bundle().revision,1);
+  assert.match(text(tree),/Relevé conservé/);
+  assert.doesNotMatch(text(tree),/Outdated history error/);
+});
+
+test('a failed upload preserves the selected file, and cancelling clears the draft and input',async()=>{
+  const panel=panelHarness({classicAccess:false});
+  let tree=panel.render();
+  chooseFile(tree,new File(['synthetic'],'synthetic.html'));
+  upload(panel.render());
+  panel.requests[1].reject(new Error('Synthetic upload error'));
+  await settle();
+  tree=panel.render();
+  assert.match(text(tree),/Synthetic upload error/);
+  assert.equal(panel.isDirty(),true);
+  upload(tree);
+  panel.requests[2].resolve(reportPreview);
+  await settle();
+  tree=panel.render();
+  const input={value:'synthetic.html'};
+  fileInput(tree).props.ref.current=input;
+  button(tree,'Annuler cet aperçu').props.onClick();
+  tree=panel.render();
+  assert.equal(input.value,'');
+  assert.equal(panel.isDirty(),false);
+  assert.equal(button(tree,'Conserver ce relevé'),undefined);
+  upload(tree);
+  assert.equal(panel.requests.length,3);
+});
+
+test('replacing a file suppresses stale preview errors and results without unlocking a newer upload',async()=>{
+  const panel=panelHarness();
+  let tree=panel.render();
+  chooseFile(tree,new File(['first'],'first.eml'));
+  upload(panel.render());
+  chooseFile(panel.render(),new File(['second'],'second.eml'));
+  upload(panel.render());
+  const [first,second]=panel.requests.slice(1);
+  first.reject(new Error('Stale file error'));
+  await settle();
+  tree=panel.render();
+  assert.doesNotMatch(text(tree),/Stale file error/);
+  upload(tree);
+  assert.equal(panel.requests.length,3);
+
+  chooseFile(tree,new File(['third'],'third.eml'));
+  upload(panel.render());
+  second.resolve(reportPreview);
+  await settle();
+  tree=panel.render();
+  assert.equal(button(tree,'Conserver ce relevé'),undefined);
+  panel.requests[3].resolve({...reportPreview,preview_id:'current-mail-token'});
+  await settle();
+  tree=panel.render();
+  button(tree,'Conserver ce relevé').props.onClick();
+  assert.equal(panel.requests[4].body.preview_id,'current-mail-token');
+});
+
+test('club, session, manager and tab changes give the panel a fresh React mount identity',()=>{
+  const panel=panelHarness();
+  const view=panel.classicCoaching;
+  const {d}=panel.props;
+  const original=view(panel.props).key;
+  assert.notEqual(view({...panel.props,d:{...d,current_team:{id:'124'}}}).key,original);
+  assert.notEqual(view({...panel.props,d:{...d,csrf:'another-session'}}).key,original);
+  assert.notEqual(view({...panel.props,d:{...d,user:{username:'another-manager'}}}).key,original);
+  assert.notEqual(view({...panel.props,mode:'statistics'}).key,original);
+});
+
+test('resolving a mail preview after a club unmount cannot install it in that panel',async()=>{
+  const panel=panelHarness({classicAccess:false});
+  chooseFile(panel.render(),new File(['synthetic'],'synthetic.eml'));
+  upload(panel.render());
+  panel.unmount();
+  panel.requests[1].resolve(reportPreview);
+  await settle();
+  assert.equal(button(panel.render(),'Conserver ce relevé'),undefined);
+});
+
+test('a Classic confirmation conflict leaves the API preview available to cancel',async()=>{
+  const panel=panelHarness();
+  const tree=panel.render();
+  form(tree,'Lecture par l’API Classic').props.onSubmit({preventDefault(){}});
+  panel.requests[1].resolve({team_id:'123',kind:'instructions',preview_id:'synthetic-instructions-token',
+    expected_revision:0,expires_at:'2026-10-01T10:10:00Z',status:'available',already_imported:false,warnings:[],
+    data:{key:'instructions:synthetic:1',observed_at:'2026-10-01T10:00:00Z',team_skills:null,youth_skills:null,individual:[]}});
+  await settle();
+  button(panel.render(),'Conserver ce relevé').props.onClick();
+  panel.requests[2].reject(Object.assign(new Error('Synthetic confirmation conflict'),{status:409}));
+  await settle();
+  const failed=panel.render();
+  assert.match(text(failed),/Synthetic confirmation conflict/);
+  assert.ok(button(failed,'Annuler cet aperçu'));
+});
 
 test('a delayed initial GET cannot replace a newly confirmed coaching observation',async()=>{
   const panel=panelHarness();

@@ -145,7 +145,7 @@ def test_local_mail_import_needs_no_classic_credentials_and_persists_only_normal
     saved = confirm(env, value)
     assert saved.status_code == 200, saved.text
     assert saved.json()['imported'] and saved.json()['bundle']['revision'] == 1
-    assert bundle(env).json()['reports'] == [value['data']]
+    assert bundle(env).json()['reports'] == [dict(value['data'], source_disagreement=False)]
     with store.db() as db:
         row = db.execute("SELECT key,value FROM kv WHERE key LIKE 'coaching:123:report:%'").fetchone()
         assert row['key'].startswith('coaching:123:report:061:08:mail:')
@@ -228,6 +228,24 @@ def test_changed_sessions_skill_is_visible_as_a_report_disagreement(env):
     assert 'Des rapports enregistrés pour cette période diffèrent sur des valeurs communes.' in second['warnings']
 
 
+def test_saved_report_disagreement_includes_sources_outside_the_requested_page(env):
+    assert confirm(env, preview(env, 'report').json()).status_code == 200
+    original = import_mail(env).json()
+    assert confirm(env, original).status_code == 200
+    with env.stores['primary'].db() as db:
+        sql = "SELECT key,value FROM kv WHERE key LIKE 'coaching:123:report:%' ORDER BY key"
+        before = [tuple(row) for row in db.execute(sql)]
+        assert all('source_disagreement' not in value for _, value in before)
+
+    next_page = bundle(env, '?report_offset=1').json()['reports']
+    assert len(next_page) == 1
+    assert next_page[0]['provenance']['source'] == 'Classic API'
+    assert next_page[0]['source_disagreement'] is True
+    assert bundle(env).json()['reports'][0]['source_disagreement'] is True
+    with env.stores['primary'].db() as db:
+        assert [tuple(row) for row in db.execute(sql)] == before
+
+
 @pytest.mark.parametrize('reported, warns', [(True, True), (False, False)])
 def test_phase_participants_disagree_only_when_both_lists_are_supplied(env, reported, warns):
     phases = env.responses['tr']['report']['report']
@@ -294,7 +312,7 @@ def test_rereading_legacy_optional_absence_and_null_keeps_the_original_api_repor
     assert response.status_code == 200, response.text
     assert response.json()['already_imported']
     assert confirm(env, response.json()).json()['unchanged']
-    assert bundle(env).json()['reports'] == [legacy]
+    assert bundle(env).json()['reports'] == [dict(legacy, source_disagreement=False)]
     env.responses['tr']['report']['report']['individual']['players']['101']['csr']['is'] = 600
     assert preview(env, 'report').status_code == 409
 
