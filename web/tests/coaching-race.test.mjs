@@ -162,6 +162,40 @@ test('a failed upload preserves the selected file, and cancelling clears the dra
   assert.equal(panel.requests.length,3);
 });
 
+test('a file confirmation conflict keeps the draft protected and requires a fresh preview',async()=>{
+  const panel=panelHarness({classicAccess:false});
+  const file=new File(['synthetic'],'synthetic.eml');
+  chooseFile(panel.render(),file);
+  upload(panel.render());
+  panel.requests[1].resolve(reportPreview);
+  await settle();
+  button(panel.render(),'Conserver ce relevé').props.onClick();
+  assert.equal(panel.requests[2].body.preview_id,'synthetic-mail-token');
+  panel.requests[2].reject(Object.assign(new Error('Synthetic file confirmation conflict'),{status:409}));
+  await settle();
+
+  const failed=panel.render();
+  assert.match(text(failed),/Synthetic file confirmation conflict/);
+  assert.equal(button(failed,'Conserver ce relevé'),undefined);
+  assert.equal(panel.isDirty(),true);
+  assert.equal(button(failed,'Voir l’aperçu du fichier').props.disabled,false);
+  upload(failed);
+  const retry=panel.requests[3];
+  assert.equal(retry.url,'/clubs/123/coaching/import-preview');
+  assert.equal(retry.body.get('file'),file);
+  retry.resolve({...reportPreview,preview_id:'new-mail-token',expected_revision:3});
+  await settle();
+
+  button(panel.render(),'Conserver ce relevé').props.onClick();
+  const confirmation=panel.requests[4];
+  assert.equal(confirmation.body.preview_id,'new-mail-token');
+  assert.equal(confirmation.body.expected_revision,3);
+  confirmation.resolve({ok:true,imported:true,unchanged:false,bundle:{...emptyBundle,revision:4,reports:[reportData],report_total:1}});
+  await settle();
+  assert.match(text(panel.render()),/Relevé conservé/);
+  assert.equal(panel.isDirty(),false);
+});
+
 test('replacing a file suppresses stale preview errors and results without unlocking a newer upload',async()=>{
   const panel=panelHarness();
   let tree=panel.render();

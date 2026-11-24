@@ -59,6 +59,16 @@ test('a mail preview identifies its file source before it is saved',()=>{
   assert.doesNotMatch(html,/Importé le/);
 });
 
+test('an individual result identifies the skill that changed when a different skill was trained',()=>{
+  const data={key:'api:pop',report_id:'1',season:1,round:2,observed_at:'2026-10-01T10:00:00Z',
+    individual:{players:[{player_id:'1',skills:[
+      {skill:'speed',sessions:2,pops:[{skill:'kicking',before:3,after:4}]},
+    ]}]}};
+  const html=render(TrainingReportView,{data});
+  assert.match(html,/<strong>Vitesse<\/strong> · 2 séances/);
+  assert.match(html,/Jeu au pied · 3 → 4/);
+});
+
 test('report detail and coverage distinguish unknown lists, empty lists and a known absence of rises',()=>{
   const html=render(TrainingReportView,{data:{key:'api:1',report_id:'1',season:1,round:2,observed_at:'2026-10-01T10:00:00Z',
     team:{players:[]},individual:{players:[

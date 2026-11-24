@@ -34,11 +34,11 @@ export function InstructionsView({data}:{data:Instructions}){
   </div>;
 }
 
-function ReportChanges({changes,drops=false,withSkill=false}:{changes?:SkillChange[]|null;drops?:boolean;withSkill?:boolean}){
+function ReportChanges({changes,drops=false,trainedSkill}:{changes?:SkillChange[]|null;drops?:boolean;trainedSkill?:string}){
   if(changes==null)return <small className="sub-cell">{drops?tr('Baisses de niveau non renseignées'):tr('Passages de niveau non renseignés')}</small>;
   if(!changes.length)return <small className="sub-cell">{drops?tr('Aucune baisse de niveau signalée'):tr('Aucun passage de niveau signalé')}</small>;
   return <>{changes.map(change=><small className="sub-cell" key={change.skill}>
-    {withSkill&&<>{skill(change.skill)} · </>}
+    {change.skill!==trainedSkill&&<>{skill(change.skill)} · </>}
     {change.before_label??fmt(change.before)} → {change.after_label??fmt(change.after)}
   </small>)}</>;
 }
@@ -54,11 +54,11 @@ function PlayerTrainingDetails({player,individual}:{player:ReportPlayer;individu
             {item.trainer.name??tr('Entraîneur')}{item.trainer.level!=null&&<> · {tr('niveau {level}',{level:fmt(item.trainer.level)})}</>}
             {item.trainer.type&&<> · {labels[item.trainer.type]?tr(labels[item.trainer.type]):item.trainer.type}</>}
           </small>}
-          <ReportChanges changes={item.pops}/>
+          <ReportChanges changes={item.pops} trainedSkill={item.skill}/>
         </li>)}</ul>}
     </>)}
-    {(!individual||player.pops!=null||!player.skills?.length)&&<ReportChanges changes={player.pops} withSkill/>}
-    <ReportChanges changes={player.drops} drops withSkill/>
+    {(!individual||player.pops!=null||!player.skills?.length)&&<ReportChanges changes={player.pops}/>}
+    <ReportChanges changes={player.drops} drops/>
   </>;
 }
 

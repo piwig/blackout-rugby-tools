@@ -71,12 +71,15 @@ function phaseSummary(players:ReportPlayer[]|null,individual:boolean):PhaseSumma
   const sessions={...countCoverage(skills.map(skill=>skill.sessions)),
     missingSkillLists:players.filter(player=>player.skills==null).length};
   const rises=countCoverage(skills.map(skill=>skill.pops?.length));
-  // Imported reports can also name a rise outside the skills trained in this phase.
-  // Preserve it, counting each player's rise in a given skill only once.
+  // A rise may appear both on the player and under a trained skill.
+  // Match the skill and both source values to preserve distinct transitions.
   const riseCounts=players.map(player=>{
     const observed=player.skills?.flatMap(skill=>skill.pops??[])??[];
     if(player.pops==null&&!player.skills?.some(skill=>skill.pops!=null))return null;
-    return new Set([...observed,...(player.pops??[])].map(change=>change.skill)).size;
+    const transitions=[...observed,...(player.pops??[])].map(change=>JSON.stringify([
+      change.skill,change.before,change.after,change.before_label??null,change.after_label??null,
+    ]));
+    return new Set(transitions).size;
   });
   return {csr,sessions,rises:{...rises,total:countCoverage(riseCounts).total},drops};
 }

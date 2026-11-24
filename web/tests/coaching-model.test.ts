@@ -99,3 +99,18 @@ test('session and level-change coverage retains zero, missing lists, and signed 
   assert.deepEqual(result.continuous.csr,{delta:-5,population:4,known:2,unknown:2,positive:0,negative:1,stable:1});
   assert.equal(result.continuous.players.get('a'),0);
 });
+
+test('individual rises distinguish transitions in the same skill and deduplicate identical observations',async()=>{
+  const {trainingReportSummary}=await import('../src/coaching-model.ts');
+  const result=trainingReportSummary(trainingReport([],[
+    {player_id:'a',skills:[
+      {skill:'speed',sessions:1,pops:[{skill:'kicking',before:3,after:4}]},
+      {skill:'kicking',sessions:1,pops:[{skill:'kicking',before:4,after:5}]},
+    ],pops:[{skill:'kicking',before:3,after:4,before_label:null,after_label:null}]},
+    {player_id:'b',skills:[
+      {skill:'speed',sessions:1,pops:[{skill:'kicking',before:null,after:null,before_label:'Low',after_label:'Medium'}]},
+      {skill:'kicking',sessions:1,pops:[{skill:'kicking',before:null,after:null,before_label:'Medium',after_label:'High'}]},
+    ],pops:[{skill:'kicking',before:null,after:null,before_label:'Low',after_label:'Medium'}]},
+  ]));
+  assert.deepEqual(result.individual.rises,{total:4,entries:4,known:4,unknown:0});
+});
