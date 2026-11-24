@@ -140,6 +140,28 @@ def test_empty_marker_with_player_cards_is_contradictory(training_html, phase, m
         parse(contradictory)
 
 
+@pytest.mark.parametrize('marker', ['No players<br>', '<em>No</em> <strong>players</strong><br/>'])
+def test_empty_team_marker_on_its_own_html_line_conflicts_with_cards(training_html, marker):
+    heading = '<span><b>Skills Trained</b></span>'
+    contradictory = training_html.replace(heading, marker + heading, 1)
+    assert contradictory != training_html
+    with pytest.raises(TrainingEmailError):
+        parse(contradictory)
+
+
+def test_empty_marker_inside_player_card_does_not_empty_the_phase(training_html):
+    player = 'Camille D&#xE9;mo</a>'
+    report = parse(training_html.replace(player, player + '<br>No players', 1))
+    assert [row['player_id'] for row in report['team']['players']] == ['101', '102']
+
+
+def test_empty_team_marker_before_block_on_its_own_line_conflicts_with_cards(training_html):
+    heading = '<span><b>Skills Trained</b></span>'
+    contradictory = training_html.replace(heading, f'No players<div>{heading}</div>', 1)
+    with pytest.raises(TrainingEmailError):
+        parse(contradictory)
+
+
 @pytest.mark.parametrize('mutation', [
     lambda s: s.replace('Individual Training', 'Unknown Phase'),
     lambda s: s.replace('Team Training', 'Individual Training'),

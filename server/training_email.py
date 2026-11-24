@@ -28,6 +28,7 @@ _PHASES = ('Team Training', 'Individual Training')
 _EMPTY_PHASES = frozenset(('No players', 'No individual training'))
 _TRANSFER_ENCODINGS = frozenset(('7bit', '8bit', 'binary', 'quoted-printable', 'base64'))
 _BOLD = frozenset(('b', 'strong'))
+_BLOCK_ELEMENTS = frozenset(('blockquote', 'div', 'h1', 'h2', 'h3', 'h4', 'li', 'ol', 'p', 'td', 'th', 'ul'))
 _VOID = frozenset(('area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'))
 _IGNORED = frozenset(('head', 'iframe', 'math', 'noscript', 'object', 'script', 'style', 'svg', 'template'))
 _UNKNOWN = frozenset(('', '-', '—', '–', 'N/A'))
@@ -68,12 +69,16 @@ class _Node:
                     yield child
                 yield from child.nodes(*tags)
 
-    def text(self, *, mark_bold=False, include_tables=True):
+    def _render_text(self, *, mark_bold=False, include_tables=True, line_break=None):
         def render(node):
             if node.tag == 'table' and not include_tables:
+                yield line_break or ' '
                 return
             if node.tag in ('br', 'hr'):
-                yield ' '
+                yield line_break or ' '
+            block_boundary = line_break if node.tag in _BLOCK_ELEMENTS else None
+            if block_boundary is not None:
+                yield block_boundary
             if mark_bold and node.tag in _BOLD:
                 yield '\x00'
             for child in node.children:
@@ -83,8 +88,19 @@ class _Node:
                     yield from render(child)
             if mark_bold and node.tag in _BOLD:
                 yield '\x00'
+            if block_boundary is not None:
+                yield block_boundary
 
-        return normalize_club_name(''.join(render(self)))
+        return ''.join(render(self))
+
+    def text(self, *, mark_bold=False):
+        return normalize_club_name(self._render_text(mark_bold=mark_bold))
+
+    def lines_outside_tables(self):
+        # Source newlines are ordinary whitespace. Only the HTML structure
+        # determines line breaks, and nested player cards contribute no text.
+        lines = self._render_text(include_tables=False, line_break='\x00').split('\x00')
+        return map(normalize_club_name, lines)
 
 
 class _ReportHTML(HTMLParser):
@@ -431,9 +447,10 @@ def _phase_empty_markers(rows, table):
         for node in (row, *row.nodes('td', 'th', 'p', 'div', 'span', 'b', 'strong')):
             if node.nearest('table') is not table:
                 continue
-            text = node.text(include_tables=False).removesuffix('.')
-            if text in _EMPTY_PHASES:
-                markers.add(text)
+            for line in node.lines_outside_tables():
+                marker = line.removesuffix('.')
+                if marker in _EMPTY_PHASES:
+                    markers.add(marker)
     return markers
 
 
