@@ -69,7 +69,7 @@ class _Node:
                     yield child
                 yield from child.nodes(*tags)
 
-    def _render_text(self, *, mark_bold=False, include_tables=True, line_break=None):
+    def _render_text(self, *, bold_marker=None, include_tables=True, line_break=None):
         def render(node):
             if node.tag == 'table' and not include_tables:
                 yield line_break or ' '
@@ -79,27 +79,28 @@ class _Node:
             block_boundary = line_break if node.tag in _BLOCK_ELEMENTS else None
             if block_boundary is not None:
                 yield block_boundary
-            if mark_bold and node.tag in _BOLD:
-                yield '\x00'
+            if bold_marker and node.tag in _BOLD:
+                yield bold_marker
             for child in node.children:
                 if isinstance(child, str):
                     yield child
                 else:
                     yield from render(child)
-            if mark_bold and node.tag in _BOLD:
-                yield '\x00'
+            if bold_marker and node.tag in _BOLD:
+                yield bold_marker
             if block_boundary is not None:
                 yield block_boundary
 
         return ''.join(render(self))
 
     def text(self, *, mark_bold=False):
-        return normalize_club_name(self._render_text(mark_bold=mark_bold))
+        return normalize_club_name(self._render_text(bold_marker='\x00' if mark_bold else None))
 
-    def lines_outside_tables(self):
+    def lines_outside_tables(self, *, bold_marker=None):
         # Source newlines are ordinary whitespace. Only the HTML structure
         # determines line breaks, and nested player cards contribute no text.
-        lines = self._render_text(include_tables=False, line_break='\x00').split('\x00')
+        boundary = '\x00line'
+        lines = self._render_text(include_tables=False, line_break=boundary, bold_marker=bold_marker).split(boundary)
         return map(normalize_club_name, lines)
 
 
@@ -501,8 +502,7 @@ def _phase_markers(root):
 
 
 def _mime_report_candidate(root):
-    visible = root.text()
-    if _PREFACE.search(visible):
+    if _PREFACE.search(root.text()):
         return True
     phases = _phase_markers(root)
     if not any(phases.values()):
@@ -511,7 +511,23 @@ def _mime_report_candidate(root):
     # heading alone is also common in unrelated agendas.
     if any(_links(root, '/game/club.squad.php')) or any(_links(root, '/game/club.office.php')):
         return True
-    return all(phases.values()) and any(marker in visible for marker in ('Skills Trained', *_EMPTY_PHASES))
+    team_rows, individual_rows = (phases[name] for name in _PHASES)
+    individual_tables = {row.nearest('table') for row in individual_rows}
+    tables = {row.nearest('table') for row in team_rows} & individual_tables
+    headings = set(team_rows + individual_rows)
+    for table in tables - {None}:
+        in_phase = False
+        for row in _rows(table):
+            if row in headings:
+                in_phase = True
+            elif in_phase:
+                bold = '\x00bold'
+                for line in row.lines_outside_tables(bold_marker=bold):
+                    if re.fullmatch(rf'{bold}\s*Skills Trained\s*{bold}', line):
+                        return True
+                    if normalize_club_name(line.replace(bold, '')).removesuffix('.') in _EMPTY_PHASES:
+                        return True
+    return False
 
 
 def _html_report(root):

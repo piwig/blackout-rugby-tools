@@ -89,6 +89,10 @@ def test_html_agenda_with_a_team_training_heading_is_unrelated(training_html, ex
 @pytest.mark.parametrize('fragment', [
     '<tr><td>Your team (Example Club) has completed their weekly training for season 61, round 8.</td></tr>',
     '<tr><td><b>Individual Training</b><a href="/game/club.squad.php?player=101">Example</a></td></tr>',
+    '<tr><td><b>Team Training</b></td></tr><tr><td>No players.</td></tr>'
+    '<tr><td><b>Individual Training</b></td></tr><tr><td>No individual training.</td></tr>',
+    '<tr><td><b>Team Training</b></td></tr><tr><td><b> Skills Trained </b><ul><li>Speed</li></ul></td></tr>'
+    '<tr><td><b>Individual Training</b></td></tr>',
 ])
 def test_truncated_classic_report_attachment_still_makes_message_ambiguous(training_html, fragment):
     msg = EmailMessage(policy=policy.SMTP)
@@ -96,6 +100,22 @@ def test_truncated_classic_report_attachment_still_makes_message_ambiguous(train
     msg.add_attachment(f'<table>{fragment}</table>', subtype='html', filename='fragment.html')
     with pytest.raises(TrainingEmailError, match='plusieurs'):
         parse(msg.as_bytes(), 'mail.eml')
+
+
+@pytest.mark.parametrize('note', [
+    'No players have signed up for Thursday yet.',
+    '<b>No players</b> have signed up for Thursday yet.',
+    'Thursday’s Skills Trained workshop starts at noon.',
+    'Thursday’s <b>Skills Trained</b> workshop starts at noon.',
+    'Skills Trained<br>Thursday’s <b>Skills Trained</b> workshop starts at noon.',
+])
+def test_agenda_prose_is_not_a_classic_phase_marker(training_html, note):
+    msg = EmailMessage(policy=policy.SMTP)
+    msg.set_content(training_html, subtype='html')
+    msg.add_attachment(f'<table><tr><td><b>Team Training</b></td></tr><tr><td>{note}</td></tr>'
+                       '<tr><td><b>Individual Training</b></td></tr><tr><td>Friday session</td></tr></table>',
+                       subtype='html', filename='agenda.html')
+    assert parse(msg.as_bytes(), 'mail.eml')['individual'] == parse(training_html)['individual']
 
 
 def test_two_mime_reports_are_ambiguous_even_if_they_are_equal(training_html):
