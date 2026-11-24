@@ -216,7 +216,7 @@ def _mime_report(content):
                 raise TrainingEmailError(_SIZE, 413)
             if any(marker in html for marker in (*_PHASES, 'has completed their weekly training', 'club.squad.php')):
                 root = _html_tree(html)
-                if any(_phase_markers(root).values()) or any(_PREFACE.search(row.text()) for row in root.nodes('tr')):
+                if _mime_report_candidate(root):
                     encodings = part.get_all('Content-Transfer-Encoding', ['7bit'])
                     if len(encodings) != 1 or str(encodings[0]).strip().lower() not in _TRANSFER_ENCODINGS:
                         _bad()
@@ -498,6 +498,20 @@ def _phase_markers(root):
         if text in markers and node.nearest('tr') is not None:
             markers[text].append(node.nearest('tr'))
     return markers
+
+
+def _mime_report_candidate(root):
+    visible = root.text()
+    if _PREFACE.search(visible):
+        return True
+    phases = _phase_markers(root)
+    if not any(phases.values()):
+        return False
+    # The declaration can be missing from a forwarded fragment. A phase
+    # heading alone is also common in unrelated agendas.
+    if any(_links(root, '/game/club.squad.php')) or any(_links(root, '/game/club.office.php')):
+        return True
+    return all(phases.values()) and any(marker in visible for marker in ('Skills Trained', *_EMPTY_PHASES))
 
 
 def _html_report(root):

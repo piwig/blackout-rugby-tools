@@ -228,6 +228,81 @@ def test_changed_sessions_skill_is_visible_as_a_report_disagreement(env):
     assert 'Des rapports enregistrés pour cette période diffèrent sur des valeurs communes.' in second['warnings']
 
 
+@pytest.mark.parametrize('sessions,mail_change,api_lists,disagrees', [
+    (True, '3:4', [['3:4']], False),
+    (False, '3:4', [['4:5']], True),
+    (False, '3:4', [['3:4'], ['4:5']], True),
+    (False, '3:4', [['3:4'], ['3:4']], False),
+    (False, 'Fair:Good', [['3:4']], False),
+    (False, 'none', [['3:4']], True),
+    (False, '3:4', [[]], True),
+    (False, '3:4', [None], False),
+    (False, '3:4', [[], None], False),
+    (False, 'unknown', [['4:5']], False),
+])
+def test_individual_transition_agreement_in_preview_and_saved_history(env, sessions, mail_change, api_lists, disagrees):
+    phases = env.responses['tr']['report']['report']
+    phases['team'] = None
+    entries = []
+    for trained_skill, values in zip(('speed', 'defense'), api_lists):
+        entry = {'skill': trained_skill, 'sessions': 1}
+        if values is not None:
+            entry['pops'] = [{'skill': 'handling', 'was': item.split(':')[0], 'is': item.split(':')[1]} for item in values]
+        entries.append(entry)
+    phases['individual']['players'] = {'101': {'id': '101'}, '102': {'id': '102', 'skills': entries}}
+    assert confirm(env, preview(env, 'report').json()).status_code == 200
+
+    html = (Path(__file__).parent / 'fixtures' / 'training-report.html').read_text(encoding='utf-8')
+    heading = '<span><b>Skills Trained</b></span>\n          <ul><li><b>Handling</b><br><span>1 session</span></li></ul>'
+    html = html.replace(heading, heading.replace('Handling', 'Speed') if sessions else '')
+    change = '<b>Handling</b> popped from <b>Fair</b> to <b>Good</b>'
+    if mail_change in ('none', 'unknown'):
+        html = html.replace(change, 'No pops' if mail_change == 'none' else '')
+    else:
+        before, after = mail_change.split(':')
+        html = html.replace(change, change.replace('Fair', before).replace('Good', after))
+    mail = import_mail(env, html.encode()).json()
+    warning = 'Des rapports enregistrés pour cette période diffèrent sur des valeurs communes.'
+    preview_disagrees = warning in mail['warnings']
+    assert confirm(env, mail).status_code == 200
+    reports = bundle(env).json()['reports']
+    assert [preview_disagrees, *(item['source_disagreement'] for item in reports)] == [disagrees] * 3
+
+
+@pytest.mark.parametrize('roster,matches,missing', [
+    (None, None, None),
+    ([], 0, ['101', '102']),
+    ([{'id': '102'}], 1, ['101']),
+])
+def test_mail_identity_uses_only_a_recorded_senior_roster(env, roster, matches, missing):
+    store = env.stores['primary']
+    store.save_snapshot('123', True, [{'id': '101'}], 'Synthetic youth roster')
+    if roster is not None:
+        store.save_snapshot('123', False, roster, 'Synthetic senior roster')
+    mail = import_mail(env).json()
+    assert mail['identity']['player_count'] == 2
+    assert mail['identity']['roster_match_count'] == matches
+    assert mail['identity']['missing_player_ids'] == missing
+    assert ('Certains joueurs du rapport ne figurent pas dans l’effectif actuel du club.' in mail['warnings']) == bool(missing)
+    assert confirm(env, mail).status_code == 200
+
+
+def test_confirm_old_report_returns_its_history_page_including_on_duplicate(env):
+    html = (Path(__file__).parent / 'fixtures' / 'training-report.html').read_text(encoding='utf-8')
+    for season in range(62, 82):
+        newer = import_mail(env, html.replace('season 61', f'season {season}').encode()).json()
+        assert confirm(env, newer).status_code == 200
+    for unchanged in (False, True):
+        old = import_mail(env).json()
+        saved = confirm(env, old).json()
+        assert saved['unchanged'] is unchanged
+        page = saved['bundle']
+        assert page['report_offset'] == 20 and page['report_total'] == 21
+        assert [item['key'] for item in page['reports']] == [old['data']['key']]
+        assert bundle(env, '?report_offset=20').json() == page
+    assert len(bundle(env).json()['reports']) == 20
+
+
 def test_saved_report_disagreement_includes_sources_outside_the_requested_page(env):
     assert confirm(env, preview(env, 'report').json()).status_code == 200
     original = import_mail(env).json()

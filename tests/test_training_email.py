@@ -77,6 +77,27 @@ def test_unrelated_html_attachment_does_not_hide_report(training_html):
     assert parse(msg.as_bytes(), 'mail.eml')['season'] == 61
 
 
+@pytest.mark.parametrize('extra', ['', '<tr><td><b>Individual Training</b></td><td>Friday session</td></tr>'])
+def test_html_agenda_with_a_team_training_heading_is_unrelated(training_html, extra):
+    msg = EmailMessage(policy=policy.SMTP)
+    msg.set_content(training_html, subtype='html')
+    msg.add_attachment(f'<table><tr><td><b>Team Training</b></td></tr><tr><td>Thursday session</td></tr>{extra}</table>',
+                       subtype='html', filename='agenda.html')
+    assert parse(msg.as_bytes(), 'mail.eml')['individual'] == parse(training_html)['individual']
+
+
+@pytest.mark.parametrize('fragment', [
+    '<tr><td>Your team (Example Club) has completed their weekly training for season 61, round 8.</td></tr>',
+    '<tr><td><b>Individual Training</b><a href="/game/club.squad.php?player=101">Example</a></td></tr>',
+])
+def test_truncated_classic_report_attachment_still_makes_message_ambiguous(training_html, fragment):
+    msg = EmailMessage(policy=policy.SMTP)
+    msg.set_content(training_html, subtype='html')
+    msg.add_attachment(f'<table>{fragment}</table>', subtype='html', filename='fragment.html')
+    with pytest.raises(TrainingEmailError, match='plusieurs'):
+        parse(msg.as_bytes(), 'mail.eml')
+
+
 def test_two_mime_reports_are_ambiguous_even_if_they_are_equal(training_html):
     msg = EmailMessage(policy=policy.SMTP)
     msg.set_content(training_html, subtype='html')

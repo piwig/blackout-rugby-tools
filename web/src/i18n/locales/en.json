@@ -2750,6 +2750,7 @@
   "Analyse du fichier…": "Reading file…",
   "Voir l’aperçu du fichier": "Preview file",
   "Retirer le fichier": "Remove file",
+  "Aucun effectif senior enregistré. La présence des joueurs du rapport dans l’effectif est inconnue.": "No senior squad has been saved. Squad membership is unknown for the players in this report.",
   "{known}/{total} joueurs figurent dans le dernier effectif senior enregistré.": "{known}/{total} players appear in the latest saved senior roster.",
   "Aperçu du fichier": "File preview",
   "Analysé le {date}": "Reviewed on {date}",

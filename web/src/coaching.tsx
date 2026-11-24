@@ -188,7 +188,7 @@ function CoachingPanel({d,busy,go,mode}:Actions&{mode:'training'|'statistics'}){
   const [bundle,setBundle]=useState<CoachingBundle|null>(null),[preview,setPreview]=useState<CoachingPreview|null>(null);
   const [file,setFile]=useState<File|null>(null),[pending,setPending]=useState<CoachingOperation|null>(null);
   const [error,setError]=useState(''),[loadError,setLoadError]=useState(''),[message,setMessage]=useState('');
-  const [loading,setLoading]=useState(true),[reload,setReload]=useState(0),[offset,setOffset]=useState(0),[selected,setSelected]=useState('');
+  const [loading,setLoading]=useState(true),[historyRequest,setHistoryRequest]=useState({offset:0}),[selected,setSelected]=useState('');
   const mounted=useRef(true),operation=useRef<{id:number;type:CoachingOperation}|null>(null);
   const ticket=useRef(0),loadGeneration=useRef(0),fileInput=useRef<HTMLInputElement>(null);
   const identity=d.user.username+':'+d.csrf+':'+d.current_team.id+':'+mode,current=useRef(identity);
@@ -201,13 +201,13 @@ function CoachingPanel({d,busy,go,mode}:Actions&{mode:'training'|'statistics'}){
     const matches=()=>active&&generation===loadGeneration.current&&current.current===identity;
     setLoading(true);
     setLoadError('');
-    const query=new URLSearchParams({report_offset:String(mode==='training'?offset:0),statistics_offset:String(mode==='statistics'?offset:0)});
+    const query=new URLSearchParams({report_offset:String(mode==='training'?historyRequest.offset:0),statistics_offset:String(mode==='statistics'?historyRequest.offset:0)});
     request(base+'?'+query,undefined,d.csrf)
       .then((result:CoachingBundle)=>{if(matches()&&result.team_id===d.current_team.id)setBundle(result)})
       .catch((e:Error)=>{if(matches())setLoadError(e.message)})
       .finally(()=>{if(matches())setLoading(false)});
     return()=>{active=false};
-  },[base,d.csrf,mode,offset,reload,identity]);
+  },[base,d.csrf,mode,historyRequest,identity]);
   useUnsavedChanges(pending!==null||preview!==null||file!==null);
   const locked=busy||pending!==null,hasAccess=Boolean(d.classic_account?.team_ids.includes(d.current_team.id)&&d.settings.developer_ready);
   const classicDisabled=locked||preview!==null;
@@ -282,7 +282,6 @@ function CoachingPanel({d,busy,go,mode}:Actions&{mode:'training'|'statistics'}){
       setPreview(null);
       if(preview.identity)clearFile();
       setSelected(preview.data.key);
-      setOffset(0);
       setMessage(result.unchanged?'unchanged':'saved');
     });
   };
@@ -296,8 +295,9 @@ function CoachingPanel({d,busy,go,mode}:Actions&{mode:'training'|'statistics'}){
   const history=mode==='statistics'?bundle?.statistics:bundle?.reports;
   const document=history?.find(item=>item.key===selected)||history?.[0];
   const total=(mode==='statistics'?bundle?.statistics_total:bundle?.report_total)??0,size=bundle?.history_limit??20;
+  const offset=(mode==='statistics'?bundle?.statistics_offset:bundle?.report_offset)??0;
   return <section className="card coaching-panel" aria-label={tr(mode==='statistics'?'Statistiques individuelles':'Rapports d’entraînement Classic')}>
-    <div className="card-heading"><div><span className="eyebrow">{tr('LE CARNET DU STAFF')}</span><h2>{mode==='statistics'?<BarChart3 size={24}/>:<ClipboardList size={24}/>} {tr(mode==='statistics'?'Les chiffres derrière les actions':'Consignes et rapports d’entraînement')}</h2><p>{tr(mode==='statistics'?'Relisez les performances des joueurs, avec le périmètre et les valeurs disponibles.':'Consultez les consignes du jeu et conservez ses rapports, sans confondre prévu et réalisé.')}</p></div><button className="button secondary" disabled={classicDisabled||loading} onClick={()=>setReload(n=>n+1)}><RefreshCw size={16}/>{tr('Relire mes relevés')}</button></div>
+    <div className="card-heading"><div><span className="eyebrow">{tr('LE CARNET DU STAFF')}</span><h2>{mode==='statistics'?<BarChart3 size={24}/>:<ClipboardList size={24}/>} {tr(mode==='statistics'?'Les chiffres derrière les actions':'Consignes et rapports d’entraînement')}</h2><p>{tr(mode==='statistics'?'Relisez les performances des joueurs, avec le périmètre et les valeurs disponibles.':'Consultez les consignes du jeu et conservez ses rapports, sans confondre prévu et réalisé.')}</p></div><button className="button secondary" disabled={classicDisabled||loading} onClick={()=>setHistoryRequest({offset})}><RefreshCw size={16}/>{tr('Relire mes relevés')}</button></div>
     <div className="coaching-body">
       {!hasAccess&&<div className="notice"><span>{tr(mode==='training'?'La lecture par l’API nécessite le compte Classic propriétaire. Vous pouvez importer un fichier ci-dessous.':'Reliez le compte Classic propriétaire de ce club pour lire ses rapports.')}</span><button className="text-button" onClick={()=>go('settings')}>{tr('Connexion & données')}<ArrowRight size={16}/></button></div>}
       <form className="coaching-import" aria-label={tr('Lecture par l’API Classic')} onSubmit={e=>{e.preventDefault();read()}}>
@@ -321,7 +321,9 @@ function CoachingPanel({d,busy,go,mode}:Actions&{mode:'training'|'statistics'}){
       {preview&&<section className="coaching-preview" aria-label={tr(preview.identity?'Aperçu du fichier':'Aperçu du relevé Classic')}>
         <div className="coaching-preview-heading"><span className="eyebrow">{tr('À VÉRIFIER AVANT CONSERVATION')}</span><p>{tr('Cet aperçu expire le {date}.',{date:at(preview.expires_at)})}</p></div>
         <p>{tr('Destination')} · <strong>{d.current_team.name}</strong></p>
-        {preview.identity&&<p>{tr('{known}/{total} joueurs figurent dans le dernier effectif senior enregistré.',{
+        {preview.identity&&<p>{preview.identity.roster_match_count===null
+          ?tr('Aucun effectif senior enregistré. La présence des joueurs du rapport dans l’effectif est inconnue.')
+          :tr('{known}/{total} joueurs figurent dans le dernier effectif senior enregistré.',{
           known:fmt(preview.identity.roster_match_count),total:fmt(preview.identity.player_count)})}</p>}
         {preview.already_imported&&<p className="notice">{tr('Ce relevé est déjà présent dans votre historique.')}</p>}{preview.warnings.map((warning,i)=><p className="notice" key={i}>{tr(warning)}</p>)}
         {preview.kind==='instructions'?<InstructionsView data={preview.data as Instructions}/>:preview.kind==='report'?<TrainingReportView data={preview.data as TrainingReport} preview/>:<PlayerStatisticsView key={preview.preview_id} data={preview.data as PlayerStatistics}/>}
@@ -333,7 +335,7 @@ function CoachingPanel({d,busy,go,mode}:Actions&{mode:'training'|'statistics'}){
         {mode==='training'&&bundle.instructions&&<details className="coaching-current" open><summary>{tr('Dernières consignes conservées')}</summary><InstructionsView data={bundle.instructions}/></details>}
         {history?.length?<><label>{tr(mode==='statistics'?'Choisir un relevé statistique':'Choisir un rapport conservé')}<select value={document?.key||''} onChange={e=>setSelected(e.target.value)}>{history.map(item=><option key={item.key} value={item.key}>
           {mode==='statistics'?scopeLabel(item as PlayerStatistics):<>{reportPeriod(item as TrainingReport)} · {reportSource(item.provenance)}</>} · {at(item.observed_at,mode==='training'?'medium':'short')}
-        </option>)}</select></label>{mode==='statistics'&&total>size&&<p className="tiny">{tr('La comparaison utilise les observations de cette page. Changez de page pour consulter le reste de l’historique.')}</p>}{document&&(mode==='statistics'?<PlayerStatisticsView key={document.key} data={document as PlayerStatistics} history={bundle.statistics}/>:<TrainingReportView key={document.key} data={document as TrainingReport}/>)}<Pager disabled={classicDisabled} page={Math.floor(offset/size)} total={total} size={size} onPage={page=>{if(!locked&&!preview){setSelected('');setOffset(page*size)}}} label={tr('Pagination des relevés conservés')}/></>:<div className="coaching-empty"><ClipboardList size={26}/><p>{tr(mode==='statistics'?'Votre historique statistique commencera avec le premier relevé conservé.':'Aucun rapport conservé pour le moment. Un refus de Classic ne signifie pas que les joueurs n’ont pas progressé.')}</p></div>}
+        </option>)}</select></label>{mode==='statistics'&&total>size&&<p className="tiny">{tr('La comparaison utilise les observations de cette page. Changez de page pour consulter le reste de l’historique.')}</p>}{document&&(mode==='statistics'?<PlayerStatisticsView key={document.key} data={document as PlayerStatistics} history={bundle.statistics}/>:<TrainingReportView key={document.key} data={document as TrainingReport}/>)}<Pager disabled={classicDisabled} page={Math.floor(offset/size)} total={total} size={size} onPage={page=>{if(!locked&&!preview){setSelected('');setHistoryRequest({offset:page*size})}}} label={tr('Pagination des relevés conservés')}/></>:<div className="coaching-empty"><ClipboardList size={26}/><p>{tr(mode==='statistics'?'Votre historique statistique commencera avec le premier relevé conservé.':'Aucun rapport conservé pour le moment. Un refus de Classic ne signifie pas que les joueurs n’ont pas progressé.')}</p></div>}
       </div>}
     </div>
   </section>;

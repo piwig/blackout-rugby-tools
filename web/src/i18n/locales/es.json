@@ -2750,6 +2750,7 @@
   "Analyse du fichier…": "Analizando el archivo…",
   "Voir l’aperçu du fichier": "Ver vista previa del archivo",
   "Retirer le fichier": "Quitar archivo",
+  "Aucun effectif senior enregistré. La présence des joueurs du rapport dans l’effectif est inconnue.": "No hay ninguna plantilla sénior guardada. Se desconoce si los jugadores del informe figuran en la plantilla.",
   "{known}/{total} joueurs figurent dans le dernier effectif senior enregistré.": "{known}/{total} jugadores figuran en la última plantilla sénior guardada.",
   "Aperçu du fichier": "Vista previa del archivo",
   "Analysé le {date}": "Analizado el {date}",

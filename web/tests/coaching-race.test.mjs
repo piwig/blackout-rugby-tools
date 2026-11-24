@@ -137,6 +137,39 @@ test('local file preview and confirmation use the selected club and CSRF with no
   assert.doesNotMatch(text(tree),/Outdated history error/);
 });
 
+test('preview reports unavailable senior coverage and still allows confirmation',async()=>{
+  const panel=panelHarness({classicAccess:false});
+  chooseFile(panel.render(),new File(['synthetic'],'synthetic.html'));
+  upload(panel.render());
+  panel.requests[1].resolve({...reportPreview,identity:{...reportPreview.identity,player_count:2,roster_match_count:null,missing_player_ids:null}});
+  await settle();
+  const tree=panel.render();
+  assert.match(text(tree),/Aucun effectif senior enregistré/);
+  assert.doesNotMatch(text(tree),/joueurs figurent dans le dernier effectif senior/);
+  assert.equal(button(tree,'Conserver ce relevé').props.disabled,false);
+});
+
+test('confirming an older report selects its saved page and can return to the newest page',async()=>{
+  const panel=panelHarness({classicAccess:false});
+  chooseFile(panel.render(),new File(['synthetic'],'synthetic.html'));
+  upload(panel.render());
+  panel.requests[1].resolve(reportPreview);
+  await settle();
+  button(panel.render(),'Conserver ce relevé').props.onClick();
+  const reports=[{...reportData,key:'other-observation'},reportData];
+  panel.requests[2].resolve({unchanged:false,bundle:{...emptyBundle,revision:22,reports,report_offset:20,report_total:22}});
+  await settle();
+  panel.requests[0].resolve(emptyBundle);
+  await settle();
+  const tree=panel.render();
+  assert.ok(elements(tree).some(node=>node.type==='select'&&node.props.value===reportData.key));
+  const pager=elements(tree).find(node=>node.props.label==='Pagination des relevés conservés');
+  assert.equal(pager.props.page,1);
+  pager.props.onPage(0);
+  panel.render();
+  assert.match(panel.requests.at(-1).url,/report_offset=0/);
+});
+
 test('a failed upload preserves the selected file, and cancelling clears the draft and input',async()=>{
   const panel=panelHarness({classicAccess:false});
   let tree=panel.render();

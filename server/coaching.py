@@ -371,6 +371,49 @@ def _changes_differ(left, right):
     return a.keys() != b.keys() or _known_difference(a, b)
 
 
+def _rise_evidence(player):
+    # The mail can describe an untrained skill on the player; the API can
+    # attach that same rise to the session that produced it.
+    lists = [entry.get('pops') for entry in player.get('skills') or []]
+    if player.get('pops') is not None:
+        lists.append(player['pops'])
+    events = {}
+    for changes in lists:
+        for change in changes or []:
+            levels = tuple(change.get(field) for field in ('before', 'after', 'before_label', 'after_label'))
+            events.setdefault(change['skill'], set()).add(levels)
+    return events, bool(lists) and all(changes is not None for changes in lists)
+
+
+def _levels_covered(observed, reference):
+    if len(observed) > len(reference):
+        return False
+    if observed <= reference:
+        return True
+    # Each distinct transition needs its own compatible observation. Unknown
+    # values and textual/numeric scales can give several possible matches.
+    matched = {}
+
+    def assign(levels, visited):
+        for candidate in reference:
+            if candidate in visited or any(_known_difference(a, b) for a, b in zip(levels, candidate)):
+                continue
+            visited.add(candidate)
+            if candidate not in matched or assign(matched[candidate], visited):
+                matched[candidate] = levels
+                return True
+        return False
+
+    return all(assign(levels, set()) for levels in observed)
+
+
+def _rises_disagree(left, right):
+    a, a_complete = _rise_evidence(left)
+    b, b_complete = _rise_evidence(right)
+    return (b_complete and any(not _levels_covered(events, b.get(skill, set())) for skill, events in a.items())
+            or a_complete and any(not _levels_covered(events, a.get(skill, set())) for skill, events in b.items()))
+
+
 def _energy(player):
     return player.get('energy') or {'kind': 'numeric', 'scale': 'unreported',
                                     'before': player.get('energy_before'), 'after': player.get('energy_after')}
@@ -379,7 +422,7 @@ def _energy(player):
 def _player_disagrees(left, right):
     if any(_known_difference(left.get(key), right.get(key)) for key in ('player_name', 'csr_before', 'csr_after')):
         return True
-    if any(_changes_differ(left.get(key), right.get(key)) for key in ('pops', 'drops')):
+    if _rises_disagree(left, right) or _changes_differ(left.get('drops'), right.get('drops')):
         return True
     a, b = _energy(left), _energy(right)
     if a['kind'] == b['kind'] and a.get('scale') == b.get('scale') and _known_difference(a, b):
@@ -390,8 +433,7 @@ def _player_disagrees(left, right):
     a, b = _indexed(left_skills, 'skill'), _indexed(right_skills, 'skill')
     if a.keys() != b.keys():
         return True
-    return any(any(_known_difference(a[key].get(field), b[key].get(field)) for field in ('sessions', 'trainer'))
-               or _changes_differ(a[key].get('pops'), b[key].get('pops')) for key in a)
+    return any(_known_difference(a[key].get(field), b[key].get(field)) for key in a for field in ('sessions', 'trainer'))
 
 
 def _reports_disagree(left, right):
@@ -509,15 +551,20 @@ def _local_club_name(db, team_id):
 
 def _mail_identity(db, team_id, document):
     player_ids = {p['player_id'] for phase in ('team', 'individual') for p in document[phase]['players']}
+    identity = {'club_name': document['provenance']['club_name'], 'club_id': document['provenance']['club_id'],
+                'player_count': len(player_ids), 'roster_match_count': None, 'missing_player_ids': None}
+    roster = db.execute('SELECT id FROM snapshots WHERE team_id=? AND youth=0 ORDER BY id DESC LIMIT 1',
+                        (team_id,)).fetchone()
+    if roster is None:
+        return identity
     # Inspect only IDs from the latest senior roster, without loading its other data.
     rows = db.execute('''
         SELECT json_extract(player.value, '$.id') AS player_id
         FROM snapshots AS roster, json_each(roster.payload) AS player
-        WHERE roster.id=(SELECT id FROM snapshots WHERE team_id=? AND youth=0 ORDER BY id DESC LIMIT 1)
-    ''', (team_id,))
+        WHERE roster.id=?
+    ''', (roster['id'],))
     missing = sorted(player_ids - {str(row['player_id']) for row in rows}, key=int)
-    return {'club_name': document['provenance']['club_name'], 'club_id': document['provenance']['club_id'],
-            'player_count': len(player_ids), 'roster_match_count': len(player_ids) - len(missing), 'missing_player_ids': missing}
+    return dict(identity, roster_match_count=len(player_ids) - len(missing), missing_player_ids=missing)
 
 
 async def _training_upload(request):
@@ -711,5 +758,11 @@ def register_coaching(app, store, auth, require_team, credentials, throttle):
                 if kind == 'statistics':
                     db.execute('INSERT OR REPLACE INTO kv(key,value) VALUES(?,?)', (_statistics_current_key(team_id, document), pack(entry['digest'])))
                 db.execute('INSERT OR REPLACE INTO kv(key,value) VALUES(?,?)', (f'coaching:{team_id}:revision', pack(revision)))
-            result = _bundle(db, team_id)
+            report_offset = 0
+            if kind == 'report':
+                report_key = _report_key(team_id, document, entry['digest'])
+                newer = db.execute('SELECT COUNT(*) FROM kv WHERE key LIKE ? AND key>?',
+                                   (f'coaching:{team_id}:report:%', report_key)).fetchone()[0]
+                report_offset = newer // HISTORY_LIMIT * HISTORY_LIMIT
+            result = _bundle(db, team_id, report_offset=report_offset)
         return {'ok': True, 'imported': not unchanged, 'unchanged': unchanged, 'bundle': result}

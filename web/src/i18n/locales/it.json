@@ -2750,6 +2750,7 @@
   "Analyse du fichier…": "Lettura del file…",
   "Voir l’aperçu du fichier": "Visualizza l’anteprima del file",
   "Retirer le fichier": "Rimuovi il file",
+  "Aucun effectif senior enregistré. La présence des joueurs du rapport dans l’effectif est inconnue.": "Non è stata salvata alcuna rosa della prima squadra. Non si sa se i giocatori del rapporto ne facciano parte.",
   "{known}/{total} joueurs figurent dans le dernier effectif senior enregistré.": "{known}/{total} giocatori figurano nell’ultima rosa senior salvata.",
   "Aperçu du fichier": "Anteprima del file",
   "Analysé le {date}": "Analizzato il {date}",

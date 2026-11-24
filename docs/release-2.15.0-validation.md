@@ -6,9 +6,9 @@ Version locale, non publiée. L’étiquette 2.15.0 figure dans le menu latéral
 
 Dans **Progression → Rapports d’entraînement**, un manager connecté à BRT peut choisir un club de son espace privé et joindre le corps HTML d’un rapport Classic en anglais ou un EML qui le contient. L’analyse est limitée à 2 Mio avant et après décodage. Elle fonctionne sans clé Classic et sans appel à Classic. Le traitement ignore les scripts et les ressources distantes du document.
 
-L’aperçu indique la destination, le club déclaré, la période, la provenance et les avertissements. La déclaration du club dans le document ne certifie pas l’expéditeur. Un joueur absent de l’effectif actuel peut figurer dans un rapport ancien. L’aperçu laisse le carnet intact jusqu’à sa confirmation. La confirmation est liée au manager, au club et à la révision, et l’annulation permet de quitter l’aperçu.
+L’aperçu indique la destination, le club déclaré, la période, la provenance et les avertissements. La déclaration du club dans le document ne certifie pas l’expéditeur. Un joueur absent du dernier effectif senior peut figurer dans un rapport ancien. Si aucun effectif senior n’a encore été enregistré, l’aperçu indique que la présence des joueurs est inconnue. La confirmation reste disponible. L’aperçu laisse le carnet intact jusqu’à sa confirmation. La confirmation est liée au manager, au club et à la révision, et l’annulation permet de quitter l’aperçu.
 
-Un nouvel import du même contenu normalisé pour ce club est détecté comme doublon. Les variantes et le rapport API de la même période restent sélectionnables séparément. BRT signale à la lecture les désaccords sur les valeurs communes, y compris entre pages d’historique. Les rapports déjà conservés gardent leur contenu d’origine. L’import ne modifie aucun entraînement dans le jeu.
+Un nouvel import du même contenu normalisé pour ce club est détecté comme doublon. Les variantes et le rapport API de la même période restent sélectionnables séparément. BRT signale à la lecture les désaccords sur les valeurs communes, y compris entre pages d’historique. La confirmation ouvre la page qui contient le rapport choisi, même pour une période ancienne. Les rapports déjà conservés gardent leur contenu d’origine. L’import ne modifie aucun entraînement dans le jeu.
 
 ## Lecture des résultats
 
@@ -18,10 +18,10 @@ L’interface distingue les listes absentes des listes explicitement vides. Le d
 
 ## Validation locale
 
-Ces résultats ont été relevés avant les corrections de la revue intégrée. La validation finale après ces corrections reste à consigner.
+Les tests de régression utilisent les routes et le stockage local pour comparer les rapports de deux sources, vérifier la couverture de l’effectif et relire un rapport ancien après confirmation. Les tests MIME couvrent un agenda HTML joint au mail, les vrais doublons et les fragments de rapport. Les tests React vérifient le texte de couverture et la sélection du rapport après confirmation.
 
-- La suite du backend fonctionnel a donné 1 458 tests Python réussis. Un contrôle de l’application complète sur un stockage temporaire a ensuite confirmé le statut 200 et la version 2.15.0 sur `GET /api/health`.
-- La suite frontend a donné 250 tests Node réussis. Les quatre catalogues contiennent chacun 3 881 clés, sans clé manquante, supplémentaire ou invalide. TypeScript et le build de production ont réussi.
+- Après le build, la suite Python complète a donné 1 476 réussites. Un premier passage lancé pendant le build avait échoué sur trois initialisations de l’application pendant le remplacement des fichiers compilés. Les trois cas ont aussi été revérifiés séparément. Sur un stockage temporaire neuf, `GET /api/health` a répondu 200 avec la version 2.15.0.
+- La suite frontend a donné 252 tests Node réussis. Les quatre catalogues contiennent chacun 3 882 clés, sans clé manquante, supplémentaire ou invalide. TypeScript et le build de production ont réussi.
 - Les avertissements existants concernent l’utilisation de `httpx` avec Starlette TestClient et la taille d’un bloc JavaScript Vite.
 - Un contrôle privé sur un rapport authentique a confronté les phases, les passages, les séances et les CSR à des totaux établis indépendamment. Le parcours dans l’application locale a confirmé l’authentification, la protection CSRF, l’absence d’écriture à l’aperçu, la confirmation, la relecture et la détection du doublon sans clé Classic.
 - Les réponses réelles de `ti` (instructions) et `ps` (statistiques) avaient été vérifiées auparavant. Pour `tr` (rapports via l’API), la validation repose sur la documentation et les tests synthétiques. Le contrôle privé concerne le parcours par fichier.

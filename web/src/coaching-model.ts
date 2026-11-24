@@ -19,7 +19,7 @@ export type TrainingReport={key:string;report_id:string|null;season:number;round
 export type PlayerStatistics=CoachingPeriod&{key:string;requested_count:number;missing_player_ids:string[];players:CounterPlayer[];provenance?:SourceInfo};
 export type CoachingBundle={team_id:string;revision:number;instructions:Instructions|null;reports:TrainingReport[];statistics:PlayerStatistics[];history_limit:number;report_total:number;statistics_total:number;report_offset:number;statistics_offset:number};
 export type CoachingPreview={team_id:string;kind:CoachingKind;preview_id:string;expires_at:string;expected_revision:number;status:'available'|'empty';already_imported:boolean;
-  warnings:string[];identity?:{club_name:string;club_id:string|null;player_count:number;roster_match_count:number;missing_player_ids:string[]};
+  warnings:string[];identity?:{club_name:string;club_id:string|null;player_count:number;roster_match_count:number|null;missing_player_ids:string[]|null};
   data:Instructions|TrainingReport|PlayerStatistics};
 
 export type CsrCoverage={delta:number|null;population:number|null;known:number;unknown:number|null;positive:number;negative:number;stable:number};
