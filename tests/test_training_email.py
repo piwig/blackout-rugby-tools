@@ -1,5 +1,7 @@
 """Offline Classic training import tests with a wholly synthetic message."""
+import re
 from email import policy
+from email.feedparser import FeedParser
 from email.message import EmailMessage
 from pathlib import Path
 
@@ -83,6 +85,61 @@ def test_two_mime_reports_are_ambiguous_even_if_they_are_equal(training_html):
         parse(msg.as_bytes(), 'mail.eml')
 
 
+def test_unknown_mime_transfer_encoding_cannot_pass_unencoded_html(training_html):
+    msg = EmailMessage(policy=policy.SMTP)
+    msg.set_content(training_html, subtype='html', cte='8bit')
+    msg.replace_header('Content-Transfer-Encoding', 'x-unknown-training')
+    with pytest.raises(TrainingEmailError):
+        parse(msg.as_bytes(), 'mail.eml')
+
+
+@pytest.mark.parametrize('encoding', ['7bit', '8bit', 'binary'])
+def test_ordinary_mime_transfer_encodings_are_supported(training_html, encoding):
+    msg = EmailMessage(policy=policy.SMTP)
+    html = training_html.encode('ascii', 'xmlcharrefreplace').decode('ascii') if encoding == '7bit' else training_html
+    if encoding == 'binary':
+        msg.set_content(html.encode(), maintype='text', subtype='html', cte='binary', params={'charset': 'utf-8'})
+    else:
+        msg.set_content(html, subtype='html', cte=encoding)
+    assert parse(msg.as_bytes(), 'mail.eml')['individual']['players'][0]['player_name'] == 'Camille Démo'
+
+
+def without_player_cards(html, phase, marker):
+    heading = f'<tr><td><span><b>{phase}</b></span></td></tr>'
+    start, section = html.split(heading, maxsplit=1)
+    following = ('<tr><td><span><b>Individual Training' if phase == 'Team Training'
+                 else '<tr><td><a href="https://example.invalid/settings">')
+    cards, boundary, end = section.partition(following)
+    return start + heading + f'<tr><td>{marker}</td></tr>' + re.sub(r'<table>.*?</table>', '', cards, flags=re.S) + boundary + end
+
+
+@pytest.mark.parametrize('phase,marker,field', [
+    ('Team Training', 'No players', 'team'),
+    ('Individual Training', 'No individual training', 'individual'),
+])
+def test_explicit_empty_phase_is_preserved(training_html, phase, marker, field):
+    result = parse(without_player_cards(training_html, phase, marker))
+    assert result[field]['players'] == []
+    assert result['team']['skills'] == ['stamina', 'defense']
+
+
+def test_empty_individual_marker_in_team_phase_is_rejected(training_html):
+    with pytest.raises(TrainingEmailError):
+        parse(without_player_cards(training_html, 'Team Training', 'No individual training'))
+
+
+@pytest.mark.parametrize('phase,marker', [
+    ('Team Training', 'No players'),
+    ('Individual Training', 'No individual training'),
+])
+def test_empty_marker_with_player_cards_is_contradictory(training_html, phase, marker):
+    heading = f'<tr><td><span><b>{phase}</b></span></td></tr>\n    <tr><td>'
+    contradictory = training_html.replace(heading, heading + f'<span>{marker}</span>')
+    assert contradictory != training_html
+    with pytest.raises(TrainingEmailError):
+        parse(contradictory)
+
+
 @pytest.mark.parametrize('mutation', [
     lambda s: s.replace('Individual Training', 'Unknown Phase'),
     lambda s: s.replace('Team Training', 'Individual Training'),
@@ -157,6 +214,34 @@ def test_mime_depth_is_bounded(training_html):
         msg = outer
     with pytest.raises(TrainingEmailError, match='limite'):
         parse(msg.as_bytes(), 'mail.eml')
+
+
+@pytest.mark.parametrize('limit,allocated_limit', [('parts', 50), ('depth', 8)])
+def test_mime_parser_stops_at_first_excess_object(training_html, monkeypatch, limit, allocated_limit):
+    msg = EmailMessage(policy=policy.SMTP)
+    msg.set_content(training_html, subtype='html')
+    if limit == 'parts':
+        for _ in range(60):
+            msg.add_attachment('Incidental')
+    else:
+        for _ in range(15):
+            outer = EmailMessage(policy=policy.SMTP)
+            outer.make_mixed()
+            outer.attach(msg)
+            msg = outer
+    raw = msg.as_bytes()
+    original = FeedParser._new_message
+    allocated = 0
+
+    def observe_allocation(parser):
+        nonlocal allocated
+        original(parser)
+        allocated += 1
+
+    monkeypatch.setattr(FeedParser, '_new_message', observe_allocation)
+    with pytest.raises(TrainingEmailError, match='limite'):
+        parse(raw, 'mail.eml')
+    assert allocated == allocated_limit
 
 
 def test_player_and_skill_row_limits(training_html):

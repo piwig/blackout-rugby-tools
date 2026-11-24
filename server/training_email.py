@@ -6,7 +6,7 @@ import unicodedata
 from dataclasses import dataclass, field
 from email import policy
 from email.errors import MessageError
-from email.parser import BytesParser
+from email.feedparser import BytesFeedParser
 from html.parser import HTMLParser
 from pathlib import PurePath
 from urllib.parse import parse_qsl, urlsplit
@@ -25,6 +25,8 @@ _AMBIGUOUS = 'Ce message contient plusieurs rapports d’entraînement. Exportez
 _FORMAT = 'Choisissez un rapport d’entraînement Classic au format HTML ou EML.'
 _PREFACE = re.compile(r'Your team \((.{1,120}?)\) has completed their weekly training for season ([0-9]{1,3}), round ([0-9]{1,2})\.')
 _PHASES = ('Team Training', 'Individual Training')
+_EMPTY_PHASES = frozenset(('No players', 'No individual training'))
+_TRANSFER_ENCODINGS = frozenset(('7bit', '8bit', 'binary', 'quoted-printable', 'base64'))
 _BOLD = frozenset(('b', 'strong'))
 _VOID = frozenset(('area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'))
 _IGNORED = frozenset(('head', 'iframe', 'math', 'noscript', 'object', 'script', 'style', 'svg', 'template'))
@@ -66,8 +68,10 @@ class _Node:
                     yield child
                 yield from child.nodes(*tags)
 
-    def text(self, *, mark_bold=False):
+    def text(self, *, mark_bold=False, include_tables=True):
         def render(node):
+            if node.tag == 'table' and not include_tables:
+                return
             if node.tag in ('br', 'hr'):
                 yield ' '
             if mark_bold and node.tag in _BOLD:
@@ -153,21 +157,33 @@ def _decoded_size(html):
         raise TrainingEmailError(_INVALID) from None
 
 
-def _mime_reports(content):
+class _BoundedMailParser(BytesFeedParser):
+    def __init__(self):
+        super().__init__(policy=policy.default)
+        self._part_count = 0
+
+    def _new_message(self):
+        # FeedParser calls this before the part is allocated and attached.
+        if self._part_count >= MAX_MIME_PARTS or len(self._msgstack) >= MAX_MIME_DEPTH:
+            raise TrainingEmailError(_LIMIT)
+        super()._new_message()
+        self._part_count += 1
+
+
+def _mime_report(content):
     try:
-        message = BytesParser(policy=policy.default).parsebytes(content)
-        pending = [(message, 1)]
-        count = decoded_bytes = 0
-        candidates = []
+        parser = _BoundedMailParser()
+        for start in range(0, len(content), 64 * 1024):
+            parser.feed(content[start:start + 64 * 1024])
+        pending = [parser.close()]
+        decoded_bytes = 0
+        candidate = None
         while pending:
-            part, depth = pending.pop()
-            count += 1
-            if count > MAX_MIME_PARTS or depth > MAX_MIME_DEPTH:
-                raise TrainingEmailError(_LIMIT)
+            part = pending.pop()
             if part.defects:
                 _bad()
             if part.is_multipart():
-                pending.extend((child, depth + 1) for child in reversed(part.get_payload()))
+                pending.extend(reversed(part.get_payload()))
                 continue
             payload = part.get_payload(decode=True) or b''
             decoded_bytes += len(payload)
@@ -185,12 +201,15 @@ def _mime_reports(content):
             if any(marker in html for marker in (*_PHASES, 'has completed their weekly training', 'club.squad.php')):
                 root = _html_tree(html)
                 if any(_phase_markers(root).values()) or any(_PREFACE.search(row.text()) for row in root.nodes('tr')):
-                    candidates.append(root)
-                    if len(candidates) > 1:
+                    encodings = part.get_all('Content-Transfer-Encoding', ['7bit'])
+                    if len(encodings) != 1 or str(encodings[0]).strip().lower() not in _TRANSFER_ENCODINGS:
+                        _bad()
+                    if candidate is not None:
                         raise TrainingEmailError(_AMBIGUOUS)
-        if not candidates:
+                    candidate = root
+        if candidate is None:
             _bad()
-        return candidates[0]
+        return candidate
     except RecursionError:
         raise TrainingEmailError(_LIMIT) from None
     except MessageError:
@@ -406,11 +425,27 @@ def _player(card, *, individual):
     return player
 
 
+def _phase_empty_markers(rows, table):
+    markers = set()
+    for row in rows:
+        for node in (row, *row.nodes('td', 'th', 'p', 'div', 'span', 'b', 'strong')):
+            if node.nearest('table') is not table:
+                continue
+            text = node.text(include_tables=False).removesuffix('.')
+            if text in _EMPTY_PHASES:
+                markers.add(text)
+    return markers
+
+
 def _phase(rows, table, *, individual):
     cards = [card for row in rows for card in row.nodes('table') if card.nearest('table') is table]
     if len(cards) > MAX_PLAYERS:
         raise TrainingEmailError(_LIMIT)
-    if not cards and not any(row.text() in ('No players', 'No individual training') for row in rows):
+    empty_markers = _phase_empty_markers(rows, table)
+    if not individual and 'No individual training' in empty_markers:
+        _bad()
+    # A phase supplies player cards or explicitly reports that it is empty.
+    if bool(cards) == bool(empty_markers):
         _bad()
     players = {}
     for card in cards:
@@ -420,7 +455,10 @@ def _phase(rows, table, *, individual):
         players[player['player_id']] = player
     phase = {'players': sorted(players.values(), key=lambda item: int(item['player_id']))}
     if not individual:
-        phase['skills'] = _skills_trained(rows[0], individual=False) if rows else None
+        skills = [trained for row in rows if (trained := _skills_trained(row, individual=False)) is not None]
+        if len(skills) > 1:
+            _bad()
+        phase['skills'] = skills[0] if skills else None
     return phase
 
 
@@ -481,7 +519,7 @@ def parse_training_email(content: bytes, filename: str) -> dict:
     if len(content) > MAX_FILE_BYTES:
         raise TrainingEmailError(_SIZE, 413)
     if suffix == '.eml':
-        root = _mime_reports(content)
+        root = _mime_report(content)
     else:
         html = _decode_html(content)
         if _decoded_size(html) > MAX_FILE_BYTES:

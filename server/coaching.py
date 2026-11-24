@@ -343,10 +343,9 @@ def _digest(document):
 
 
 def _report_base(value):
-    # Fields added in v2 can be available on just one side of a legacy comparison.
-    # The earlier proof remains immutable and common v2 fields are checked separately.
+    # Optional names and v2 metadata are compared only where both reports supplied them.
     if isinstance(value, dict):
-        ignored = {'key', 'observed_at', 'provenance', 'schema_version', 'energy', 'trainer'}
+        ignored = {'key', 'observed_at', 'provenance', 'schema_version', 'player_name', 'energy', 'trainer'}
         return {key: _report_base(item) for key, item in value.items() if key not in ignored and item is not None}
     if isinstance(value, list):
         return [_report_base(item) for item in value]

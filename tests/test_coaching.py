@@ -299,6 +299,34 @@ def test_rereading_legacy_optional_absence_and_null_keeps_the_original_api_repor
     assert preview(env, 'report').status_code == 409
 
 
+@pytest.mark.parametrize('old_name,new_name', [(None, 'Example Player'), ('Example Player', None)])
+def test_api_player_name_available_from_one_read_keeps_legacy_proof_bytes(env, old_name, new_name):
+    legacy = preview(env, 'report').json()['data']
+    legacy.pop('schema_version')
+    legacy['team']['players'][0]['player_name'] = old_name
+    if old_name is None:
+        legacy['team']['players'][0].pop('player_name')
+    original = json.dumps(legacy, indent=2)
+    with env.stores['primary'].db() as db:
+        db.execute('INSERT INTO kv VALUES(?,?)', ('coaching:123:report:061:08', original))
+    env.responses['tr']['report']['report']['team']['players']['101']['name'] = new_name
+    response = preview(env, 'report')
+    assert response.status_code == 200, response.text
+    assert response.json()['already_imported']
+    assert confirm(env, response.json()).json()['unchanged']
+    with env.stores['primary'].db() as db:
+        assert db.execute("SELECT value FROM kv WHERE key='coaching:123:report:061:08'").fetchone()['value'] == original
+
+
+def test_api_two_known_conflicting_player_names_cannot_replace_original_proof(env):
+    raw_player = env.responses['tr']['report']['report']['team']['players']['101']
+    raw_player['name'] = 'Example First'
+    assert confirm(env, preview(env, 'report').json()).status_code == 200
+    raw_player['name'] = 'Example Second'
+    assert preview(env, 'report').status_code == 409
+    assert bundle(env).json()['reports'][0]['team']['players'][0]['player_name'] == 'Example First'
+
+
 def test_known_conflicting_api_trainer_cannot_replace_original_proof(env):
     assert confirm(env, preview(env, 'report').json()).status_code == 200
     env.responses['tr']['report']['report']['individual']['players']['101']['skills'][0]['trainerlevel'] = '6'
