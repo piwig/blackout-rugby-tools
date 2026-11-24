@@ -31,6 +31,7 @@ import {Sidebar} from './sidebar';
 import {navigationItems,isClubOnly} from './navigation';
 import {ContactPage} from './contact';
 import {ProfileSettings,ProfileAvatar,defaultProfile,type ProfileDocument} from './profile';
+import {AudiencePreferences,useAudienceView} from './audience-ui';
 
 const nav=navigationItems;
 const coachDescription='Du choix du XV au plan de jeu : confrontez les compétences aux faits du terrain.';
@@ -46,6 +47,8 @@ export default function App(){
   const {confirmLeave}=useNavigationGuard();
   const [d,setD]=useState<State|null>(null),[login,setLogin]=useState(false),[initial,setInitial]=useState(true),[page,setPage]=useState('home'),[team,setTeam]=useState(localStorage.getItem('brt-team')||'72450'),[busy,setBusy]=useState(false),[toast,setToast]=useState(''),[error,setError]=useState(''),[menu,setMenu]=useState(false),[help,setHelp]=useState(false),[player,setPlayer]=useState<{value:Player;cohort:PlayerHistoryCohort}|null>(null);
   const [mobile,setMobile]=useState(()=>window.matchMedia('(max-width:700px)').matches);
+  const audienceBlocked=d&&isSelectionTeam(d.current_team)&&isClubOnly(page);
+  useAudienceView(initial||(!login&&!d)||audienceBlocked?null:login?'login':d?.setup_required?'onboarding':page,d?.user.admin===true);
   const identity=useRef(''),sessionScope=useRef(''),actionTicket=useRef(0),requestedTeam=useRef(team),requestId=useRef(0),menuButton=useRef<HTMLButtonElement>(null);requestedTeam.current=team;
   const endSession=useCallback(()=>{sessionScope.current='';identity.current='';requestId.current++;actionTicket.current++;setBusy(false);setD(null);setLogin(true);setInitial(false);setHelp(false);setPlayer(null);setMenu(false);setToast('');setError('')},[]);
   const refresh=useCallback(async()=>{const ticket=++requestId.current;try{const doc=await request('/state?team_id='+encodeURIComponent(team));if(ticket!==requestId.current||team!==requestedTeam.current)return;
@@ -97,7 +100,7 @@ export default function App(){
   if(initial)return <div className="boot"><img src="/images/brt-logo-192.png" alt=""/><p>{tr("Ouverture de votre atelier…")}</p></div>;
   if(login)return <Login onLogin={refresh}/>;
   if(!d)return <div className="boot"><p>{tr(error||'Chargement du club…')}</p><button onClick={refresh}>{tr("Réessayer")}</button></div>;
-  if(d.setup_required)return <Onboarding d={d} act={act} busy={busy} error={error}/>;
+  if(d.setup_required)return <><Onboarding d={d} act={act} busy={busy} error={error}/><div className="audience-onboarding"><AudiencePreferences/></div></>;
   const selection=isSelectionTeam(d.current_team);
   const blockedPage=selection&&isClubOnly(page);
   const openPlayer=(value:Player,youth:boolean)=>{const kind=teamKind(d.current_team);setPlayer({value,cohort:kind==='club'&&youth?'youth':kind})};
@@ -133,7 +136,7 @@ export default function App(){
           {id:'construction',label:'Capacité & travaux',description:'Préparez vos capacités cibles et votre budget de construction.',content:<Stadium {...props}/>}
         ]}/>}{page==='matchday'&&<MatchSheet key={team} {...props}/>}{page==='matches'&&<Matches key={team} {...props}/>}{page==='settings'&&<Settings key={team} {...props}/>}{page==='guide'&&<Tutorial key={d.user.username} username={d.user.username} go={go}/>}
       </div>
-      <footer className="footer"><span>{tr("BLACKOUT RUGBY TOOLS ")}<i/>{tr(" L’atelier du manager")}</span><span>{tr("Outil indépendant · Votre espace privé")}</span><PhotoCredits/></footer>
+      <footer className="footer"><span>{tr("BLACKOUT RUGBY TOOLS ")}<i/>{tr(" L’atelier du manager")}</span><span>{tr("Outil indépendant · Votre espace privé")}</span><PhotoCredits/><AudiencePreferences/></footer>
     </main></div>
     {toast&&<div role="status" className="toast"><ShieldCheck size={18}/>{tr(toast)}</div>}{busy&&<div className="busy" role="status"><RefreshCw size={16} className="spin"/>{tr(" Opération en cours…")}</div>}
     {help&&<TutorialDialog username={d.user.username} page={page} onClose={()=>setHelp(false)} go={go}/>}{player&&<PlayerDetail key={d.user.username+':'+d.csrf+':'+d.current_team.id+':'+player.value.id+':'+player.cohort} player={player.value} cohort={player.cohort} d={d} act={act} close={()=>setPlayer(null)}/>}
@@ -144,6 +147,7 @@ function Login({onLogin}:{onLogin:()=>Promise<void>}){
   const [captchaToken,setCaptchaToken]=useState<string|null>(null),[captchaReset,setCaptchaReset]=useState(0);
   const [username,setUsername]=useState(localStorage.getItem('brt-username')||''),[password,setPassword]=useState(''),[err,setErr]=useState(''),[busy,setBusy]=useState(false);
   const [mode,setMode]=useState<'login'|'register'>('login'),[registration,setRegistration]=useState<boolean|null>(null);
+  useAudienceView(mode,false);
   useEffect(()=>{let active=true;request('/registration/options').then(result=>{if(active)setRegistration(result.enabled)}).catch(()=>{if(active)setRegistration(null)});return()=>{active=false}},[]);
   return <div className="login-page"><div className="login-story"><div className="brand"><img src="/images/brt-logo-192.png" alt=""/><span>{tr("BLACKOUT")}<small>{tr("RUGBY TOOLS")}</small></span></div><div><Pill>{tr("CLASSIC EDITION")}</Pill><h1>{tr("Le prochain avantage")}<br/>{tr("se prépare ici.")}</h1><p>{tr("Votre effectif, votre académie, votre lecture du jeu.")}<br/>{tr("Tout l’atelier du manager, au même endroit.")}</p><img className="login-emblem" src="/images/brt-logo-192.png" alt={tr("Emblème Blackout Rugby Tools")}/></div><span>{tr("UN OUTIL INDÉPENDANT POUR LES PASSIONNÉS DE CLASSIC.")}</span></div>
     <div className="login-form"><div><LanguageSelect disabled={busy}/>
@@ -155,7 +159,7 @@ function Login({onLogin}:{onLogin:()=>Promise<void>}){
         <div className="login-foot"><ShieldCheck size={17}/><span>{tr("Les accès à cet outil sont distincts de ceux du jeu Blackout Rugby.")}</span></div>
         {registration===true?<div className="login-signup"><p>{tr("Première visite ? Votre espace privé vous attend.")}</p><button className="button secondary" disabled={busy} onClick={()=>{setPassword('');setErr('');setMode('register')}}>{tr("Créer mon compte")}</button></div>:registration===false?<p className="tiny">{tr("Les inscriptions sont momentanément fermées. Contactez Pierig pour ouvrir votre espace.")}</p>:<p className="tiny">{tr("Vérification de l’ouverture des inscriptions indisponible. Rechargez la page ou contactez Pierig.")}</p>}
       </>}
-      <PhotoCredits/>
+      <AudiencePreferences/><PhotoCredits/>
     </div></div>
   </div>
 }

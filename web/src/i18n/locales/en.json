@@ -3880,5 +3880,11 @@
   "Relire les quatre derniers matchs": "Review the last four matches",
   "Après les feuilles, lancez la comparaison récente. Les quatre dernières rencontres terminées de chaque équipe gardent leur place, même si un rapport manque. Les scores confirmés, codes météo et notes du reporter sont des observations, pas des réglages à recopier.": "After reading the team sheets, load the recent comparison. Each team’s last four completed matches keep their place even if a report is missing. Confirmed scores, weather codes and reporter ratings are observations, not settings to copy.",
   "Lire le tableau complet": "Read the complete table",
-  "Choisissez « Toutes les caractéristiques » pour trier les attributs observés et voir les commentaires à droite. Un écart chiffré compare deux relevés ; « Dévoilé » indique une révélation. Les étoiles de recrutement ne sont pas plafonnées à 127 dans BRT.": "Choose “All attributes” to sort observed attributes and see comments on the right. A numeric change compares two records; “Revealed” indicates a revelation. Scouting stars are not capped at 127 in BRT."
+  "Choisissez « Toutes les caractéristiques » pour trier les attributs observés et voir les commentaires à droite. Un écart chiffré compare deux relevés ; « Dévoilé » indique une révélation. Les étoiles de recrutement ne sont pas plafonnées à 127 dans BRT.": "Choose “All attributes” to sort observed attributes and see comments on the right. A numeric change compares two records; “Revealed” indicates a revelation. Scouting stars are not capped at 127 in BRT.",
+  "Audience et confidentialité": "Audience and privacy",
+  "Pour comprendre les visites, BRT mesure les rubriques consultées et le site de provenance, sans cookie ni données de votre compte. Umami traite techniquement les requêtes, IP et User-Agent pour produire des statistiques agrégées.": "To understand visits, BRT measures the sections viewed and the referring site, without cookies or account data. Umami technically processes requests, IP addresses and User-Agent to produce aggregate statistics.",
+  "Autoriser la mesure d’audience": "Allow audience measurement",
+  "Ce choix s’applique à ce navigateur. Les administrateurs connectés sont exclus.": "This choice applies to this browser. Signed-in administrators are excluded.",
+  "Do Not Track est activé : aucune mesure n’est envoyée.": "Do Not Track is enabled: no measurement is sent.",
+  "Le stockage local est indisponible : la mesure reste désactivée.": "Local storage is unavailable: measurement remains disabled."
 }

@@ -13,6 +13,7 @@ PUBLIC_URL = 'https://brt.example.test'
 PUBLIC_REQUESTS = {
     ('GET', '/api/health'), ('GET', '/api/security/options'),
     ('GET', '/api/registration/options'), ('POST', '/api/login'),
+    ('GET', '/api/audience/options'),
     ('POST', '/api/register'),
 }
 

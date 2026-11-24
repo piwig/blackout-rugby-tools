@@ -22,6 +22,45 @@ Le proxy HTTPS relaie les requêtes vers cette adresse locale. Configurer `BRT_D
 
 Pour Cloudflare Turnstile, renseigner `BRT_TURNSTILE_ENABLED=1`, la clé publique de site et la clé secrète serveur, avec le domaine de l’installation autorisé chez le fournisseur. Les variables d’inscription et de notification SMTP sont décrites dans le README. Les secrets restent côté serveur.
 
+## Audience facultative avec Umami
+
+La mesure est désactivée par défaut. Pour la raccorder à une installation Umami
+existante, fournir dans l'environnement privé du service :
+
+```ini
+BRT_AUDIENCE_ENABLED=1
+BRT_AUDIENCE_SCRIPT_URL=https://mesure.example/mesure.js
+BRT_AUDIENCE_WEBSITE_ID=UUID-DU-SITE-BRT
+BRT_AUDIENCE_HOSTNAME=brt.example
+```
+
+Le site ID est public ; aucun mot de passe Umami ne doit figurer dans ces valeurs.
+Le serveur refuse une URL non HTTPS, avec credentials, query ou fragment, un
+hostname invalide ou un UUID invalide : la mesure reste alors désactivée. La CSP
+n'autorise l'origine du collecteur que pour les scripts et les connexions. Le
+contrat public `GET /api/audience/options` n'expose que les réglages du tracker.
+
+Le frontend désactive la collecte automatique et transmet uniquement des vues de
+rubriques à chemins/titres fixes, avec domaine de provenance externe ou vide.
+Les identifiants, contenus de clubs, formulaires et URL réelles ne sont pas
+transmis. Umami traite techniquement les requêtes/IP/User-Agent pour produire ses
+mesures ; les agrégats ne représentent pas des personnes identifiées. Do Not Track,
+le choix local de désactivation et les administrateurs connectés excluent la
+collecte. Un administrateur avant connexion peut rester compté comme visite publique.
+Un bloqueur ou un échec du collecteur ne doit pas bloquer l'application.
+
+Dans Vigie, ajouter le projet avec un préfixe `UMAMI_BRT` distinct et désactiver
+son monitoring SEO/IA si seule l'audience est souhaitée. Le lecteur Umami doit être
+View only globalement et team-view-only dans une équipe dédiée contenant BRT seul,
+possédée par l'administrateur. Ne pas réutiliser ou élargir un lecteur d'un autre
+projet. Garder son secret uniquement dans l'environnement privé de Vigie.
+
+Après activation, contrôler les payloads dans le navigateur, la réception dans
+Umami puis les agrégats Vigie à 7/30 jours. Séparer la recette du trafic organique.
+Les visites antérieures à l'activation ne sont pas reconstituées. Pour désactiver,
+retirer `BRT_AUDIENCE_ENABLED=1` puis redémarrer BRT : aucune donnée métier n'est
+modifiée.
+
 ## Conserver et restaurer les données
 
 Sauvegarder ensemble le registre des comptes, les bases de chaque manager et leurs fichiers `encryption.key`. Sans la clé associée, les identifiants API chiffrés ne sont pas restaurables. Les scripts de sauvegarde fournis réalisent des copies cohérentes des bases SQLite. Protéger aussi les archives et toute copie distante.

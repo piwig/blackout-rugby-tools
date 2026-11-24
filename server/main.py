@@ -50,11 +50,13 @@ from .player_performance import register_player_performance
 from .coach_lab import register_coach_lab
 from .stadium_economy import register_stadium_economy
 from .transfer_ledger import register_transfer_ledger
+from .audience import audience_options,audience_origin
 
 PUBLIC_API_REQUESTS=frozenset({
     ('GET','/api/health'),
     ('GET','/api/security/options'),
     ('GET','/api/registration/options'),
+    ('GET','/api/audience/options'),
     ('POST','/api/login'),
     ('POST','/api/register'),
 })
@@ -167,6 +169,9 @@ def create_app(directory=None,password=None,secure=None):
     primary=Store(directory,password or os.getenv('BRT_PASSWORD'));accounts=Accounts(directory,primary);store=PrivateStore()
     secure=secure if secure is not None else os.getenv('BRT_SECURE','1')=='1'
     public_url=os.getenv('BRT_PUBLIC_URL','https://brt.bordebat.fr').rstrip('/')
+    audience=audience_options()
+    collector=audience_origin(audience)
+    audience_csp=(' '+collector) if collector else ''
     vacation_services={}
     worker_enabled=os.getenv('BRT_VACATION_WORKER','0')=='1'
     worker_health={'worker_enabled':worker_enabled,'worker_last_run':None,'worker_error':None}
@@ -255,7 +260,7 @@ def create_app(directory=None,password=None,secure=None):
         finally:
             if token is not None:active_store.reset(token)
         response.headers.update({'X-Content-Type-Options':'nosniff','X-Frame-Options':'DENY','Referrer-Policy':'no-referrer','Permissions-Policy':'camera=(), microphone=(), geolocation=()',
-          'Content-Security-Policy':"default-src 'self'; script-src 'self' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; font-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"})
+          'Content-Security-Policy':f"default-src 'self'; script-src 'self' https://challenges.cloudflare.com{audience_csp}; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://challenges.cloudflare.com{audience_csp}; frame-src https://challenges.cloudflare.com; font-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"})
         if request.url.path.startswith('/api/'):response.headers['Cache-Control']='no-store'
         return response
 
@@ -276,7 +281,10 @@ def create_app(directory=None,password=None,secure=None):
         require_club_id(tid)
 
     @app.get('/api/health')
-    def health():return {'ok':True,'version':'2.15.0'}
+    def health():return {'ok':True,'version':'2.16.0'}
+
+    @app.get('/api/audience/options')
+    def public_audience_options():return audience
 
     @app.post('/api/login')
     def login(body:Login,request:Request,response:Response):

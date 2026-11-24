@@ -1,5 +1,19 @@
 # Blackout Rugby Tools
 
+## Audience facultative — 2.16.0
+
+BRT peut mesurer les visites et les rubriques consultées avec une installation
+Umami/Vigie existante. Les chemins et titres transmis sont génériques ; les
+données des comptes et des clubs ne sont pas jointes. Le choix **Audience et
+confidentialité** permet de désactiver la mesure dans ce navigateur ; Do Not Track
+et les administrateurs connectés sont exclus. La mesure reste désactivée sur une
+installation non configurée.
+
+Voir la [configuration](docs/deployment.md#audience-facultative-avec-umami) et le
+[bilan de validation 2.16.0](docs/release-2.16.0-validation.md). Les agrégats
+commencent à l'activation et ne représentent pas un décompte de personnes ou de
+comptes actifs.
+
 ## Import des rapports d’entraînement Classic — 2.15.0
 
 Version publiée le 24 novembre 2026 sur [BRT](https://brt.bordebat.fr). Dans **Progression → Rapports d’entraînement**, sélectionnez votre club puis importez le corps HTML du rapport Classic en anglais ou le message EML qui le contient, jusqu’à 2 Mio. L’import du fichier local fonctionne sans clé Classic. Relisez le club déclaré, la destination, la période, la source et les avertissements dans l’aperçu avant de conserver le relevé dans votre carnet privé.
